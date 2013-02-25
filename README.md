@@ -186,11 +186,15 @@ This README will be updated with more advanced and in-depth examples of how to b
 
 ##Queries and SQL markup
 
+Queries are expressed in a SQL with hash-markup. References to parameters are enclosed by two hashses (#), and use numbers to address parameters in order of appearance.
+
+    query("SELECT * FROM foo WHERE bar < #1# AND #1# < baz AND baz < #2# ", 10, 100);
+
 ###Tokens
 
-    #1#     - argument 1, quoted as value
-    #:1#    - argument 1, quoted as identifier
-    #!1#    - argument 1, not quoted!
+    #1#     - parameter 1, quoted as value
+    #:1#    - parameter 1, quoted as identifier
+    #!1#    - parameter 1, not quoted!
 
 ###Escaping
 
