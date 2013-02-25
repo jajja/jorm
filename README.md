@@ -26,13 +26,13 @@ Now that you've got the code, let's see if we cannot conjure some cheap tricks!
 
 The database abstraction in jORM needs a data source (`javax.sql.DataSource`). One recommended implementation is the (Apache) Commons DBCP basic data source.
 
-    BasicDataSource dataSource = new BasicDataSource();
-    dataSource.setDriverClassName("org.postgresql.Driver");
-    dataSource.setUrl("jdbc:postgresql://localhost:5432/moria");
-    dataSource.setUsername("gandalf");
-    dataSource.setPassword("mellon");
+    BasicDataSource moriaDataSource = new BasicDataSource();
+    moriaDataSource.setDriverClassName("org.postgresql.Driver");
+    moriaDataSource.setUrl("jdbc:postgresql://localhost:5432/moria");
+    moriaDataSource.setUsername("gandalf");
+    moriaDataSource.setPassword("mellon");
     
-    Database.configure("example", dataSource);
+    Database.configure("moria", moriaDataSource);
 
 This will configure the pooled DBCP data source as a named database. For all of those who preffer Spring Beans this can be achieved through.
 
