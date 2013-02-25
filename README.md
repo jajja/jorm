@@ -1,4 +1,4 @@
-# jorm
+# jORM
 
 jORM is a Lightweight Java ORM, it does not aim at solving every database problem. It primarily cures the boilerplatisis that many Java solutions suffer from, while exposing the functionality of the JDBC through a convenient interface.
 
