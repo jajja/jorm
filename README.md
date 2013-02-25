@@ -34,7 +34,7 @@ The database abstraction in jORM needs a `javax.sql.DataSource` data source. One
     
     Database.configure("moria", moriaDataSource);
 
-This will configure the pooled DBCP data source as a named database. For all of those who preffer Spring Beans this can be achieved through.
+This will configure the pooled DBCP data source as a named database. For all of those who prefer Spring Beans this can be achieved through a singleton factory method.
 
     <bean id="moriaDataSource" class="org.apache.commons.dbcp.BasicDataSource">
         <property name="driverClassname" value="org.postgresql.Driver" />
@@ -168,7 +168,7 @@ Did you notice the `UNIQUE` constraint on goblins? These can be used to provide 
         return find(Goblin.class, new Column("tribe_id", tribe), new Column("name", name));
     }
 
-If you preffer the write SQL this can also be ahieved trough manual queries.
+If you prefer the write SQL this can also be ahieved trough manual queries.
 
     public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
         return Record.select(Goblin.class, "SELECT * FROM goblins WHERE tribe_id = #1:id# AND name = #2#", tribe, name);
