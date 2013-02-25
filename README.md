@@ -92,7 +92,7 @@ If you are using multiple databases it may be a good idea to close all thread lo
 
     Database.close();
     
-Maybe you where interested in something more than executing generic queries? Let's map a table!
+Maybe you were interested in something more than executing generic queries? Let's map a table!
 
 ### Mapping tables
 
