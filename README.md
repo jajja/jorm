@@ -2,6 +2,8 @@
 
 jORM is a lightweight Java ORM. It does not aim at solving every database problem. It primarily cures the boilerplatisis that many Java solutions suffer from, while exposing the functionality of the JDBC through a convenient interface.
 
+At [Jajja] [1] we've found that many applications have a need both for non teadious mapping of databases and for the full freedom ov expression provided by raw SQL. This is an attempt to bridge the gap. 
+
 ## Getting started
 
 Would you like to be able to do the following without writing a single line of boilerplate?
@@ -179,3 +181,5 @@ This should be where you've caught the glimpse of a tip of an iceberg, and shoul
 ## To be continued..
 
 This README will be updated with more advanced and in-depth examples of how to best make use of jORM. One of the first things on our TODO list is to document the SQL markup syntax for queries through records and transactions properly.
+
+[1]: http://www.jajja.com "Jajja Communications AB"
