@@ -178,4 +178,4 @@ This should be where you've caught the glimpse of a tip of an iceberg, and shoul
 
 ## To be continued..
 
-This HOWTO will be updated with more advanced and in depth examples of how to best make use of jORM. One of the first things on our TODO list is to document the SQL markup syntax for queries through records and transactions properly.
+This README will be updated with more advanced and in-depth examples of how to best make use of jORM. One of the first things on our TODO list is to document the SQL markup syntax for queries through records and transactions properly.
