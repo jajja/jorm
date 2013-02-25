@@ -1,6 +1,6 @@
 # jORM
 
-jORM is a lightweight Java ORM, it does not aim at solving every database problem. It primarily cures the boilerplatisis that many Java solutions suffer from, while exposing the functionality of the JDBC through a convenient interface.
+jORM is a lightweight Java ORM. It does not aim at solving every database problem. It primarily cures the boilerplatisis that many Java solutions suffer from, while exposing the functionality of the JDBC through a convenient interface.
 
 ## Getting started
 
