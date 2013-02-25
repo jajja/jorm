@@ -10,7 +10,7 @@ Would you like to be able to do the following without writing a single line of b
     goblin.setName("Azog");
     goblin.saveAndCommit();
     
-You will be done before you are halfay through _getting started_.
+You will be done before you are halfway through _getting started_.
 
 ### Getting the code
 
