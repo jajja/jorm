@@ -24,7 +24,7 @@ Now that you've got the code, let's see if we cannot conjure some cheap tricks!
 
 ### Configuring database
 
-The database abstraction in jORM needs a data source (`javax.sql.DataSource`). One recommended implementation is the (Apache) Commons DBCP basic data source.
+The database abstraction in jORM needs a `javax.sql.DataSource` data source. One recommended implementation is the Apache Commons DBCP basic data source.
 
     BasicDataSource moriaDataSource = new BasicDataSource();
     moriaDataSource.setDriverClassName("org.postgresql.Driver");
