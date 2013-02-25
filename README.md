@@ -6,7 +6,7 @@ jORM is a lightweight Java ORM. It does not aim at solving every database proble
 
 ### Getting the code
 
-Getting jORM to a public maven repo is one of the items on the timeline of the project. For now clone the RC.
+Getting jORM to a public maven repo is one of the items on the timeline of the project. For now clone the git repo to get a fresh copy!
 
     > git clone git://github.com/jajja/jorm.git
     > cd jorm
