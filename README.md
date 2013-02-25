@@ -57,7 +57,7 @@ All database queries in jORM are executed through a thread local transaction. Th
 
     Transaction transaction = Database.open("moria");
     try {
-        transaction.select("UPDATE goblins SET mood = 'provoked' RETURNING *");
+        transaction.select("UPDATE goblins SET mindset = 'provoked' RETURNING *");
         transaction.commit();
     } catch (SQLException e) {
         // handle e
@@ -90,11 +90,12 @@ In order to map a table we need to get an idea of how it is declared. Imagine a 
         id          serial    NOT NULL,
         tribe_id    int       NOT NULL    REFERENCES tribes(id),
         name        varchar   NOT NULL    DEFAULT 'Azog', 
+        mindset     varchar,
         PRIMARY KEY (id),
         UNIQUE (tribe_id, name)
     );
 
-Tables are mapped by records with a little help by the `@Jorm` annotation. Records bind to the tread local transactions defined by the database attribute.
+Tables are mapped by records with a little help by the `@Jorm` annotation. Records bind to the tread local transactions defined by the `database` attribute. The `table` attribute defines the mapped table, and the `id` attribute provides public key functionalite like `Record#findById(Class<? extends Record, Object)`.
 
     @Jorm(database="moria", table="goblins", id="id")
     public class Goblin extends Record {
@@ -129,6 +130,14 @@ Tables are mapped by records with a little help by the `@Jorm` annotation. Recor
     
         public void setName(String name) {
             set("name", name);
+        }
+    
+        public String getMindset() {
+            return get("mindset", String.class);
+        }
+    
+        public void setMindset(String mindset) {
+            set("mindset", mindset);
         }
     
     }
