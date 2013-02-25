@@ -184,4 +184,60 @@ This should be where you've caught the glimpse of a tip of an iceberg, and shoul
 
 This README will be updated with more advanced and in-depth examples of how to best make use of jORM. One of the first things on our TODO list is to document the SQL markup syntax for queries through records and transactions properly.
 
+##Queries and SQL markup
+
+###Tokens
+
+    #1#     - argument 1, quoted as value
+    #:1#    - argument 1, quoted as identifier
+    #!1#    - argument 1, not quoted!
+
+###Escaping
+
+Hashes (#) can be quoted by double-hashing, i.e ##, ? cannot be escaped properly due to design flaws in the JDBC.
+
+    query("SELECT 1 ## 2");     // = "SELECT 1 # 2"
+
+
+###Java Arrays
+
+    Integer[] ids = new Integer[]{1, 2, 3};
+    query("SELECT * FROM foo WHERE id IN (#1#)", ids);
+    query("SELECT * FROM foo WHERE id IN (#!1#)", ids); // No quoting performed!
+
+###Java Collections
+
+    List<String> names = new LinkedList<String>();
+    names.add("John");
+    names.add("Doe");
+    query("SELECT * FROM foo WHERE names IN (#1#)", names);
+
+###Java Collections
+
+    List<Record> records = new LinkedList<Record>();
+    records.add(someRecord1);
+    records.add(someRecord2);
+    query("SELECT * FROM foo WHERE names IN (#1:some_column#)", records);
+
+###Java Maps
+
+    Map<String, Integer> map = new HashMap<String, Integer>();
+    map.put("foo", 5);
+    map.put("bar", 3);
+    query("SELECT * FROM foobars WHERE foo_id = #1:foo# OR bar_id = #1:bar#", map);
+
+###jORM Table
+  
+    query("SELECT * FROM #1# WHERE id = 5", table());   // Modifier ignored, tables are always quoted as a identifiers
+
+###jORM Symbol
+
+    query("SELECT * FROM foo WHERE #1# = 5", Symbol.get("id")); // Modifier ignored, Symbols are always quoted as identifiers
+
+
+###Nested queries
+
+    Query subQuery = new Query(dialect, "SELECT id FROM bar WHERE baz LIKE #1#", "%moo%");
+    Query query = new Query(dialect, "SELECT * FROM foo WHERE bar_id IN (#1#)", subQuery);
+
 [1]: http://www.jajja.com "Jajja Communications AB"
