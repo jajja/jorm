@@ -2,7 +2,9 @@
 
 jORM is a lightweight Java ORM. It does not aim at solving every database problem. It primarily cures the boilerplatisis that many Java solutions suffer from, while exposing the functionality of the JDBC through a convenient interface.
 
-At [Jajja] [1] we've found that many applications have a need both for non teadious mapping of databases and for the full freedom ov expression provided by raw SQL. This is an attempt to bridge the gap. 
+At [Jajja] [1] we've found that many applications have a need both for non teadious mapping of databases and for the full freedom of expression provided by raw SQL. This is an attempt to bridge the gap.
+
+jORM has primarily been tested on Postgres, MySQL and MSSQL. Other engines may lack some of the niftiness provided by the current dialect adoptions.
 
 ## Getting started
 
