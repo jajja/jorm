@@ -1,4 +1,3 @@
-
 # jORM
 
 jORM is a lightweight Java ORM. It does not aim at solving every database problem. It primarily cures the boilerplatisis that many Java solutions suffer from, while exposing the functionality of the JDBC through a convenient interface.
@@ -184,7 +183,7 @@ This should be where you've caught the glimpse of a tip of an iceberg, and shoul
 
 ### Mapping joined records
 
-If you preffer a flatter Java flaour it is possible to map records to joine tables, or in fact entirely generic queries. This is done the the `@Jorm` attribute `sql`
+If you prefer a flatter Java flaour it is possible to map records to joine tables, or in fact entirely generic queries. This is done the the `@Jorm` attribute `sql`
 
     @Jorm(database="moria", sql="SELECT d.id AS gonlin_id g.name AS goblin, t.id AS tribe_id, t.name AS tribe FROM goblins g JOIN tribes t ON g.tribe_id = t.id")
     public class TribeGoblin extends Record {  
@@ -207,7 +206,7 @@ Records mapped by SQL are immutable by default and cannot be updated without wra
     CREATE TABLE litters (
         id          serial    NOT NULL,
         goblin_id   int       NOT NULL    REFERENCES goblins(id),
-        stench      float     NOT NULL, -- XXX: dnk, define some 0-1 constraint for niceness of example.
+        stench      float     NOT NULL    CHECK (stench BETWEEN 0 AND 1),
         left_at     timestamp NOT NULL    DEFAULT now(),
         PRIMARY KEY (id)
     );
