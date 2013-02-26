@@ -225,7 +225,7 @@ Marking immutability for fields can be done by defining the `immutable` attribut
             return get("goblin_id", Integer.class);
         }
         public void setGoblinId(Integer goblinId) {
-            return set("goblin_id", goblinId);
+            set("goblin_id", goblinId);
         }
         public Float getStench() {
             return get("stench", Float.class);
@@ -234,7 +234,7 @@ Marking immutability for fields can be done by defining the `immutable` attribut
             set("stench", stench)
         }
         public java.sql.Timestamp getLeftAt() {
-            return get("left_at")
+            return get("left_at", java.sql.Timestamp.class);
         }
     }
 
