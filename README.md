@@ -310,7 +310,7 @@ The not so simple answer is _yes and no_! The library should be able to execute 
 
 There are also targeted fixes patching unexpected behaviour in specific JDBC-implementations. Any database engines that have not been validated might just as well contain similar problems in their respecitve implementations of the JDBC.
 
-One thing that will differ if using another database egine is a rebrand strategy for `SQLExceptions` that jORM use to classify different types of SQLExceptions. These are only available for Postgres, MySQL and MSSQL at this moment. MOore about this will appear in the nondistant future.
+One thing that will differ if using another database egine is a rebrand strategy for `SQLExceptions` that jORM use to classify different types of SQL errors. These are only available for Postgres, MySQL and MSSQL at this moment. More about this will appear in the nondistant future.
 
 
 ## To be continued..
