@@ -243,7 +243,7 @@ Marking immutability for fields can be done by defining the `immutable` attribut
 
 The `left_at` column will never change even if an explicit call to `Record#set(String, Object)` has been made.
 
-### Rebranded SQL Exceptions
+### Rebranded SQL exceptions
 
 If you have been wondering why the previous example had a check condition on `stench` in the create statement of `litters`, you are about to find out. jORM rebrands SQLException, classifying known errors with specific types.
 
