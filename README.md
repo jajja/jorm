@@ -213,7 +213,7 @@ Marking immutability for fields can be done by defining the `immutable` attribut
             return get("stench", Float.class);
         }
         public void setStench(Float stench) {
-            set("stench", stench)
+            set("stench", stench);
         }
         public java.sql.Timestamp getLeftAt() {
             return get("left_at", java.sql.Timestamp.class);
@@ -228,6 +228,7 @@ If you have been wondering why the previous example had a check condition on `st
 
     try {
         litter.setStench(2);    // CHECK (stench BETWEEN 0 AND 1),  
+        litter.save();
     } catch (CheckViolationException e) {
         // handle exception
     }
