@@ -245,7 +245,7 @@ The `left_at` column will never change even if an explicit call to `Record#set(S
 
 ### Rebranded SQL exceptions
 
-If you have been wondering why the previous example had a check condition on `stench` in the create statement of `litters`, you are about to find out. jORM rebrands SQLException, classifying known errors with specific types.
+If you have been wondering why the previous example had a check condition on `stench` in the create statement of `litters`, you are about to find out. The records rebrand `SQLException` trough dialect specific adaptions, classifying known errors with specific types.
 
     try {
         litter.setStench(2);    // CHECK (stench BETWEEN 0 AND 1),  
@@ -337,7 +337,7 @@ The not so simple answer is _yes and no_! The library should be able to execute 
 
 There are also targeted fixes patching unexpected behaviour in specific JDBC-implementations. Any database engines that have not been validated might just as well contain similar problems in their respecitve implementations of the JDBC.
 
-One thing that will differ if using another database egine is a rebrand strategy for `SQLExceptions` that jORM use to classify different types of SQL errors. These are only available for Postgres, MySQL and MSSQL at this moment. More about this will appear in the nondistant future.
+One thing that will differ if using another database egine is a rebrand strategy for `SQLException` that jORM use to classify different types of SQL errors. These are only available for Postgres, MySQL and MSSQL at this moment. More about this will appear in the nondistant future.
 
 
 ## To be continued..
