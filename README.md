@@ -185,7 +185,7 @@ This should be where you've caught the glimpse of a tip of an iceberg, and shoul
 
 If you prefer a flatter Java flavour, it is possible to map records to joined tables, or in fact entirely generic queries. This is done the the `@Jorm` attribute `sql`
 
-    @Jorm(database="moria", sql="SELECT d.id AS gonlin_id g.name AS goblin, t.id AS tribe_id, t.name AS tribe FROM goblins g JOIN tribes t ON g.tribe_id = t.id")
+    @Jorm(database="moria", sql="SELECT g.id AS goblin_id g.name AS goblin, t.id AS tribe_id, t.name AS tribe FROM goblins g JOIN tribes t ON g.tribe_id = t.id")
     public class TribeGoblin extends Record {  
         public Goblin getGoblin() {
             return get("goblin_id", Goblin.class);
@@ -194,10 +194,10 @@ If you prefer a flatter Java flavour, it is possible to map records to joined ta
             return get("tribe_id", Tribe.class);
         }
         public String getGoblinName() {
-            return get("gname", String.class);
+            return get("goblin", String.class);
         }
         public String getTribeName() {
-            return get("tname", String.class);
+            return get("tribe", String.class);
         }
         public static TribeGoblin findByName(String goblin, String tribe) throws SQLException {
             return find(TribeGoblin.class, new Column("goblin", goblin), new Column("tribe", tribe));
