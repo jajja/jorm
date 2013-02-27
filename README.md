@@ -245,7 +245,7 @@ The `left_at` column will never change even if an explicit call to `Record#set(S
 
 ### Rebranded SQL Exceptions
 
-If you have been wondering why tthe example had a check condition on `stench` in the create statement of `litters`, you are about to find out. jORM rebrands SQLException, classifying known errors with specific types.
+If you have been wondering why the previous example had a check condition on `stench` in the create statement of `litters`, you are about to find out. jORM rebrands SQLException, classifying known errors with specific types.
 
     try {
         litter.setStench(2);    // CHECK (stench BETWEEN 0 AND 1),  
