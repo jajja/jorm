@@ -181,30 +181,9 @@ If you prefer the write SQL this can also be achieved trough manual queries.
 
 This should be where you've caught the glimpse of a tip of an iceberg, and should ask yourself. What else is there?
 
-### Mapping joined records
+### Immutable fields
 
-If you prefer a flatter Java flavour, it is possible to map records to joined tables, or in fact entirely generic queries. This is done the the `@Jorm` attribute `sql`
-
-    @Jorm(database="moria", sql="SELECT g.id AS goblin_id g.name AS goblin, t.id AS tribe_id, t.name AS tribe FROM goblins g JOIN tribes t ON g.tribe_id = t.id")
-    public class TribeGoblin extends Record {  
-        public Goblin getGoblin() {
-            return get("goblin_id", Goblin.class);
-        }
-        public Tribe getTribe() {
-            return get("tribe_id", Tribe.class);
-        }
-        public String getGoblinName() {
-            return get("goblin", String.class);
-        }
-        public String getTribeName() {
-            return get("tribe", String.class);
-        }
-        public static TribeGoblin findByName(String goblin, String tribe) throws SQLException {
-            return find(TribeGoblin.class, new Column("goblin", goblin), new Column("tribe", tribe));
-        }
-    }
-
-Records mapped by SQL are immutable by default and cannot be updated without wrapping custom queries. Sometimes a field in a record mapped from a table needs to be immutable, such as `left_at` described in the following SQL create statement.
+Sometimes a field in a record mapped from a table could just as well be immutable, such as `left_at` described in the following SQL create statement. Goblin litter is left at exactly one time, never picked up and never left again.
 
     CREATE TABLE litters (
         id          serial    NOT NULL,
@@ -214,7 +193,7 @@ Records mapped by SQL are immutable by default and cannot be updated without wra
         PRIMARY KEY (id)
     );
 
-Marking immutability for fields can be done by defining the `immutable` attribute in the `@Jorm` mapping.
+Marking immutability for fields can be done by defining the `immutable` attribute in the `@Jorm` mapping. 
 
     @Jorm(database="moria", table="litters", immutable={"left_at"})
     public class Litter extends Record { 
@@ -280,48 +259,48 @@ Queries are expressed in a SQL with hash-markup. References to parameters are en
     #:1#    - parameter 1, quoted as identifier
     #!1#    - parameter 1, not quoted!
 
-###Escaping
+### Escaping
 
 Hashes (#) can be quoted by double-hashing, i.e ##, ? cannot be escaped properly due to design flaws in the JDBC.
 
     query("SELECT 1 ## 2");     // = "SELECT 1 # 2"
 
-###Java Arrays
+### Java arrays
 
     Integer[] ids = new Integer[]{1, 2, 3};
     query("SELECT * FROM foo WHERE id IN (#1#)", ids);
     query("SELECT * FROM foo WHERE id IN (#!1#)", ids); // No quoting performed!
 
-###Java Collections
+### Java collections
 
     List<String> names = new LinkedList<String>();
     names.add("John");
     names.add("Doe");
     query("SELECT * FROM foo WHERE names IN (#1#)", names);
 
-###Java Collections
+### Java collections
 
     List<Record> records = new LinkedList<Record>();
     records.add(someRecord1);
     records.add(someRecord2);
     query("SELECT * FROM foo WHERE names IN (#1:some_column#)", records);
 
-### Java Maps
+### Java maps
 
     Map<String, Integer> map = new HashMap<String, Integer>();
     map.put("foo", 5);
     map.put("bar", 3);
     query("SELECT * FROM foobars WHERE foo_id = #1:foo# OR bar_id = #1:bar#", map);
 
-### jORM Tables
+### jORM tables
   
     query("SELECT * FROM #1# WHERE id = 5", table());   // Modifier ignored, tables are always quoted as a identifiers
 
-### jORM Symbols
+### jORM symbols
 
     query("SELECT * FROM foo WHERE #1# = 5", Symbol.get("id")); // Modifier ignored, Symbols are always quoted as identifiers
 
-### Nested jORM Queries
+### Nested jORM queries
 
     Query subQuery = new Query(dialect, "SELECT id FROM bar WHERE baz LIKE #1#", "%moo%");
     Query query = new Query(dialect, "SELECT * FROM foo WHERE bar_id IN (#1#)", subQuery);
