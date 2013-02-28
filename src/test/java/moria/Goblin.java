@@ -1,0 +1,54 @@
+package moria;
+
+import java.sql.SQLException;
+
+import com.jajja.jorm.Column;
+import com.jajja.jorm.Jorm;
+import com.jajja.jorm.Record;
+
+@Jorm(database="moria", table="goblins", id="id")
+public class Goblin extends Record {  
+    public Integer getId() {
+        return get("id", Integer.class);
+    }
+    public void setId(Integer id) {
+        set("id", id);
+    }
+    public Integer getTribeId() {
+        return get("tribe_id", Integer.class);
+    }
+    public void setTribeId(Integer id) {
+        set("tribe_id", id);
+    }
+    public Tribe getTribe() {
+        return get("tribe_id", Tribe.class);
+    }
+    public void setTribe(Tribe tribe) {
+        set("tribe_id", tribe);
+    }
+    public String getName() {
+        return get("name", String.class);
+    }
+    public void setName(String name) {
+        set("name", name);
+    }
+    public String getMindset() {
+        return get("mindset", String.class);
+    }
+    public void setMindset(String mindset) {
+        set("mindset", mindset);
+    }
+    
+    // part 2
+    public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
+        return find(Goblin.class, new Column("tribe_id", tribe), new Column("name", name));
+    }
+
+    // part 3
+    public Litter relieve() {
+        Litter litter = new Litter();
+        litter.set("stench", build("random() * 0.9")) ;
+        litter.setGoblin(this);
+        return litter;
+    }
+}
