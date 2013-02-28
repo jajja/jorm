@@ -173,7 +173,7 @@ Did you notice the `UNIQUE` constraint on goblins? It can be used to provide con
         return find(Goblin.class, new Column("tribe_id", tribe), new Column("name", name));
     }
 
-If you prefer the write SQL this can also be achieved trough manual queries.
+If you prefer the write SQL this can also be achieved through manual queries.
 
     public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
         return Record.select(Goblin.class, "SELECT * FROM goblins WHERE tribe_id = #1:id# AND name = #2#", tribe, name);
@@ -224,7 +224,7 @@ The `left_at` column will never change even if an explicit call to `Record#set(S
 
 ### Rebranded SQL exceptions
 
-If you have been wondering why the previous example had a check condition on `stench` in the create statement of `litters`, you are about to find out. The records rebrand `SQLException` trough dialect specific adaptions, classifying known errors with specific types.
+If you have been wondering why the previous example had a check condition on `stench` in the create statement of `litters`, you are about to find out. The records rebrand `SQLException` through dialect specific adaptions, classifying known errors with specific types.
 
     try {
         litter.setStench(2);    // CHECK (stench BETWEEN 0 AND 1),  
