@@ -129,8 +129,8 @@ import org.apache.commons.logging.LogFactory;
  * @since 1.0.0
  */
 public abstract class Record {
-    private Transaction transaction;
-     Map<Symbol, Field> fields = new HashMap<Symbol, Field>();
+    private String databaseName;
+    Map<Symbol, Field> fields = new HashMap<Symbol, Field>();
     private Table table;
     private boolean isStale = false;
     private boolean isReadOnly = false;
@@ -209,7 +209,7 @@ public abstract class Record {
      */
     public Record() {
         table = Table.get(getClass());
-        transaction = Database.open(table.getDatabase());
+        databaseName = table.getDatabase();
     }
     
     /**
@@ -225,7 +225,7 @@ public abstract class Record {
      */
     public Record(Table table) {
         this.table = table;
-        transaction = Database.open(table.getDatabase());
+        databaseName = table.getDatabase();
     }
 
     /**
@@ -283,7 +283,7 @@ public abstract class Record {
      * @return the transaction.
      */
     public Transaction transaction() {
-        return transaction;
+        return Database.open(databaseName);
     }
 
     /**
@@ -292,7 +292,7 @@ public abstract class Record {
      * @return the SQL dialect.
      */
     public Dialect dialect() {
-        return transaction.getDialect();
+        return transaction().getDialect();
     }
 
     /**
@@ -662,7 +662,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(String sql, Object... params) throws SQLException {
-        return selectInto(new Query(transaction.getDialect(), sql, params));
+        return selectInto(new Query(transaction().getDialect(), sql, params));
     }
 
     /**
@@ -678,7 +678,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(Query query) throws SQLException {
-        PreparedStatement preparedStatement = transaction.prepare(query.getSql(), query.getParams());
+        PreparedStatement preparedStatement = transaction().prepare(query.getSql(), query.getParams());
         ResultSet resultSet = null;
         try {
             resultSet = preparedStatement.executeQuery();
@@ -687,7 +687,7 @@ public abstract class Record {
                 return true;
             }
         } catch (SQLException sqlException) {
-            transaction.getDialect().rethrow(sqlException, query.getSql());
+            transaction().getDialect().rethrow(sqlException, query.getSql());
         } finally {
             if (resultSet != null) resultSet.close();
             preparedStatement.close();
@@ -802,7 +802,7 @@ public abstract class Record {
                 }
             }
         } catch (SQLException sqlException) {
-            transaction.getDialect().rethrow(sqlException);
+            transaction().getDialect().rethrow(sqlException);
         } finally {
             isStale = true; // lol exception
         }
@@ -841,7 +841,7 @@ public abstract class Record {
      *             if a database access error occurs.
      */
     public void commit() throws SQLException {
-        transaction.commit();
+        transaction().commit();
     }
 
     /**
@@ -876,8 +876,8 @@ public abstract class Record {
     public void delete() throws SQLException {
         checkReadOnly();
         refresh();
-        Query query = new Query(transaction.getDialect(), "DELETE FROM #1# WHERE #:2# = #3#", table, table.getId(), get(table.getId()));
-        PreparedStatement preparedStatement = transaction.prepare(query);
+        Query query = new Query(transaction().getDialect(), "DELETE FROM #1# WHERE #:2# = #3#", table, table.getId(), get(table.getId()));
+        PreparedStatement preparedStatement = transaction().prepare(query);
         preparedStatement.execute();
         preparedStatement.close();
         put(table.getId(), null);
@@ -956,7 +956,7 @@ public abstract class Record {
             throw new IllegalStateException("Attempting to insert stale record");
         }
 
-        Query query = new Query(transaction.getDialect());
+        Query query = new Query(transaction().getDialect());
 
         query.append("INSERT INTO #1# (", table);
 
@@ -983,11 +983,11 @@ public abstract class Record {
         }
 
         markStale();
-        if (transaction.getDialect().isReturningSupported()) {
+        if (transaction().getDialect().isReturningSupported()) {
             query.append(" RETURNING *");
             selectInto(query);
         } else {
-            PreparedStatement preparedStatement = transaction.prepare(query.getSql(), query.getParams(), true);
+            PreparedStatement preparedStatement = transaction().prepare(query.getSql(), query.getParams(), true);
             ResultSet resultSet = null;
             Object id = null;
             try {
@@ -1059,7 +1059,7 @@ public abstract class Record {
             if (!template.getClass().equals(record.getClass())) {
                 throw new IllegalArgumentException("all records must be of the same class");
             }
-            if (!template.transaction.equals(record.transaction)) {
+            if (!template.databaseName.equals(record.databaseName)) {
                 throw new IllegalArgumentException("all records must be bound to the same DbConnection");
             }
 
@@ -1086,7 +1086,7 @@ public abstract class Record {
 
     private static void batchInsert(final Record template, Set<Symbol> columns, Record[] records, final boolean isFullRepopulate) throws SQLException {
         Table table = template.table;
-        Transaction transaction = template.transaction;
+        Transaction transaction = template.transaction();
         Dialect dialect = transaction.getDialect();
         Query query = new Query(dialect);
 
@@ -1219,7 +1219,7 @@ public abstract class Record {
             throw new IllegalStateException("Attempting to update a stale record!");
         }
 
-        Query query = new Query(transaction.getDialect());
+        Query query = new Query(transaction().getDialect());
 
         query.append("UPDATE #1# SET ", table);
 
@@ -1242,11 +1242,11 @@ public abstract class Record {
         query.append(" WHERE #:1# = #2#", table.getId(), id);
 
         markStale();
-        if (transaction.getDialect().isReturningSupported()) {
+        if (transaction().getDialect().isReturningSupported()) {
             query.append(" RETURNING *");
             selectInto(query);
         } else {
-            transaction.executeUpdate(query);
+            transaction().executeUpdate(query);
         }
     }
 
