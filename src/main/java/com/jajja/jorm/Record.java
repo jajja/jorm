@@ -748,8 +748,27 @@ public abstract class Record {
         return referenceRecords;
     }
 
-    public static <T extends Record> List<T> populate(Collection<? extends Record> records, String column, Class<T> referenceClass, String referenceColumn) throws SQLException {
-        return prefetch(records, Symbol.get(column), referenceClass, Symbol.get(referenceColumn));
+    /**
+     * Populates all records in the given collection of records with a single
+     * prefetched reference of the given record class. Existing cached
+     * references are not overwritten.
+     * 
+     * @param records
+     *            the records to populate with prefetched references.
+     * @param foreignKeySymbol
+     *            the column name defining the foreign key to the referenced records.
+     * @param clazz
+     *            the class of the referenced records.
+     * @param referredSymbol
+     *            the column name defining the referred column of the referenced
+     *            records.
+     * @return the prefetched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> List<T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
+        return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol));
     }
 
     /**
