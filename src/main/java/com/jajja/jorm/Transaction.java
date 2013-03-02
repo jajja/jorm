@@ -178,7 +178,6 @@ public class Transaction {
         if (connection == null) {
             connection = dataSource.getConnection();
             connection.setAutoCommit(false);
-            now();
         }
         return connection;
     }
