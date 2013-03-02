@@ -13,7 +13,7 @@
     <name>jORM</name>
     <groupId>com.jajja</groupId>
     <artifactId>jorm</artifactId>
-    <version>1.0.0-rc7</version>
+    <version>1.0.0-rc8</version>
     <description>jORM is a lightweight Java ORM.</description>
     <packaging>jar</packaging>
 
