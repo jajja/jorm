@@ -30,10 +30,10 @@ public class Moria {
         dataSource.setUsername("gandalf");
         dataSource.setPassword("mellon");        
         Database.configure("moria", dataSource);
-        Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
         try {
+            Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
             Database.commit("moria");
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

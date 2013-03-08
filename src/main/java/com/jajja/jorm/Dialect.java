@@ -32,6 +32,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * The implementation of dialect specific logic for SQL.
@@ -53,6 +54,7 @@ public class Dialect {
     private static class Info {
         private boolean useSqlState;
         private HashMap<Object, ExceptionType> errors = new HashMap<Object, ExceptionType>();
+        private String nowFunction = "now()";
         private String nowQuery = "SELECT now()";
 
         public boolean useSqlState() {
@@ -69,6 +71,12 @@ public class Dialect {
         }
         public ExceptionType getError(Object key) {
             return errors.get(key);
+        }
+        public String getNowFunction() {
+            return nowFunction;
+        }
+        public void setNowFunction(String nowFunction) {
+            this.nowFunction = nowFunction;
         }
         public String getNowQuery() {
             return nowQuery;
@@ -87,13 +95,15 @@ public class Dialect {
         psql.addError("40P01", ExceptionType.DEADLOCK_DETECTED);        // deadlock_detected
         psql.addError("55P03", ExceptionType.LOCK_TIMEOUT);             // lock_not_available
         infos.put(DatabaseProduct.POSTGRESQL, psql);
-        
+
         Info mssql = new Info();
-        mssql.addError(547, ExceptionType.FOREIGN_KEY_VIOLATION);       // %ls statement conflicted with %ls %ls constraint '%.*ls'. The conflict occurred in database '%.*ls', table '%.*ls'%ls%.*ls%ls.
+        //mssql.addError(547, ExceptionType.FOREIGN_KEY_VIOLATION);       // %ls statement conflicted with %ls %ls constraint '%.*ls'. The conflict occurred in database '%.*ls', table '%.*ls'%ls%.*ls%ls.
         mssql.addError(2601, ExceptionType.UNIQUE_VIOLATION);           // Cannot insert duplicate key row in object '%.*ls' with unique index '%.*ls'.
         mssql.addError(2627, ExceptionType.UNIQUE_VIOLATION);           // Violation of %ls constraint '%.*ls'. Cannot insert duplicate key in object '%.*ls'.
+        mssql.addError(547, ExceptionType.CHECK_VIOLATION);             // %ls statement conflicted with %ls %ls constraint '%.*ls'. The conflict occurred in database '%.*ls', table '%.*ls'%ls%.*ls%ls.
         mssql.addError(1205, ExceptionType.DEADLOCK_DETECTED);          // Transaction (Process ID %d) was deadlocked on {%Z} resources with another process and has been chosen as the deadlock victim. Rerun the transaction.
         mssql.addError(1222, ExceptionType.LOCK_TIMEOUT);               // Lock request time out period exceeded.
+        mssql.setNowFunction("getdate()");
         mssql.setNowQuery("SELECT getdate()");
         infos.put(DatabaseProduct.SQL_SERVER, mssql);
 
@@ -245,10 +255,6 @@ public class Dialect {
         return ExceptionType.UNIQUE_VIOLATION.equals(getExceptionType(sqlException));
     }
     
-// XXX: separate check and unique for MS SQL SERVER
-//    23:33 <@dinkles> The INSERT statement conflicted with the CHECK constraint
-//    23:33 <@dinkles> The INSERT statement conflicted with the FOREIGN KEY constraint
-    
     /**
      * SQL exception predicate for check violation.
      * 
@@ -299,10 +305,22 @@ public class Dialect {
      */
     public ExceptionType getExceptionType(SQLException sqlException) {
         if (info == null) return ExceptionType.UNKNOWN;
+
         Object key = info.useSqlState() ? sqlException.getSQLState() : sqlException.getErrorCode();
         ExceptionType error = info.getError(key);
+
+        // XXX: separate check and unique for MS SQL SERVER
+        //   The INSERT statement conflicted with the CHECK constraint
+        //   The INSERT statement conflicted with the FOREIGN KEY constraint
+        if (ExceptionType.CHECK_VIOLATION.equals(error) && DatabaseProduct.SQL_SERVER.equals(databaseProduct)) {
+            if (sqlServerForeignKeyPattern.matcher(sqlException.getMessage()).matches()) {
+                error = ExceptionType.FOREIGN_KEY_VIOLATION;
+            }
+        }
+
         return error != null ? error : ExceptionType.UNKNOWN;
     }
+    private final static Pattern sqlServerForeignKeyPattern = Pattern.compile("^The [A-Z ]+ statement conflicted with the FOREIGN KEY constraint");
 
     /**
      * Re-throws an SQLException as a {@link JormSqlException}. If the exception can be classified, it is
@@ -349,11 +367,20 @@ public class Dialect {
     }
 
     /**
-     * Gets the SQL-specific dialect specific query corresponding to <tt>SELECT
-     * now()</tt> in PSQL.
+     * Gets the dialect specific function call that returns the transaction start time,
+     * eg. <tt>now()</tt>.
      * 
-     * @return the dialect specific query for time at the start of a
-     *         transaction.
+     * @return the dialect specific function call for getting the transaction start time.
+     */
+    public String getNowFunction() {
+        return info.getNowFunction();
+    }
+
+    /**
+     * Gets the dialect specific query that selects the transaction start time,
+     * eg. <tt>SELECT now()</tt>.
+     * 
+     * @return the dialect specific query for selecting transaction start time.
      */
     public String getNowQuery() {
         return info.getNowQuery();

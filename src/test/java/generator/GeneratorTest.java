@@ -22,7 +22,11 @@ public class GeneratorTest {
 		dataSource.setUsername("gandalf");
 		dataSource.setPassword("mellon");        
 		Database.configure("moria", dataSource);
-		Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
+		try {
+		    Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
+		} catch (Exception e) {
+		    e.printStackTrace();
+		}
 	}
 	
 	@AfterClass

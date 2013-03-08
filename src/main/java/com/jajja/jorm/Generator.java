@@ -215,7 +215,7 @@ public class Generator {
                 if (dataType == java.sql.Types.DATE || dataType == java.sql.Types.TIME || dataType == java.sql.Types.TIMESTAMP) { 
                     stringBuilder.append(
                         "    public void update" + methodName + "() {\n" +
-                        "        set(\"" + column + "\", build(\"now()\"));\n" +
+                        "        set(\"" + column + "\", build(\"now()\"));\n" +    // XXX dialect.getNowFunction()
                         "    }\n" +
                         "\n");
                 }

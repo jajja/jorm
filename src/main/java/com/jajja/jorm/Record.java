@@ -260,6 +260,7 @@ public abstract class Record {
      *            the mapped record class.
      * @return the current thread local transaction for the given class.
      */
+    @Deprecated // XXX why is this called bind? it doesn't bind anything! use transaction(Class) instead.
     public static Transaction bind(Class<? extends Record> clazz) {
         return Database.open(Table.get(clazz).getDatabase());
     }
@@ -284,6 +285,18 @@ public abstract class Record {
      */
     public Transaction transaction() {
         return Database.open(databaseName);
+    }
+
+    /**
+     * Provides the transaction used by a record class. Requires the given
+     * class to be mapped by {@link Jorm}.
+     * 
+     * @param clazz
+     *            the mapped record class.
+     * @return the current thread local transaction for the given class.
+     */
+    public static Transaction transaction(Class<? extends Record> clazz) {
+        return Database.open(Table.get(clazz).getDatabase());
     }
 
     /**
@@ -347,7 +360,7 @@ public abstract class Record {
     }
 
     private static <T extends Record> Query getSelectQuery(Class<T> clazz, Column... columns) {
-        Dialect dialect = bind(clazz).getDialect();
+        Dialect dialect = transaction(clazz).getDialect();
         Query query = Table.get(clazz).getSelectQuery(dialect);
         boolean isFirst = true;
         for (Column column : columns) {
@@ -397,7 +410,7 @@ public abstract class Record {
      * @return the built query.
      */
     public static Query build(Class<? extends Record> clazz, String sql) {
-        return new Query(bind(clazz).getDialect(), sql);
+        return new Query(transaction(clazz).getDialect(), sql);
     }
     
     /**
@@ -415,7 +428,7 @@ public abstract class Record {
      * @return the built query.
      */
     public static Query build(Class<? extends Record> clazz, String sql, Object... params) {
-        return new Query(bind(clazz).getDialect(), sql, params);
+        return new Query(transaction(clazz).getDialect(), sql, params);
     }
     
     /**
@@ -566,7 +579,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return selectAll(clazz, new Query(bind(clazz).getDialect(), sql, params));
+        return selectAll(clazz, new Query(transaction(clazz).getDialect(), sql, params));
     }
 
     /**
@@ -583,7 +596,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, Query query) throws SQLException {
-        PreparedStatement preparedStatement = bind(clazz).prepare(query.getSql(), query.getParams());
+        PreparedStatement preparedStatement = transaction(clazz).prepare(query.getSql(), query.getParams());
         ResultSet resultSet = null;
         LinkedList<T> records = new LinkedList<T>();
         try {
@@ -594,10 +607,15 @@ public abstract class Record {
                 records.add(record);
             }
         } catch (SQLException sqlException) {
-            bind(clazz).getDialect().rethrow(sqlException, query.getSql());
+            transaction(clazz).getDialect().rethrow(sqlException, query.getSql());
         } finally {
-            if (resultSet != null) resultSet.close();
-            preparedStatement.close();
+            try {
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+            } finally {
+                preparedStatement.close();
+            }
         }
         return records;   
     }
@@ -618,7 +636,7 @@ public abstract class Record {
 //     *             statement does not return a result set.
 //     */
 //    public static <T extends Record> Map<Object, T> selectAllAsMap(Class<T> clazz, Symbol column, Query query) throws SQLException {
-//        PreparedStatement preparedStatement = bind(clazz).prepare(query.getSql(), query.getParams());
+//        PreparedStatement preparedStatement = transaction(clazz).prepare(query.getSql(), query.getParams());
 //        ResultSet resultSet = null;
 //        HashMap<Object, T> records = new HashMap<Object, T>();
 //        try {
@@ -629,7 +647,7 @@ public abstract class Record {
 //                records.put(record.get(column), record);
 //            }
 //        } catch (SQLException sqlException) {
-//            bind(clazz).getDialect().rethrow(sqlException, query.getSql());
+//            transaction(clazz).getDialect().rethrow(sqlException, query.getSql());
 //        } finally {
 //            if (resultSet != null) resultSet.close();
 //            preparedStatement.close();
@@ -637,13 +655,13 @@ public abstract class Record {
 //        return records;   
 //    }
 //    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, Symbol column, String sql, Object... params) throws SQLException {
-//        return selectAllHashMap(clazz, column, new Query(bind(clazz).getDialect(), sql, params));
+//        return selectAllHashMap(clazz, column, new Query(transaction(clazz).getDialect(), sql, params));
 //    }
 //    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, String column, Query query) throws SQLException {
 //        return selectAllHashMap(clazz, Symbol.get(column), query);
 //    }
 //    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, String column, String sql, Object... params) throws SQLException {
-//        return selectAllHashMap(clazz, Symbol.get(column), new Query(bind(clazz).getDialect(), sql, params));
+//        return selectAllHashMap(clazz, Symbol.get(column), new Query(transaction(clazz).getDialect(), sql, params));
 //    }
 
     /**
@@ -689,8 +707,13 @@ public abstract class Record {
         } catch (SQLException sqlException) {
             transaction().getDialect().rethrow(sqlException, query.getSql());
         } finally {
-            if (resultSet != null) resultSet.close();
-            preparedStatement.close();
+            try {
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+            } finally {
+                preparedStatement.close();
+            }
         }
         return false;   
     }
@@ -878,8 +901,11 @@ public abstract class Record {
         refresh();
         Query query = new Query(transaction().getDialect(), "DELETE FROM #1# WHERE #:2# = #3#", table, table.getId(), get(table.getId()));
         PreparedStatement preparedStatement = transaction().prepare(query);
-        preparedStatement.execute();
-        preparedStatement.close();
+        try {
+            preparedStatement.execute();
+        } finally {
+            preparedStatement.close();
+        }
         put(table.getId(), null);
     }
 
@@ -996,9 +1022,16 @@ public abstract class Record {
                 if (resultSet.next()) {
                     id = resultSet.getObject(1);
                 }
+            } catch (SQLException e) {
+                throw transaction().getDialect().rethrow(e, query.getSql());
             } finally {
-                if (resultSet != null) resultSet.close();
-                preparedStatement.close();
+                try {
+                    if (resultSet != null) {
+                        resultSet.close();
+                    }
+                } finally {
+                    preparedStatement.close();
+                }
             }
 
             if (id == null) {
@@ -1196,8 +1229,15 @@ public abstract class Record {
             }
             transaction.getDialect().rethrow(sqlException);
         } finally {
-            if (resultSet != null) resultSet.close();
-            if (preparedStatement != null) preparedStatement.close();
+            try {
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+            } finally {
+                if (preparedStatement != null) {
+                    preparedStatement.close();
+                }
+            }
         }
     }
 

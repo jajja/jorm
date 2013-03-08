@@ -112,7 +112,7 @@ public class Transaction {
             try {
                 dialect = new Dialect(database, getConnection());
             } catch (SQLException sqlException) {
-                throw new RuntimeException("Failed to get connection for now()!", sqlException);
+                throw new RuntimeException("Failed to get database connection", sqlException);
             }
         }
         return dialect;
@@ -130,6 +130,8 @@ public class Transaction {
      * until the end of the transaction.
      * 
      * @return the start time of the current transaction.
+     * @throws RuntimeException
+     *             if a database access error occurs.
      */
     public Timestamp now() {
         if (now != null) {
@@ -145,20 +147,21 @@ public class Transaction {
             resultSet.next();
             now = resultSet.getTimestamp(1);
         } catch (SQLException sqlException) {
-            throw new RuntimeException("Failed to fetch now()!", sqlException);
+            throw new RuntimeException("Failed to execute: " + getDialect().getNowQuery(), sqlException);
         } finally {
-            if (resultSet != null) {
-                try {
+            try {
+                if (resultSet != null) {
                     resultSet.close();
-                } catch (SQLException exception) {
-                    throw new RuntimeException("Failed closing the result set!", exception);
                 }
-            }
-            if (preparedStatement != null) {
-                try {
-                    preparedStatement.close();
-                } catch (SQLException exception) {
-                    throw new RuntimeException("Failed closing the prepared statment!", exception);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed closing the result set", exception);
+            } finally {
+                if (preparedStatement != null) {
+                    try {
+                        preparedStatement.close();
+                    } catch (SQLException exception) {
+                        throw new RuntimeException("Failed closing the prepared statment", exception);
+                    }
                 }
             }
         }
@@ -190,12 +193,12 @@ public class Transaction {
             try {
                 connection.rollback();
             } catch (SQLException e) {
-                log.fatal("Failed to rollback transaction.", e);
+                log.fatal("Failed to rollback transaction", e);
             }
             try {
                 connection.close();
             } catch (SQLException e) {
-                log.fatal("Failed to close connection.", e);
+                log.fatal("Failed to close connection", e);
             }
             now = null;
             dialect = null;
@@ -429,9 +432,10 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public List<Record> selectAll(Query query) throws SQLException {
+        ResultSet resultSet = null;
         try {
             List<Record> records = new LinkedList<Record>();
-            ResultSet resultSet = prepare(query).executeQuery();
+            resultSet = prepare(query).executeQuery();
             while (resultSet.next()) {
                 Select select = new Select(table);
                 select.populate(resultSet);
@@ -440,6 +444,10 @@ public class Transaction {
             return records;
         } catch (SQLException sqlException) {
             throw getDialect().rethrow(sqlException, query.getSql());
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
         }
     }
     
@@ -508,39 +516,33 @@ public class Transaction {
         }
     }
     
-    public void load(InputStream inputStream) {
+    public void load(InputStream inputStream) throws IOException, SQLException {
         load(inputStream, "UTF-8");
     }
     
-    public void load(InputStream inputStream, String charset) {
+    public void load(InputStream inputStream, String charset) throws IOException, SQLException {
+        BufferedReader bufferedReader = null;
         Statement statement = null;
         try {
             statement = getConnection().createStatement();
-            BufferedReader bufferedReader = null;
             StringBuilder sql = new StringBuilder();
-            try {
-                bufferedReader = new BufferedReader(new InputStreamReader(inputStream, charset));
-                String line = null;
-                while ((line = bufferedReader.readLine()) != null) {
-                    sql.append(line);
-                }
-            } catch (Exception e) {
-                log.warn("Failed to read line", e);
-            } finally {
-                try {
-                    bufferedReader.close();
-                } catch (IOException e) {
-                    log.warn("Failed to close buffered reader", e);
-                }
+            bufferedReader = new BufferedReader(new InputStreamReader(inputStream, charset));
+            String line = null;
+            while ((line = bufferedReader.readLine()) != null) {
+                sql.append(line);
             }
             statement.execute(sql.toString());
-        } catch (Exception e) {
-            log.warn("Failed to execute statement", e);
+        } catch (SQLException e) {
+            throw getDialect().rethrow(e);
         } finally {
             try {
-                statement.close();
-            } catch (SQLException e) {
-                log.warn("Failed to close statement", e);
+                if (statement != null) {
+                    statement.close();
+                }
+            } finally {
+                if (bufferedReader != null) {
+                    bufferedReader.close();
+                }
             }
         }
     }
