@@ -21,9 +21,8 @@
  */
 package com.jajja.jorm;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A 'multiton' identifier symbol implementation for low memory footprint in the
@@ -36,7 +35,7 @@ import java.util.Map.Entry;
  * @since 1.0.0
  */
 public final class Symbol {
-    private static volatile Map<String, Symbol> symbols = new HashMap<String, Symbol>();
+    private static volatile Map<String, Symbol> symbols = new ConcurrentHashMap<String, Symbol>();
     private final Integer identity;
     private final String name;
 
@@ -72,35 +71,11 @@ public final class Symbol {
             return symbol;
         }
 
-        synchronized (Symbol.class) {
-            symbol = symbols.get(name);
-            if (symbol != null) {
-                return symbol;
-            }
-
-            Map<String, Symbol> symbolsCopy = new HashMap<String, Symbol>();
-            for (Entry<String, Symbol> entry : symbols.entrySet()) {
-                symbolsCopy.put(entry.getKey(), entry.getValue());
-            }
-
-            int identity = size() + 1;
-            symbol = new Symbol(identity, name);
-            symbolsCopy.put(name, symbol);
-            symbols = symbolsCopy;
-
-            return symbol;
-        }
+        symbol = new Symbol(symbols.size() + 1, name);
+        symbols.put(name, symbol);
+        return symbol;
     }
-    
-    /**
-     * Gets the size of the entire symbol dictionary.
-     * 
-     * @return the size.
-     */
-    public static int size() {
-        return symbols.size();
-    }
-    
+
     private Symbol(Integer identity, String string) {
         if (string == null) {
             throw new IllegalArgumentException("Symbols cannot have null content!");
@@ -126,5 +101,4 @@ public final class Symbol {
         }
         return false;
     }
-    
 }
