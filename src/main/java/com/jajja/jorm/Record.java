@@ -129,7 +129,6 @@ import org.apache.commons.logging.LogFactory;
  * @since 1.0.0
  */
 public abstract class Record {
-    private String databaseName;
     Map<Symbol, Field> fields = new HashMap<Symbol, Field>();
     private Table table;
     private boolean isStale = false;
@@ -209,7 +208,6 @@ public abstract class Record {
      */
     public Record() {
         table = Table.get(getClass());
-        databaseName = table.getDatabase();
     }
     
     /**
@@ -225,7 +223,6 @@ public abstract class Record {
      */
     public Record(Table table) {
         this.table = table;
-        databaseName = table.getDatabase();
     }
 
     /**
@@ -252,19 +249,6 @@ public abstract class Record {
      */
     protected void notifyFieldChanged(Symbol symbol, Object object) { }
 
-    /**
-     * Binds a record class to a thread local transaction. Requires the given
-     * class to be mapped by {@link Jorm}.
-     * 
-     * @param clazz
-     *            the mapped record class.
-     * @return the current thread local transaction for the given class.
-     */
-    @Deprecated // XXX why is this called bind? it doesn't bind anything! use transaction(Class) instead.
-    public static Transaction bind(Class<? extends Record> clazz) {
-        return Database.open(Table.get(clazz).getDatabase());
-    }
-
     public Object id() {
         return get(table.getId());
     }
@@ -279,33 +263,81 @@ public abstract class Record {
     }
 
     /**
-     * Provides the transaction used by this record.
-     * 
-     * @return the transaction.
-     */
-    public Transaction transaction() {
-        return Database.open(databaseName);
-    }
-
-    /**
-     * Provides the transaction used by a record class. Requires the given
-     * class to be mapped by {@link Jorm}.
+     * Opens a thread local transaction to the database mapped by the record. If
+     * an open transaction already exists for the record class, it is reused.
+     * This method is idempotent when called from the same thread. Requires the
+     * given class to be mapped by {@link Jorm}.
      * 
      * @param clazz
      *            the mapped record class.
      * @return the current thread local transaction for the given class.
      */
-    public static Transaction transaction(Class<? extends Record> clazz) {
+    public static Transaction open(Class<? extends Record> clazz) {
         return Database.open(Table.get(clazz).getDatabase());
     }
 
     /**
-     * Provides the SQL dialect used by the transaction of the record.
+     * <p>
+     * Opens a thread local transaction and binds the mapped to the transaction
+     * in the context of the current thread. If an open transaction already
+     * exists for the record, it is reused. This method is idempotent when
+     * called from the same thread.
+     * </p>
+     * <p>
+     * This is corresponds to a call to {@link Database#open(String)} for the
+     * database named by the table mapping of the record.
+     * </p>
      * 
-     * @return the SQL dialect.
+     * @return the open transaction.
      */
-    public Dialect dialect() {
-        return transaction().getDialect();
+    public Transaction open() {
+        return Database.open(table.getDatabase());
+    }
+    
+    /**
+     * <p>
+     * Commits the thread local transaction the mapped record binds to in the
+     * context of the current thread if it has been opened.
+     * </p>
+     * <p>
+     * This is corresponds to a call to {@link Database#commit(String)} for the
+     * database named by the table mapping of the record.
+     * </p>
+     * <p>
+     * <strong>Note:</strong> This may cause changes of other records to be
+     * persisted to the mapped database of the record, since all records mapped
+     * to the same named database share transaction in the context of the
+     * current thread.
+     * </p>
+     * 
+     * @throws SQLException
+     *             if a database access error occurs.
+     * @return the committed transaction or null for no active transaction.
+     */
+    public Transaction commit() throws SQLException {
+        return Database.commit(table.getDatabase());
+    }
+    
+    /**
+     * <p>
+     * Closes the thread local transaction the mapped record binds to in the
+     * context of the current thread if it has been opened. This method is
+     * idempotent when called from the same thread.
+     * </p>
+     * <p>
+     * This is corresponds to a call to {@link Database#close(String)} for the
+     * database named by the table mapping of the record.
+     * </p>
+     * <p>
+     * <strong>Note:</strong> This may cause changes of other records to be
+     * discarded in the mapped database of the record, since all records mapped
+     * to the same named database share transaction in the context of the
+     * current thread.
+     * </p>
+     * @return the closed transaction or null for no active transaction.
+     */
+    public Transaction close() {
+        return Database.close(table.getDatabase());
     }
 
     /**
@@ -360,7 +392,7 @@ public abstract class Record {
     }
 
     private static <T extends Record> Query getSelectQuery(Class<T> clazz, Column... columns) {
-        Dialect dialect = transaction(clazz).getDialect();
+        Dialect dialect = open(clazz).getDialect();
         Query query = Table.get(clazz).getSelectQuery(dialect);
         boolean isFirst = true;
         for (Column column : columns) {
@@ -382,7 +414,7 @@ public abstract class Record {
      * @return the built query.
      */
     public Query build(String sql) {
-        return new Query(dialect(), sql);
+        return new Query(open().getDialect(), sql);
     }
     
     /**
@@ -397,7 +429,7 @@ public abstract class Record {
      * @return the built query.
      */
     public Query build(String sql, Object... params) {
-        return new Query(dialect(), sql, params);
+        return new Query(open().getDialect(), sql, params);
     }
     
     /**
@@ -410,7 +442,7 @@ public abstract class Record {
      * @return the built query.
      */
     public static Query build(Class<? extends Record> clazz, String sql) {
-        return new Query(transaction(clazz).getDialect(), sql);
+        return new Query(open(clazz).getDialect(), sql);
     }
     
     /**
@@ -428,7 +460,7 @@ public abstract class Record {
      * @return the built query.
      */
     public static Query build(Class<? extends Record> clazz, String sql, Object... params) {
-        return new Query(transaction(clazz).getDialect(), sql, params);
+        return new Query(open(clazz).getDialect(), sql, params);
     }
     
     /**
@@ -579,7 +611,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return selectAll(clazz, new Query(transaction(clazz).getDialect(), sql, params));
+        return selectAll(clazz, new Query(open(clazz).getDialect(), sql, params));
     }
 
     /**
@@ -596,7 +628,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, Query query) throws SQLException {
-        PreparedStatement preparedStatement = transaction(clazz).prepare(query.getSql(), query.getParams());
+        PreparedStatement preparedStatement = open(clazz).prepare(query.getSql(), query.getParams());
         ResultSet resultSet = null;
         LinkedList<T> records = new LinkedList<T>();
         try {
@@ -607,7 +639,7 @@ public abstract class Record {
                 records.add(record);
             }
         } catch (SQLException sqlException) {
-            transaction(clazz).getDialect().rethrow(sqlException, query.getSql());
+            open(clazz).getDialect().rethrow(sqlException, query.getSql());
         } finally {
             try {
                 if (resultSet != null) {
@@ -680,7 +712,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(String sql, Object... params) throws SQLException {
-        return selectInto(new Query(transaction().getDialect(), sql, params));
+        return selectInto(new Query(open().getDialect(), sql, params));
     }
 
     /**
@@ -696,7 +728,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(Query query) throws SQLException {
-        PreparedStatement preparedStatement = transaction().prepare(query.getSql(), query.getParams());
+        PreparedStatement preparedStatement = open().prepare(query.getSql(), query.getParams());
         ResultSet resultSet = null;
         try {
             resultSet = preparedStatement.executeQuery();
@@ -705,7 +737,7 @@ public abstract class Record {
                 return true;
             }
         } catch (SQLException sqlException) {
-            transaction().getDialect().rethrow(sqlException, query.getSql());
+            open().getDialect().rethrow(sqlException, query.getSql());
         } finally {
             try {
                 if (resultSet != null) {
@@ -825,7 +857,7 @@ public abstract class Record {
                 }
             }
         } catch (SQLException sqlException) {
-            transaction().getDialect().rethrow(sqlException);
+            open().getDialect().rethrow(sqlException);
         } finally {
             isStale = true; // lol exception
         }
@@ -849,44 +881,6 @@ public abstract class Record {
             update();
         }
     }
-    
-    /**
-     * <p>
-     * Commits the thread local transaction the mapped record binds to.
-     * </p>
-     * <p>
-     * <strong>Note:</strong> This may cause changes of other records to be
-     * persisted to the mapped database of the record, since all records mapped
-     * to the same named database share transaction per thread.
-     * </p>
-     * 
-     * @throws SQLException
-     *             if a database access error occurs.
-     */
-    public void commit() throws SQLException {
-        transaction().commit();
-    }
-
-    /**
-     * <p>
-     * Flushes the changes to the database made in the thread local transaction
-     * the mapped record binds to. A shorthand for {@link #save()} followed by
-     * {@link #commit()}.
-     * </p>
-     * <p>
-     * <strong>Note:</strong> This may cause changes of other records to be
-     * persisted to the mapped database of the record, since all records mapped
-     * to the same named database share transaction per thread.
-     * </p>
-     * 
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public void saveAndCommit() throws SQLException {
-        save();
-        commit();
-    }
 
     /**
      * Deletes the record row from the database by executing the SQL query "DELETE FROM [tableName] WHERE [primaryKey] = [primaryKeyColumnValue]".
@@ -899,8 +893,8 @@ public abstract class Record {
     public void delete() throws SQLException {
         checkReadOnly();
         refresh();
-        Query query = new Query(transaction().getDialect(), "DELETE FROM #1# WHERE #:2# = #3#", table, table.getId(), get(table.getId()));
-        PreparedStatement preparedStatement = transaction().prepare(query);
+        Query query = new Query(open().getDialect(), "DELETE FROM #1# WHERE #:2# = #3#", table, table.getId(), get(table.getId()));
+        PreparedStatement preparedStatement = open().prepare(query);
         try {
             preparedStatement.execute();
         } finally {
@@ -982,7 +976,7 @@ public abstract class Record {
             throw new IllegalStateException("Attempting to insert stale record");
         }
 
-        Query query = new Query(transaction().getDialect());
+        Query query = new Query(open().getDialect());
 
         query.append("INSERT INTO #1# (", table);
 
@@ -1009,11 +1003,11 @@ public abstract class Record {
         }
 
         markStale();
-        if (transaction().getDialect().isReturningSupported()) {
+        if (open().getDialect().isReturningSupported()) {
             query.append(" RETURNING *");
             selectInto(query);
         } else {
-            PreparedStatement preparedStatement = transaction().prepare(query.getSql(), query.getParams(), true);
+            PreparedStatement preparedStatement = open().prepare(query.getSql(), query.getParams(), true);
             ResultSet resultSet = null;
             Object id = null;
             try {
@@ -1023,7 +1017,7 @@ public abstract class Record {
                     id = resultSet.getObject(1);
                 }
             } catch (SQLException e) {
-                throw transaction().getDialect().rethrow(e, query.getSql());
+                throw open().getDialect().rethrow(e, query.getSql());
             } finally {
                 try {
                     if (resultSet != null) {
@@ -1092,7 +1086,7 @@ public abstract class Record {
             if (!template.getClass().equals(record.getClass())) {
                 throw new IllegalArgumentException("all records must be of the same class");
             }
-            if (!template.databaseName.equals(record.databaseName)) {
+            if (!template.table.getDatabase().equals(record.table.getDatabase())) {
                 throw new IllegalArgumentException("all records must be bound to the same DbConnection");
             }
 
@@ -1120,7 +1114,7 @@ public abstract class Record {
     @SuppressWarnings("null")
     private static void batchInsert(final Record template, Set<Symbol> columns, Record[] records, final boolean isFullRepopulate) throws SQLException {
         Table table = template.table;
-        Transaction transaction = template.transaction();
+        Transaction transaction = template.open();
         Dialect dialect = transaction.getDialect();
         Query query = new Query(dialect);
 
@@ -1260,7 +1254,7 @@ public abstract class Record {
             throw new IllegalStateException("Attempting to update a stale record!");
         }
 
-        Query query = new Query(transaction().getDialect());
+        Query query = new Query(open().getDialect());
 
         query.append("UPDATE #1# SET ", table);
 
@@ -1283,11 +1277,11 @@ public abstract class Record {
         query.append(" WHERE #:1# = #2#", table.getId(), id);
 
         markStale();
-        if (transaction().getDialect().isReturningSupported()) {
+        if (open().getDialect().isReturningSupported()) {
             query.append(" RETURNING *");
             selectInto(query);
         } else {
-            transaction().executeUpdate(query);
+            open().executeUpdate(query);
         }
     }
 

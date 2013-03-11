@@ -120,7 +120,8 @@ public class Database {
 
     /**
      * Opens a thread local transaction for the given database name. If an open
-     * transaction already exists it is reused. This method is idempotent when called from the same thread.
+     * transaction already exists, it is reused. This method is idempotent when
+     * called from the same thread.
      * 
      * @param database
      *            the name of the database.
