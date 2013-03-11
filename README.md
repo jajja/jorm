@@ -307,6 +307,99 @@ Hashes (#) can be quoted by double-hashing, i.e ##, ? cannot be escaped properly
     Query query = new Query(dialect, "SELECT * FROM foo WHERE bar_id IN (#1#)", subQuery);
 
 
+## Transaction lifecycle
+
+Transactions opened to a database are thread local and there is atmost one transaction for each named database (which may be exploited by providing more than one name for a single logical database). These transactions need to be closed at the logical end of execution. A web server may typically reuse threads for subsequent request, making the end of a request the logical end of execution. Any other application  reusing threads need the corresponding adaptions described throughout this section.
+
+### Transaction access
+
+The safest way of ensuring transaction lifecycle through an application reusing threads is to manually close the connection within the scope of the change to the database.
+
+    Transaction transaction = Database.open("moria");
+    try {
+        // do stuff 
+        transaction.commit();
+    } catch (SQLException e) {
+        // handle exception
+    } finally {
+        transaction.close();
+    }
+
+However, code is modularization can make passing of references to transactions cumbersome. For this reason transactions can be uniquely accessed through the named database, in the context of the current thread.
+
+    Database.open("moria");
+    try {
+        // do stuff
+        Database.commit("moria");
+    } catch (SQLException e) {
+        // handle exception
+    } finally {
+        Database.close("moria");
+    }
+
+There is conveniently wrapped by static methods of the record, using @Jorm annotations to define named datbases.
+
+    Record.open(Goblin.class);
+    try {
+        // do stuff
+        Record.commit(Goblin.class);
+    } catch (SQLException e) {
+        // handle exception
+    } finally {
+        Record.close(Goblin.class);
+    }
+
+Transactions are even available through record instances, which cane sometimes be convenient. Note that any record may act as reference to the thread local transaction possibly shared by multiple records.
+
+    Record context = null
+    try {
+        // do stuff
+        if (context != null) context.commit();
+    } catch (SQLException e) {
+        // handle exception
+    } finally {
+        if (context != null) context.close();
+        // else what?
+    }
+
+This last example points to the fact that execution is not always predictable. In most applications a runtime exception may occurr depending on user input or other uncontrolled circumstances.
+
+    try {
+        // do unpredictable stuff
+    } finally {
+        Database.close();
+        // release thread
+    }
+
+The above example closes all thread local transactions are releasing the current thread to its imagined thread pool. It may be considered good practice to build this into your applications execution lifecycle.
+
+### Transaction savepoints
+
+For some types of problems it may be beneficiary to make use of savepoints. For this reason the savepoints of JDBC are wrapped by transactions.
+
+    Transation transaction = Database.open("moria");
+    try {
+        Goblin azog = new Goblin("Azog");
+        Tribe tribe = Record.findById(Tribe.class, 1);
+        azog.setTribe(tribe);
+        Savepoint savepoint = transaction.save();
+        try {
+            azog.save();
+            transaction.release(savepoint);
+        } catch (UniqueViolationException) {
+            transaction.rollback(savepoint);
+            azog = findByTribeAndName(tribe, "Azog");
+        }
+        // do more stuff
+        transaction.commit();
+    } catch (SQLException e) {
+        // handle exception
+    } finally {
+        transaction.close();
+    }
+
+Note that not every database engine supports release of savepoints. MSSQL only supports rollback, and there is more to read about engine/driver specific behaviour in the next section!
+
 ## Database engines
 
 jORM has been tested on Postgres, MySQL and MSSQL. If you have a license to a dababase engine and would like to contribute, please feel free to contact the authors.

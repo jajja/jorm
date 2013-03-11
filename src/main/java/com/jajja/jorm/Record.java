@@ -263,14 +263,20 @@ public abstract class Record {
     }
 
     /**
-     * Opens a thread local transaction to the database mapped by the record. If
-     * an open transaction already exists for the record class, it is reused.
-     * This method is idempotent when called from the same thread. Requires the
-     * given class to be mapped by {@link Jorm}.
+     * <p>
+     * Opens a thread local transaction to the database mapped by the record
+     * class. If an open transaction already exists for the record class, it is
+     * reused. This method is idempotent when called from the same thread.
+     * </p>
+     * <p>
+     * This is corresponds to a call to {@link Database#open(String)} for the
+     * database named by the class mapping of the record. Requires the given
+     * class to be mapped by {@link Jorm}.
+     * </p>
      * 
      * @param clazz
      *            the mapped record class.
-     * @return the current thread local transaction for the given class.
+     * @return the open transaction.
      */
     public static Transaction open(Class<? extends Record> clazz) {
         return Database.open(Table.get(clazz).getDatabase());
@@ -278,10 +284,48 @@ public abstract class Record {
 
     /**
      * <p>
-     * Opens a thread local transaction and binds the mapped to the transaction
-     * in the context of the current thread. If an open transaction already
-     * exists for the record, it is reused. This method is idempotent when
+     * Commits the thread local transaction to the named database mapped by the
+     * record class, if it has been opened.
+     * </p>
+     * <p>
+     * This is corresponds to a call to {@link Database#commit(String)} for the
+     * database named by the class mapping of the record. Requires the given
+     * class to be mapped by {@link Jorm}.
+     * </p>
+     * 
+     * @param clazz
+     *            the mapped record class.
+     * @return the committed transaction or null for no active transaction.
+     */
+    public static Transaction commit(Class<? extends Record> clazz) throws SQLException {
+        return Database.commit(Table.get(clazz).getDatabase());
+    }
+
+    /**
+     * <p>
+     * Closes the thread local transaction to the named database mapped by the
+     * record class, if it has been opened. This method is idempotent when
      * called from the same thread.
+     * </p>
+     * <p>
+     * This is corresponds to a call to {@link Database#close(String)} for the
+     * database named by the class mapping of the record. Requires the given
+     * class to be mapped by {@link Jorm}.
+     * </p>
+     * 
+     * @param clazz
+     *            the mapped record class.
+     * @return the closed transaction or null for no active transaction.
+     */
+    public static Transaction close(Class<? extends Record> clazz) {
+        return Database.close(Table.get(clazz).getDatabase());
+    }
+
+    /**
+     * <p>
+     * Opens a thread local transaction to the named database mapped by the
+     * record. If an open transaction already exists for the record, it is
+     * reused. This method is idempotent when called from the same thread.
      * </p>
      * <p>
      * This is corresponds to a call to {@link Database#open(String)} for the
@@ -296,8 +340,8 @@ public abstract class Record {
     
     /**
      * <p>
-     * Commits the thread local transaction the mapped record binds to in the
-     * context of the current thread if it has been opened.
+     * Commits the thread local transaction to the named database mapped by the
+     * record, if it has been opened.
      * </p>
      * <p>
      * This is corresponds to a call to {@link Database#commit(String)} for the
@@ -320,9 +364,9 @@ public abstract class Record {
     
     /**
      * <p>
-     * Closes the thread local transaction the mapped record binds to in the
-     * context of the current thread if it has been opened. This method is
-     * idempotent when called from the same thread.
+     * Closes the thread local transaction to the named database mapped by the
+     * record, if it has been opened. This method is idempotent when called from
+     * the same thread.
      * </p>
      * <p>
      * This is corresponds to a call to {@link Database#close(String)} for the
@@ -334,6 +378,7 @@ public abstract class Record {
      * to the same named database share transaction in the context of the
      * current thread.
      * </p>
+     * 
      * @return the closed transaction or null for no active transaction.
      */
     public Transaction close() {
@@ -1111,7 +1156,6 @@ public abstract class Record {
         }
     }
 
-    @SuppressWarnings("null")
     private static void batchInsert(final Record template, Set<Symbol> columns, Record[] records, final boolean isFullRepopulate) throws SQLException {
         Table table = template.table;
         Transaction transaction = template.open();
