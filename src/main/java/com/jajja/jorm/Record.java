@@ -1117,6 +1117,7 @@ public abstract class Record {
         }
     }
 
+    @SuppressWarnings("null")
     private static void batchInsert(final Record template, Set<Symbol> columns, Record[] records, final boolean isFullRepopulate) throws SQLException {
         Table table = template.table;
         Transaction transaction = template.transaction();
@@ -1399,13 +1400,15 @@ public abstract class Record {
             if (id == null) {
                 throw new NullPointerException("While setting " + record + "." + symbol.getName() + " = " + value + " -- id (primary key) is null -- perhaps you need to save()?");
             }
-            if (isChanged = isChanged(symbol, id)) {
+            isChanged = isChanged(symbol, id);
+            if (isChanged) {
                 notifyFieldChanged(symbol, value);                
             }
             field.setReference(record);
             field.setValue(id);
         } else {
-            if (isChanged = isChanged(symbol, value)) {
+            isChanged = isChanged(symbol, value);
+            if (isChanged) {
                 notifyFieldChanged(symbol, value);                
             }
             if (isChanged) {

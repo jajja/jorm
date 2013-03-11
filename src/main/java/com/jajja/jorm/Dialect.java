@@ -438,5 +438,5 @@ public class Dialect {
             return nameMap.get(databaseProductName);
         }
 
-    };
+    }
 }

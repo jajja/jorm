@@ -66,7 +66,7 @@ public class Generator {
         typeMap.put(java.sql.Types.NCHAR,           "String");
         typeMap.put(java.sql.Types.NVARCHAR,        "String");
         typeMap.put(java.sql.Types.LONGNVARCHAR,    "String");
-    };
+    }
     
     private String database;
     private String srcPath;
@@ -159,8 +159,10 @@ public class Generator {
                 id = resultSet.getString("COLUMN_NAME");
             }
         } finally {
-            resultSet.close();
-            resultSet = null;
+            if (resultSet != null) {
+                resultSet.close();
+                resultSet = null;
+            }
         }
         
         String className = depluralize(camelize(table, true));
