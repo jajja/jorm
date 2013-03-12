@@ -973,7 +973,8 @@ public abstract class Record {
         checkReadOnly();
 
         if (isStale) {
-            throw new IllegalStateException("Attempting to insert stale record");
+            //throw new IllegalStateException("Attempting to insert stale record");
+            return;
         }
 
         Query query = new Query(open().getDialect());
@@ -1250,8 +1251,8 @@ public abstract class Record {
             return;
         }
         if (isStale) {
-            // unreachable?
-            throw new IllegalStateException("Attempting to update a stale record!");
+            //throw new IllegalStateException("Attempting to update a stale record!");
+            return;
         }
 
         Query query = new Query(open().getDialect());
