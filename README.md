@@ -331,7 +331,7 @@ The safest way of ensuring transaction lifecycle through an application reusing 
         transaction.close();
     }
 
-However, code is modularization can make passing of references to transactions cumbersome. For this reason transactions can be uniquely accessed through the named database, in the context of the current thread.
+However, code modularization can make passing of references to transactions cumbersome. For this reason transactions can be uniquely accessed through the named database, in the context of the current thread.
 
     Database.open("moria");
     try {
