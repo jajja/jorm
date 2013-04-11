@@ -9,7 +9,7 @@ import moria.Goblin;
 import moria.Litter;
 import moria.Tribe;
 
-import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.tomcat.jdbc.pool.DataSource;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -21,14 +21,14 @@ import com.jajja.jorm.exceptions.CheckViolationException;
 import com.jajja.jorm.exceptions.UniqueViolationException;
 
 public class Moria {
-    
+
     @BeforeClass
     public static void open() {
-        BasicDataSource dataSource = new BasicDataSource();
+        DataSource dataSource = new DataSource();
         dataSource.setDriverClassName("org.postgresql.Driver");
         dataSource.setUrl("jdbc:postgresql://sjhdb05b.jajja.local:5432/moria");
         dataSource.setUsername("gandalf");
-        dataSource.setPassword("mellon");        
+        dataSource.setPassword("mellon");
         Database.configure("moria", dataSource);
         try {
             Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
@@ -37,17 +37,17 @@ public class Moria {
             e.printStackTrace();
         }
     }
-    
+
     @AfterClass
     public static void close() {
         Database.close("moria");
     }
-    
-    
+
+
     @Test
     public void t01_find() {
         try {
-            Goblin goblin = Record.find(Goblin.class); 
+            Goblin goblin = Record.find(Goblin.class);
             Assert.assertNotNull(goblin);
         } catch (SQLException e) {
             e.printStackTrace();
@@ -59,7 +59,7 @@ public class Moria {
     @Test
     public void t02_findAll() {
         try {
-            List<Goblin> goblins = Record.findAll(Goblin.class); 
+            List<Goblin> goblins = Record.findAll(Goblin.class);
             Assert.assertFalse(goblins.isEmpty());
         } catch (SQLException e) {
             e.printStackTrace();
@@ -67,11 +67,11 @@ public class Moria {
             Database.close("moria");
         }
     }
-    
+
     @Test
     public void t03_columns() {
         try {
-            Goblin goblin = Record.find(Goblin.class, new Column("name", "Bolg")); 
+            Goblin goblin = Record.find(Goblin.class, new Column("name", "Bolg"));
             Assert.assertNotNull(goblin);
         } catch (SQLException e) {
             e.printStackTrace();
@@ -79,11 +79,11 @@ public class Moria {
             Database.close("moria");
         }
     }
-    
+
     @Test
     public void t04_oneToOne() {
         try {
-            Goblin goblin = Record.find(Goblin.class, new Column("name", "Bolg")); 
+            Goblin goblin = Record.find(Goblin.class, new Column("name", "Bolg"));
             Tribe tribe = goblin.getTribe();
             Assert.assertNotNull(tribe);
         } catch (SQLException e) {
@@ -92,7 +92,7 @@ public class Moria {
             Database.close("moria");
         }
     }
-    
+
 
     @Test
     public void t05_oneToMany() {
@@ -106,11 +106,11 @@ public class Moria {
             Database.close("moria");
         }
     }
-    
+
     @Test
     public void t06_queryField() {
         try {
-            List<Goblin> goblins = Record.findAll(Goblin.class); 
+            List<Goblin> goblins = Record.findAll(Goblin.class);
             for (Goblin goblin : goblins) {
                 Litter litter = goblin.relieve();
                 litter.save();
@@ -122,7 +122,7 @@ public class Moria {
             Database.close("moria");
         }
     }
-    
+
     @Test
     public void t07_checkViolation() {
         SQLException e = null;
@@ -136,7 +136,7 @@ public class Moria {
         }
         Assert.assertTrue(e instanceof CheckViolationException);
     }
-    
+
     @Test
     public void t08_uniqueViolation() {
         SQLException e = null;
@@ -151,5 +151,5 @@ public class Moria {
         }
         Assert.assertTrue(e instanceof UniqueViolationException);
     }
-    
+
 }

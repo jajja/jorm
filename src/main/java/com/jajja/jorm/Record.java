@@ -1233,6 +1233,7 @@ public abstract class Record {
                     field.setValue(resultSet.getObject(1));
                     field.setChanged(false);
                     if (isFullRepopulate) {
+                        if (map == null) throw new IllegalStateException("bug");
                         map.put(field.getValue(), record);
                         record.isStale = false; // actually still stale
                     }
@@ -1240,6 +1241,8 @@ public abstract class Record {
             }
 
             if (!usingReturning && isFullRepopulate) {
+                if (map == null) throw new IllegalStateException("bug");
+
                 resultSet.close();
                 resultSet = null;
                 preparedStatement.close();

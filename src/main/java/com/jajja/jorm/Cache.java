@@ -86,18 +86,18 @@ public class Cache<C extends Record> {
         for (C record : records) {
             Object key = record.id();
             if (key != null) {
-                put(key, record);
+                index(record);
             }
         }
     }
 
-    private void index(Object key, C record) {
-        map.put(key, record);
+    private void index(C record) {
+        map.put(record.id(), record);
         for (String column : additionalColumns) {
             Map<Object, Object> amap = additionalMap.get(column);
             Object value = record.get(column);
             if (amap.containsKey(value)) {
-                throw new RuntimeException("collision! " + column + " already contains value " + value + " (while inserting key " + key + ", record " + record + ")");
+                throw new RuntimeException("collision! " + column + " already contains value " + value + " (while indexing record " + record + ")");
             }
             amap.put(value, record.id());
         }
@@ -132,7 +132,7 @@ public class Cache<C extends Record> {
                     throw new RuntimeException("failed to fetch record by key " + value, e);
                 }
                 if (record != null) {
-                    index(value, record);
+                    index(record);
                 }
             } else {
                 touch(value);
@@ -145,9 +145,9 @@ public class Cache<C extends Record> {
         return get(id, value);
     }
 
-    public void put(Object key, C record) {
+    public void put(C record) {
         synchronized (map) {
-            map.put(key, record);
+            index(record);
         }
     }
 
