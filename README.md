@@ -37,9 +37,9 @@ Now that you've got the code, let's see if we cannot conjure some cheap tricks!
 
 ### Configuring database
 
-The database abstraction in jORM needs a `javax.sql.DataSource` data source. One recommended implementation is the Apache Commons DBCP basic data source.
+The database abstraction in jORM needs a `javax.sql.DataSource` data source. One recommended implementation is the Tomcat JDBC Connection Pool.
 
-    BasicDataSource moriaDataSource = new BasicDataSource();
+    DataSource moriaDataSource = new DataSource();
     moriaDataSource.setDriverClassName("org.postgresql.Driver");
     moriaDataSource.setUrl("jdbc:postgresql://localhost:5432/moria");
     moriaDataSource.setUsername("gandalf");
@@ -47,15 +47,21 @@ The database abstraction in jORM needs a `javax.sql.DataSource` data source. One
     
     Database.configure("moria", moriaDataSource);
 
-This will configure the pooled DBCP data source as a named database. For all of those who prefer Spring Beans this can be achieved through a singleton factory method.
+This will configure the pooled data source as a named database. For all of those who prefer Spring Beans this can be achieved through a singleton factory method.
 
-    <bean id="moriaDataSource" class="org.apache.commons.dbcp.BasicDataSource">
+    <bean id="moriaDataSource" class="org.apache.tomcat.jdbc.pool.DataSource" destroy-method="close">
         <property name="driverClassname" value="org.postgresql.Driver" />
         <property name="url" value="jdbc:postgresql://localhost:5432/moria" />
         <property name="username" value="gandalf" />
         <property name="password" value="mellon" />
+        <property name="maxActive" value="16" />
+        <property name="maxIdle" value="8" />
+        <property name="minIdle" value="0" />
+        <property name="initialSize" value="0" />
+        <property name="maxAge" value="1500000" />
+        <property name="validationQuery" value="SELECT 1" />
     </bean>
-    
+
     <bean class="com.jajja.jorm.Database" factory-method="get">
         <property name="dataSources">
             <map>
@@ -325,7 +331,7 @@ The safest way of ensuring transaction lifecycle through an application reusing 
         transaction.close();
     }
 
-However, code is modularization can make passing of references to transactions cumbersome. For this reason transactions can be uniquely accessed through the named database, in the context of the current thread.
+However, code modularization can make passing of references to transactions cumbersome. For this reason transactions can be uniquely accessed through the named database, in the context of the current thread.
 
     Database.open("moria");
     try {
