@@ -1578,54 +1578,54 @@ public abstract class Record {
      *            the expected class of the cached record.
      * @return the cached record corresponding to the given symbol.
      */
-	public <T> T get(Symbol symbol, Class<T> clazz) {
+    public <T> T get(Symbol symbol, Class<T> clazz) {
         return getField(symbol, clazz, false);
     }
-	
-	/**
-	 * Provides a cached instance of a record represented by a field defined by
-	 * a given symbol for a column name.
-	 * 
-	 * @param symbol
-	 *            the symbol defining the column name.
-	 * @param clazz
-	 *            the expected class of the cached record.
-	 * @param isCacheOnly only retrieves previously cached values.
-	 * @return the cached record corresponding to the given symbol.
-	 */
-	public <T extends Record> T get(Symbol symbol, Class<T> clazz, boolean isCacheOnly)  {
-	    return getField(symbol, clazz, isCacheOnly);
-	}
+    
+    /**
+     * Provides a cached instance of a record represented by a field defined by
+     * a given symbol for a column name.
+     * 
+     * @param symbol
+     *            the symbol defining the column name.
+     * @param clazz
+     *            the expected class of the cached record.
+     * @param isCacheOnly only retrieves previously cached values.
+     * @return the cached record corresponding to the given symbol.
+     */
+    public <T extends Record> T get(Symbol symbol, Class<T> clazz, boolean isCacheOnly)  {
+        return getField(symbol, clazz, isCacheOnly);
+    }
     
     @SuppressWarnings("unchecked")
-	private <T> T getField(Symbol symbol, Class<T> clazz, boolean isCacheOnly) {
+    private <T> T getField(Symbol symbol, Class<T> clazz, boolean isCacheOnly) {
         refresh();
 
-    	Field field = fields.get(symbol);
-    	if (field == null) {
-    	    return null;
-    	}
+        Field field = fields.get(symbol);
+        if (field == null) {
+            return null;
+        }
 
-    	Object value = field.getValue();
+        Object value = field.getValue();
 
-    	if (value != null) {
-    	    if (isRecordSubclass(clazz)) {
-    	        // Load foreign key
-    	        if ((field.getReference() == null) && !isCacheOnly) {
-    	            try {
-    	                Record reference = Record.findById((Class<? extends Record>)clazz, value);
-    	                field.setReference(reference);
-    	                value = reference;
-    	            } catch (SQLException e) {
-    	                throw new RuntimeException("failed to findById(" + clazz + ", " + value + ")", e);
-    	            }
-    	        } else {
-    	            value = field.getReference();
-    	        }
-    	    } else if (!clazz.isAssignableFrom(value.getClass())) {
-    			throw new RuntimeException("column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
-    		}
-    	}
+        if (value != null) {
+            if (isRecordSubclass(clazz)) {
+                // Load foreign key
+                if ((field.getReference() == null) && !isCacheOnly) {
+                    try {
+                        Record reference = Record.findById((Class<? extends Record>)clazz, value);
+                        field.setReference(reference);
+                        value = reference;
+                    } catch (SQLException e) {
+                        throw new RuntimeException("failed to findById(" + clazz + ", " + value + ")", e);
+                    }
+                } else {
+                    value = field.getReference();
+                }
+            } else if (!clazz.isAssignableFrom(value.getClass())) {
+                throw new RuntimeException("column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
+            }
+        }
         return (T) value;
     }
 
@@ -1662,33 +1662,33 @@ public abstract class Record {
 
     @Override
     public String toString() {
-    	StringBuilder stringBuilder = new StringBuilder();
-    	boolean isFirst = true;
+        StringBuilder stringBuilder = new StringBuilder();
+        boolean isFirst = true;
 
-    	refresh();
+        refresh();
 
-    	if (table.getSchema() != null) {
-    	    stringBuilder.append(table.getSchema());
-    	    stringBuilder.append('.');
-    	}
+        if (table.getSchema() != null) {
+            stringBuilder.append(table.getSchema());
+            stringBuilder.append('.');
+        }
         if (table.getTable() != null) {
             stringBuilder.append(table.getTable());
         }
-    	stringBuilder.append(" { ");
+        stringBuilder.append(" { ");
 
-    	for (Entry<Symbol, Field> entry : fields.entrySet()) {
-    		if (isFirst) {
-    			isFirst = false;
-    		} else {
-    			stringBuilder.append(", ");
-    		}
-    		stringBuilder.append(entry.getKey().getName());
-    		stringBuilder.append(" => ");
-    		stringBuilder.append(entry.getValue().getValue());
-    	}
-    	stringBuilder.append(" }");
+        for (Entry<Symbol, Field> entry : fields.entrySet()) {
+            if (isFirst) {
+                isFirst = false;
+            } else {
+                stringBuilder.append(", ");
+            }
+            stringBuilder.append(entry.getKey().getName());
+            stringBuilder.append(" => ");
+            stringBuilder.append(entry.getValue().getValue());
+        }
+        stringBuilder.append(" }");
 
-    	return stringBuilder.toString();
+        return stringBuilder.toString();
     }
     
     @Override
