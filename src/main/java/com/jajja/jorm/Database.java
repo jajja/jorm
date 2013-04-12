@@ -111,11 +111,21 @@ public class Database {
      *            a flag defining configuration as override if a current
      *            configuration for the named database already exists.
      */
-    public static void configure(String database, DataSource dataSource, boolean isOverride) { // XXX: read/write lock on data sources?
-        if (!isOverride && instance.dataSources.containsKey(database)) {
-            throw new IllegalStateException("Dabase '" + database + "' already configured!");
+    public static void configure(String database, DataSource dataSource, boolean isOverride) {
+        if (!isOverride && isConfigured(database)) {
+            throw new IllegalStateException("Named database '" + database + "' already configured!");
         }
         instance.dataSources.put(database, dataSource);
+    }
+    
+    // TODO: javadoc
+    public static boolean isConfigured(String database) {  // XXX: read/write lock on data sources?
+        return instance.dataSources.containsKey(database);
+    }
+    
+    // TODO: javadoc
+    public static void ensureConfigured(String database) {
+        if (!isConfigured(database)) throw new IllegalStateException("Named database '" + database + "' has no configured data source!");
     }
 
     /**
@@ -133,7 +143,7 @@ public class Database {
 		if (transaction == null) {
 		    DataSource dataSource = instance.getDataSource(database);
 		    if (dataSource == null) {
-		        throw new RuntimeException("Data source '" + database + "' not found!");
+		        ensureConfigured(database); // throws!
 		    }
 		    transaction = new Transaction(dataSource, database);
 			transactions.put(database, transaction);
@@ -156,6 +166,8 @@ public class Database {
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
             transaction.commit();
+        } else {
+            ensureConfigured(database);
         }
         return transaction;
     }
@@ -173,6 +185,8 @@ public class Database {
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
             transaction.close();
+        } else {
+            ensureConfigured(database);
         }
         return transaction;
     }
