@@ -116,7 +116,18 @@ public class Cache<C extends Record> {
 
     public C get(String column, Object value) {
         synchronized (map) {
-            C record = map.get(value);
+            C record;
+
+            if (id.equals(column)) {
+                record = map.get(value);
+            } else {
+                if (!additionalColumns.contains(column)) {
+                    throw new IllegalArgumentException("column " + column + " is not indexed");
+                }
+                Map<Object, Object> amap = additionalMap.get(column);
+                record = map.get( amap.get(value) );
+            }
+
             if (record == null) {
                 try {
                     record = clazz.newInstance();
