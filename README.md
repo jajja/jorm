@@ -54,12 +54,6 @@ This will configure the pooled data source as a named database. For all of those
         <property name="url" value="jdbc:postgresql://localhost:5432/moria" />
         <property name="username" value="gandalf" />
         <property name="password" value="mellon" />
-        <property name="maxActive" value="16" />
-        <property name="maxIdle" value="8" />
-        <property name="minIdle" value="0" />
-        <property name="initialSize" value="0" />
-        <property name="maxAge" value="1500000" />
-        <property name="validationQuery" value="SELECT 1" />
     </bean>
 
     <bean class="com.jajja.jorm.Database" factory-method="get">
