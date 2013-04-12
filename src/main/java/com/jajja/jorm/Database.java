@@ -118,12 +118,26 @@ public class Database {
         instance.dataSources.put(database, dataSource);
     }
     
-    // TODO: javadoc
+    /**
+     * Determines whether a named database has been configured or not.
+     * 
+     * @param database
+     *            the named database.
+     * @return true if the named database has been configured, false otherwise.
+     */
     public static boolean isConfigured(String database) {  // XXX: read/write lock on data sources?
         return instance.dataSources.containsKey(database);
     }
     
-    // TODO: javadoc
+    /**
+     * Ensures that a named database is configured by throwing an illegal state
+     * exception if it is not.
+     * 
+     * @param database
+     *            the named database.
+     * @throws IllegalStateException
+     *             when the named database has not been configured.
+     */
     public static void ensureConfigured(String database) {
         if (!isConfigured(database)) throw new IllegalStateException("Named database '" + database + "' has no configured data source!");
     }
