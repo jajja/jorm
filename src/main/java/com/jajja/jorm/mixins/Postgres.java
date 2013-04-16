@@ -47,7 +47,7 @@ import com.jajja.jorm.Transaction;
  * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
  * @since 1.0.0
  */
-public final class PostgresMixin {
+public final class Postgres {
     public static List<String> stringArray(Jdbc4Array array) {
         List<String> values = new LinkedList<String>();
 
