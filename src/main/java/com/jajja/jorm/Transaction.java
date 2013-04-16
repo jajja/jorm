@@ -177,7 +177,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    Connection getConnection() throws SQLException {
+    public Connection getConnection() throws SQLException {
         if (connection == null) {
             connection = dataSource.getConnection();
             connection.setAutoCommit(false);
