@@ -1,16 +1,16 @@
 /*
  * Copyright (C) 2013 Jajja Communications AB
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -29,7 +29,7 @@ import java.util.Map;
 
 /**
  * The implementation for generating SQL statements and mapping parameters to statements for records and transactions.
- * 
+ *
  * <h3>Grammar</h3>
  * <p>
  * Processes and appends the specified sql string.<br>
@@ -49,7 +49,7 @@ import java.util.Map;
  * If the referenced argument is a QueryBuilder, it is processed as if appended by append(). The modifier is ignored.<br>
  * <br>
  * </p>
- * 
+ *
  * @see Record
  * @see Transaction
  * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
@@ -69,7 +69,7 @@ public class Query {
         this.dialect = dialect;
         params = new LinkedList<Object>();
     }
-    
+
     Query(Dialect dialect, String sql) {
         this(dialect);
         append(sql);
@@ -83,7 +83,7 @@ public class Query {
     public Query(Transaction transaction) {
         this(transaction.getDialect());
     }
-    
+
     public Query(Transaction transaction, String sql) {
         this(transaction.getDialect(), sql);
     }
@@ -169,7 +169,7 @@ public class Query {
         param = params[i-1];
 
         if (param != null && param.getClass().isArray()) {
-            param = Arrays.asList((Object[])param);
+            param = Arrays.asList(param);
         }
         if (param instanceof Collection) {
             boolean isFirst = true;
@@ -204,8 +204,8 @@ public class Query {
                     hashStart = -1;
                     this.sql.append('#');
                     continue;
-               }
-               inHash = true;
+                }
+                inHash = true;
             } else if (ch == '#') {
                 hashStart = i;
             } else {
@@ -238,5 +238,5 @@ public class Query {
     public List<Object> getParams() {
         return params;
     }
-    
+
 }
