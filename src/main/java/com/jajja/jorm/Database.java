@@ -49,7 +49,7 @@ public class Database {
     private Map<String, DataSource> dataSources = new HashMap<String, DataSource>();
     protected Log log = LogFactory.getLog(Database.class);
     private static volatile Database instance = new Database();
-    
+
     private Database() { }
 
     /**
@@ -64,18 +64,18 @@ public class Database {
     }
 
     private HashMap<String, Transaction> getTransactions() {
-    	if (transactions.get() == null) {
-    		transactions.set(new HashMap<String, Transaction>());
-    	}
-    	return transactions.get();
+        if (transactions.get() == null) {
+            transactions.set(new HashMap<String, Transaction>());
+        }
+        return transactions.get();
     }
-    
+
     private DataSource getDataSource(String database) {
         synchronized (dataSources) {
             return dataSources.get(database);
         }
     }
-    
+
     /**
      * Configures all databases accessible through {@link Database#open(String)}
      * and {@link Database#close(String)}. Overrides any previous configuration.
@@ -87,7 +87,7 @@ public class Database {
     public void setDataSources(Map<String, DataSource> dataSources) {
         this.dataSources = dataSources;
     }
-    
+
     /**
      * Configures the named database by means of a data source.
      * 
@@ -99,7 +99,7 @@ public class Database {
     public static void configure(String database, DataSource dataSource) {
         configure(database, dataSource, false);
     }
-    
+
     /**
      * Configures the named database by means of a data source.
      * 
@@ -117,7 +117,7 @@ public class Database {
         }
         instance.dataSources.put(database, dataSource);
     }
-    
+
     /**
      * Determines whether a named database has been configured or not.
      * 
@@ -128,7 +128,7 @@ public class Database {
     public static boolean isConfigured(String database) {  // XXX: read/write lock on data sources?
         return instance.dataSources.containsKey(database);
     }
-    
+
     /**
      * Ensures that a named database is configured by throwing an illegal state
      * exception if it is not.
@@ -152,19 +152,19 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
-		HashMap<String, Transaction> transactions = instance.getTransactions();
-		Transaction transaction = transactions.get(database);
-		if (transaction == null) {
-		    DataSource dataSource = instance.getDataSource(database);
-		    if (dataSource == null) {
-		        ensureConfigured(database); // throws!
-		    }
-		    transaction = new Transaction(dataSource, database);
-			transactions.put(database, transaction);
-		}
-		return transaction;
+        HashMap<String, Transaction> transactions = instance.getTransactions();
+        Transaction transaction = transactions.get(database);
+        if (transaction == null) {
+            DataSource dataSource = instance.getDataSource(database);
+            if (dataSource == null) {
+                ensureConfigured(database); // throws!
+            }
+            transaction = new Transaction(dataSource, database);
+            transactions.put(database, transaction);
+        }
+        return transaction;
     }
-    
+
     /**
      * Commits the thread local transaction for the given database name if it
      * has been opened.
@@ -185,7 +185,7 @@ public class Database {
         }
         return transaction;
     }
-    
+
     /**
      * Closes the thread local transaction for the given database name if it has
      * been opened. This method is idempotent when called from the same thread.
@@ -209,11 +209,11 @@ public class Database {
      * Closes all transactions for the current thread.
      */
     public static void close() {
-    	HashMap<String, Transaction> map = instance.getTransactions();
-    	for (Transaction transaction : map.values()) {
-    	    transaction.close();
-    	}
-    	map.clear();
-    	instance.transactions.remove();
+        HashMap<String, Transaction> map = instance.getTransactions();
+        for (Transaction transaction : map.values()) {
+            transaction.close();
+        }
+        map.clear();
+        instance.transactions.remove();
     }
 }

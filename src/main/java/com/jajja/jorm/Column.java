@@ -105,11 +105,9 @@ package com.jajja.jorm;
  * @since 1.0.0
  */
 public class Column {
-    
     private Symbol symbol;
-    
     private Object value;
-    
+
     /**
      * Constructs a column for queries by given name and value.
      * 
@@ -145,7 +143,7 @@ public class Column {
         return symbol;
     }
 
-    
+
     /**
      * Defines the symbol representing the name of the column.
      * 
@@ -165,7 +163,7 @@ public class Column {
         return value;
     }
 
-    
+
     /**
      * Defines the value of the column.
      * 

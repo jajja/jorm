@@ -29,7 +29,6 @@ import java.sql.SQLException;
  * @since 1.0.0
  */
 public class JormSqlException extends SQLException {
-
     private static final long serialVersionUID = 1L;
     private String database;
     private String sql;
@@ -46,14 +45,14 @@ public class JormSqlException extends SQLException {
         stringBuilder.append(']');
         return stringBuilder.toString();
     }
-    
+
     public JormSqlException(String database, String sql, SQLException sqlException) {
         super(
                 rewriteMessage(sqlException.getMessage(), database, sql),
                 sqlException.getSQLState(),
                 sqlException.getErrorCode(),
                 sqlException.getCause()
-            );
+                );
         this.database = database;
         this.sql = sql;
         setStackTrace(sqlException.getStackTrace());

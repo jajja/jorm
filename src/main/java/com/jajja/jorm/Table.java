@@ -42,7 +42,7 @@ public class Table {
     private String table;
     private Symbol id;
     private Set<Symbol> immutable;
-    
+
     public static synchronized Table get(Class<? extends Record> clazz) {
         Table table = map.get(clazz);
         if (table == null) {
@@ -55,11 +55,11 @@ public class Table {
     public Table(String database) {
         this.database = database;
     }
-    
+
     private Table(Class<? extends Record> clazz) {
         Jorm jorm = clazz.getAnnotation(Jorm.class);
         if (jorm == null) {
-        	throw new RuntimeException("Jorm annotation missing in " + Jorm.class);
+            throw new RuntimeException("Jorm annotation missing in " + Jorm.class);
         }
         if (jorm.table().equals("") ^ jorm.id().equals("")) {
             throw new RuntimeException("Tables cannot be mapped without primary keys. Either define both table and primary key or none in the Jorm annotation.");
@@ -79,19 +79,19 @@ public class Table {
             immutable = null;
         }
     }
-    
+
     private static String nullify(String string) {
         return string.isEmpty() ? null : string;
     }
-    
+
     public String getDatabase() {
         return database;
     }
-    
+
     public String getSchema() {
         return schema;
     }
-    
+
     public String getTable() {
         return table;
     }
@@ -99,11 +99,11 @@ public class Table {
     public Symbol getId() {
         return id;
     }
-    
+
     public boolean isImmutable(Symbol symbol) {
         return immutable != null && immutable.contains(symbol);
     }
-    
+
     Query getSelectQuery(Dialect dialect) {
         if (table != null) { // XXX: fit in timeline to extend mapping to generic SQL
             return new Query(dialect, "SELECT * FROM #1# ", this);

@@ -29,10 +29,9 @@ import java.sql.SQLException;
  * @since 1.0.0
  */
 public class LockTimeoutException extends JormSqlException {
-
     private static final long serialVersionUID = 1L;
 
     public LockTimeoutException(String database, String sql, SQLException sqlException) {
         super(database, sql, sqlException);
-    }    
+    }
 }

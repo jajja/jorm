@@ -40,7 +40,7 @@ import java.util.Map;
  * @since 1.0.0
  */
 public class Generator {
-    
+
     private static HashMap<Integer, String> typeMap = new HashMap<Integer, String>();
     static {
         typeMap.put(java.sql.Types.BIT,             "Boolean");
@@ -67,86 +67,86 @@ public class Generator {
         typeMap.put(java.sql.Types.NVARCHAR,        "String");
         typeMap.put(java.sql.Types.LONGNVARCHAR,    "String");
     }
-    
+
     private String database;
     private String srcPath;
     private String packageName;
-    
+
     public Generator(String database) {
         this.database = database;
     }
 
     public Generator file(String srcPath) throws ClassNotFoundException {
-    	final StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        final StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
         final StackTraceElement ste = stackTrace[2];
         final String className = ste.getClassName();
         Package p = Class.forName(className).getPackage();
-        
+
         setSrcPath(srcPath);
         this.packageName = p.getName();
         return this;
     }
-    
+
     public Generator file(String srcPath, String packageName) {
-    	setSrcPath(srcPath);
-    	this.packageName = packageName;
-    	return this;
+        setSrcPath(srcPath);
+        this.packageName = packageName;
+        return this;
     }
 
     private void setSrcPath(String srcPath) {
-    	if (!srcPath.endsWith("/")) {
-    		srcPath += "/";
-    	}
-    	this.srcPath = srcPath;
+        if (!srcPath.endsWith("/")) {
+            srcPath += "/";
+        }
+        this.srcPath = srcPath;
     }
-    
+
     public String string(String table) throws SQLException {
-    	return string(table, null);
+        return string(table, null);
     }
-    
+
     public String string(String table, String schema) throws SQLException {
-    	return generate(table, schema).get("content");
+        return generate(table, schema).get("content");
     }
-    
+
     public void print(String table) throws SQLException {
-    	print(table, null);
+        print(table, null);
     }
-    
+
     public void print(String table, String schema) throws SQLException {
-    	System.out.println(generate(table, schema).get("content"));
+        System.out.println(generate(table, schema).get("content"));
     }
-    
+
     public void write(String table) throws SQLException, IOException {
-    	write(table, null, false);
+        write(table, null, false);
     }
-    
+
     public void write(String table, String schema) throws SQLException, IOException {
-    	write(table, schema, false);
+        write(table, schema, false);
     }
-    
+
     public void write(String table, boolean overwrite) throws SQLException, IOException {
-    	write(table, null, overwrite);
+        write(table, null, overwrite);
     }
-    
+
     public void write(String table, String schema, boolean overwrite) throws SQLException, IOException {
-    	Map<String, String> map = generate(table, schema);
-    	String filename = map.get("name") + ".java";
-    	String actualFilename = write(filename, srcPath + getPackagePath(), map.get("content"), overwrite);
-    	System.out.println("Wrote to " + actualFilename);
+        Map<String, String> map = generate(table, schema);
+        String filename = map.get("name") + ".java";
+        String actualFilename = write(filename, srcPath + getPackagePath(), map.get("content"), overwrite);
+        System.out.println("Wrote to " + actualFilename);
     }
-    
+
     private Map<String, String> generate(String table, String schema) throws SQLException {
         StringBuilder stringBuilder = new StringBuilder();
         Connection c = Database.open(database).getConnection();
 
         String id = "id";
         ResultSet resultSet = null;
-        
+
         if (packageName != null) {
-        	stringBuilder.append("package ");
-        	stringBuilder.append(packageName);
-        	stringBuilder.append(";\n");
-        	stringBuilder.append("\n");
+            stringBuilder.append("package ");
+            stringBuilder.append(packageName);
+            stringBuilder.append(";\n");
+            stringBuilder.append("\n");
         }
 
         stringBuilder.append("import com.jajja.jorm.Jorm;\n");
@@ -164,7 +164,7 @@ public class Generator {
                 resultSet = null;
             }
         }
-        
+
         String className = depluralize(camelize(table, true));
 
         stringBuilder.append("@Jorm(");
@@ -174,11 +174,11 @@ public class Generator {
         if (schema != null) {
             stringBuilder.append("schema=\"");
             stringBuilder.append(schema);
-            stringBuilder.append("\", ");         
+            stringBuilder.append("\", ");
         }
         stringBuilder.append("table=\"");
         stringBuilder.append(table);
-        stringBuilder.append("\", ");         
+        stringBuilder.append("\", ");
         stringBuilder.append("id=\"");
         stringBuilder.append(id);
         stringBuilder.append("\")\n");
@@ -205,21 +205,21 @@ public class Generator {
                 String varName = camelize(column, false);
 
                 stringBuilder.append(
-                    "    public " + javaDataType + " get" + methodName + "() {\n" + 
-                    "        return get(\"" + column + "\", " + javaDataType + ".class);\n" +
-                    "    }\n" + 
-                    "\n" +
-                    "    public void set" + methodName + "(" + javaDataType + " " + varName + ") {\n" +
-                    "        set(\"" + column + "\", " + varName + ");\n" +
-                    "    }\n" +
-                    "\n");
-
-                if (dataType == java.sql.Types.DATE || dataType == java.sql.Types.TIME || dataType == java.sql.Types.TIMESTAMP) { 
-                    stringBuilder.append(
-                        "    public void update" + methodName + "() {\n" +
-                        "        set(\"" + column + "\", build(\"now()\"));\n" +    // XXX dialect.getNowFunction()
-                        "    }\n" +
+                        "    public " + javaDataType + " get" + methodName + "() {\n" +
+                                "        return get(\"" + column + "\", " + javaDataType + ".class);\n" +
+                                "    }\n" +
+                                "\n" +
+                                "    public void set" + methodName + "(" + javaDataType + " " + varName + ") {\n" +
+                                "        set(\"" + column + "\", " + varName + ");\n" +
+                                "    }\n" +
                         "\n");
+
+                if (dataType == java.sql.Types.DATE || dataType == java.sql.Types.TIME || dataType == java.sql.Types.TIMESTAMP) {
+                    stringBuilder.append(
+                            "    public void update" + methodName + "() {\n" +
+                                    "        set(\"" + column + "\", build(\"now()\"));\n" +    // XXX dialect.getNowFunction()
+                                    "    }\n" +
+                            "\n");
                 }
             }
         } finally {
@@ -227,17 +227,17 @@ public class Generator {
         }
 
         stringBuilder.append("}\n");
-        
+
         Map<String, String> map = new HashMap<String, String>();
         map.put("name", className);
         map.put("content", stringBuilder.toString());
         return map;
     }
-    
+
     private static String depluralize(String string) { // XXX: more advanced logic?
         return string.endsWith("s") ? string.substring(0, string.length() - 1) : string;
     }
-    
+
     private static String camelize(String string, boolean upperCase) {
         StringBuffer stringBuffer = new StringBuffer(string);
         for (int i = 0; i < stringBuffer.length(); i++) {
@@ -250,41 +250,41 @@ public class Generator {
                 stringBuffer.setCharAt(i, Character.toUpperCase(stringBuffer.charAt(i)));
             }
         }
-       return stringBuffer.toString();
+        return stringBuffer.toString();
     }
-    
+
     private String getPackagePath() {
         return packageName.replace(".", "/");
     }
-    
+
     private File getFile(String filename, String filepath, boolean overwrite) throws IOException {
-    	File destination = new File(filepath);
-    	if(!destination.exists()) {
-    		destination.mkdirs();
-    	}
-    	File file = new File(destination, filename);
-    	if (file.exists()) {
-    		if (overwrite) {
-    			file.delete();
-    		} else {
-    			String[] parts = filename.split("\\.");
-    			file = getFile(parts[0] + "~." + parts[1], filepath, overwrite);
-    		}
-    	}
-    	if(!file.exists()) {
-    		file.createNewFile();
-    	}
-    	return file;
+        File destination = new File(filepath);
+        if(!destination.exists()) {
+            destination.mkdirs();
+        }
+        File file = new File(destination, filename);
+        if (file.exists()) {
+            if (overwrite) {
+                file.delete();
+            } else {
+                String[] parts = filename.split("\\.");
+                file = getFile(parts[0] + "~." + parts[1], filepath, overwrite);
+            }
+        }
+        if(!file.exists()) {
+            file.createNewFile();
+        }
+        return file;
     }
-    
+
     private String write(String filename, String filepath, String content, boolean overwrite) throws IOException {
-    	File file = getFile(filename, filepath, overwrite);
-    	String actualFilename = file.getPath();
-    	FileWriter fileWriter = new FileWriter(file, false);
-    	fileWriter.write(content);
-    	fileWriter.flush();
-    	fileWriter.close();
-    	return actualFilename;
-	}
-    
+        File file = getFile(filename, filepath, overwrite);
+        String actualFilename = file.getPath();
+        FileWriter fileWriter = new FileWriter(file, false);
+        fileWriter.write(content);
+        fileWriter.flush();
+        fileWriter.close();
+        return actualFilename;
+    }
+
 }

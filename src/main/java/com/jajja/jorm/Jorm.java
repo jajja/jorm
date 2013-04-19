@@ -38,7 +38,6 @@ import java.lang.annotation.RetentionPolicy;
  */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Jorm {
-    
     /**
      * Name of the database as defined by a named data source.
      * 
@@ -46,28 +45,28 @@ public @interface Jorm {
      * @return the table name
      */
     public String database();
-    
+
     /**
      * Name of mapped schema. Use the default value "" for default schema.
      * 
      * @return the schema name
      */
     public String schema() default "";
-    
+
     /**
      * Name of mapped table. Use the default value "" for generic SQL.
      * 
      * @return the table name
      */
     public String table() default ""; // XXX: fit in the timeline to extend mapping to generic SQL
-    
+
     /**
      * Name of mapping id (primary key). Use the default value "" for generic SQL.
      * 
      * @return the primary key name
      */
     public String id() default "";
-    
+
     /**
      * A list of names for columns mapped as immutable fields.
      * 

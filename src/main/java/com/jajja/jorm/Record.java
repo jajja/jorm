@@ -1,16 +1,16 @@
 /*
  * Copyright (C) 2013 Jajja Communications AB
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -58,7 +58,7 @@ import org.apache.commons.logging.LogFactory;
  * </p>
  * <p>
  * <strong>From SQL:</strong>
- * 
+ *
  * <pre>
  * CREATE TABLE phrases (
  *     id        serial    NOT NULL,
@@ -69,50 +69,50 @@ import org.apache.commons.logging.LogFactory;
  *     FOREIGN KEY (locale_id) REFERENCES locales (id) ON DELETE CASCADE
  * )
  * </pre>
- * 
+ *
  * </p>
  * <p>
  * <strong>To Java:</strong>
- * 
+ *
  * <pre>
  * &#064;Table(database = &quot;default&quot;, table = &quot;phrases&quot;, id = &quot;id&quot;)
  * public class Phrase extends Record {
- * 
+ *
  *     public Integer getId() {
  *         return get(&quot;id&quot;, Integer.class);
  *     }
- * 
+ *
  *     public void setId(Integer id) {
  *         set(&quot;id&quot;, id);
  *     }
- * 
+ *
  *     public String getPhrase() {
  *         return get(&quot;phrase&quot;, String.class);
  *     }
- * 
+ *
  *     public void setPhrase(String phrase) {
  *         set(&quot;phrase&quot;, phrase);
  *     }
- * 
+ *
  *     public Integer getLocaleId() {
  *         return get(&quot;locale_id&quot;, Integer.class);
  *     }
- * 
+ *
  *     public void setLocaleId(Integer id) {
  *         set(&quot;locale_id&quot;, id);
  *     }
- * 
+ *
  *     public Locale getLocale() {
  *         return get(&quot;locale_id&quot;, Locale.class); // XXX: caches referenced record
  *     }
- * 
+ *
  *     public void setLocale(Locale Locale) {
  *         set(&quot;locale_id&quot;, locale);
  *     }
- * 
+ *
  * }
  * </pre>
- * 
+ *
  * </p>
  * <p>
  * Note that related records are cached by the method
@@ -120,7 +120,7 @@ import org.apache.commons.logging.LogFactory;
  * keys is maintained in records. Further control can be achieved by overriding
  * {@link Record#notifyFieldChanged(Symbol, Object)}.
  * </p>
- * 
+ *
  * @see Jorm
  * @see Query
  * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
@@ -140,7 +140,7 @@ public abstract class Record {
         // XXX NEVER SET THIS TO TRUE (taint(), insert(), update(), etc) FOR ID-COLUMNS UNLESS SET EXPLICITLY AND EXTERNALLY BY set() (i.e. user forced an ID change)
         private boolean isChanged = false;
         private Record reference = null;
-        
+
         private Field() {}
 
         public void setValue(Object value) {
@@ -162,7 +162,7 @@ public abstract class Record {
         public void setReference(Record reference) {
             this.reference = reference;
         }
-        
+
         public Record getReference() {
             return reference;
         }
@@ -180,7 +180,7 @@ public abstract class Record {
     /**
      * Provides a cached log for the specified class. Stores a new log in the
      * cache if no preceding call with the given class has been made.
-     * 
+     *
      * @param clazz
      *            the class defining log instance.
      * @return the class specific cached log.
@@ -193,15 +193,15 @@ public abstract class Record {
         }
         return log;
     }
-    
+
     /**
      * Provides the cached log for the instance class according to {@link Record#log(Class)}.
      */
     public Log log() {
         return log(getClass());
     }
-    
-    
+
+
     /**
      * Constructs a mapped record. Depends on {@link Jorm} annotation for table
      * mapping.
@@ -209,7 +209,7 @@ public abstract class Record {
     public Record() {
         table = Table.get(getClass());
     }
-    
+
     /**
      * Constructs a mapped record. Mainly intended for anonymous record
      * instantiation such as the results from the transaction select methods
@@ -217,7 +217,7 @@ public abstract class Record {
      * {@link Transaction#select(String, Object...)},
      * {@link Transaction#selectAll(Query)} and
      * {@link Transaction#selectAll(String, Object...)}.
-     * 
+     *
      * @param table
      *            the table mapping.
      */
@@ -241,7 +241,7 @@ public abstract class Record {
      * the option to override and act upon changes. This method is called
      * whenever {@link #set(String, Object)} or {@link #set(Symbol, Object)}
      * changes a field, or {@link #populate(ResultSet)} is called.
-     * 
+     *
      * @param symbol
      *            the symbol of the column.
      * @param object
@@ -255,7 +255,7 @@ public abstract class Record {
 
     /**
      * Provides the table mapping for the record.
-     * 
+     *
      * @return the table mapping.
      */
     public Table table() {
@@ -273,7 +273,7 @@ public abstract class Record {
      * database named by the class mapping of the record. Requires the given
      * class to be mapped by {@link Jorm}.
      * </p>
-     * 
+     *
      * @param clazz
      *            the mapped record class.
      * @return the open transaction.
@@ -292,7 +292,7 @@ public abstract class Record {
      * database named by the class mapping of the record. Requires the given
      * class to be mapped by {@link Jorm}.
      * </p>
-     * 
+     *
      * @param clazz
      *            the mapped record class.
      * @return the committed transaction or null for no active transaction.
@@ -312,7 +312,7 @@ public abstract class Record {
      * database named by the class mapping of the record. Requires the given
      * class to be mapped by {@link Jorm}.
      * </p>
-     * 
+     *
      * @param clazz
      *            the mapped record class.
      * @return the closed transaction or null for no active transaction.
@@ -331,13 +331,13 @@ public abstract class Record {
      * This is corresponds to a call to {@link Database#open(String)} for the
      * database named by the table mapping of the record.
      * </p>
-     * 
+     *
      * @return the open transaction.
      */
     public Transaction open() {
         return Database.open(table.getDatabase());
     }
-    
+
     /**
      * <p>
      * Commits the thread local transaction to the named database mapped by the
@@ -353,7 +353,7 @@ public abstract class Record {
      * to the same named database share transaction in the context of the
      * current thread.
      * </p>
-     * 
+     *
      * @throws SQLException
      *             if a database access error occurs.
      * @return the committed transaction or null for no active transaction.
@@ -361,7 +361,7 @@ public abstract class Record {
     public Transaction commit() throws SQLException {
         return Database.commit(table.getDatabase());
     }
-    
+
     /**
      * <p>
      * Closes the thread local transaction to the named database mapped by the
@@ -378,7 +378,7 @@ public abstract class Record {
      * to the same named database share transaction in the context of the
      * current thread.
      * </p>
-     * 
+     *
      * @return the closed transaction or null for no active transaction.
      */
     public Transaction close() {
@@ -388,7 +388,7 @@ public abstract class Record {
     /**
      * Populates the record with the first result for which the given column name
      * matches the given value.
-     * 
+     *
      * @param column
      *            the column name.
      * @param value
@@ -401,11 +401,11 @@ public abstract class Record {
     public boolean populateByColumn(String column, Object value) throws SQLException { // XXX: javadoc from here
         return populateByColumn(Symbol.get(column), value);
     }
-    
+
     /**
      * Populates the record with the first result for which the given column name
      * matches the given value.
-     * 
+     *
      * @param symbol
      *            the column symbol.
      * @param value
@@ -423,7 +423,7 @@ public abstract class Record {
     /**
      * Populates the record with the result for which the id column matches the
      * given value.
-     * 
+     *
      * @param id
      *            the id value to match.
      * @return true if the record could be updated with a matching row from the
@@ -450,10 +450,10 @@ public abstract class Record {
         }
         return query;
     }
-    
+
     /**
      * Builds a generic SQL query for the record.
-     * 
+     *
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
@@ -461,12 +461,12 @@ public abstract class Record {
     public Query build(String sql) {
         return new Query(open().getDialect(), sql);
     }
-    
+
     /**
      * Builds a generic SQL query for the record and quotes identifiers from the
      * given parameters according to the SQL dialect of the mapped database of
      * the record.
-     * 
+     *
      * @param sql
      *            the Jorm SQL statement to represent the query.
      * @param params
@@ -476,10 +476,10 @@ public abstract class Record {
     public Query build(String sql, Object... params) {
         return new Query(open().getDialect(), sql, params);
     }
-    
+
     /**
      * Builds a generic SQL query for a given record class.
-     * 
+     *
      * @param clazz
      *            the mapped record class.
      * @param sql
@@ -489,12 +489,12 @@ public abstract class Record {
     public static Query build(Class<? extends Record> clazz, String sql) {
         return new Query(open(clazz).getDialect(), sql);
     }
-    
+
     /**
      * Builds a generic SQL query for a given record class and quotes
      * identifiers from the given parameters according to the SQL dialect of the
      * mapped database of the record class.
-     * 
+     *
      * @param clazz
      *            the mapped record class.
      * @param sql
@@ -507,11 +507,11 @@ public abstract class Record {
     public static Query build(Class<? extends Record> clazz, String sql, Object... params) {
         return new Query(open(clazz).getDialect(), sql, params);
     }
-    
+
     /**
      * Provides a selected record from the mapped database table, populated with
      * the first result for which the columns match.
-     * 
+     *
      * @param clazz
      *            the class defining the table mapping.
      * @param columns
@@ -524,11 +524,11 @@ public abstract class Record {
     public static <T extends Record> T find(Class<T> clazz, Column... columns) throws SQLException {
         return select(clazz, getSelectQuery(clazz, columns));
     }
-    
+
     /**
      * Provides a complete list of selected records from the mapped database
      * table, populated with the results for which the columns match.
-     * 
+     *
      * @param clazz
      *            the class defining the table mapping.
      * @param columns
@@ -545,7 +545,7 @@ public abstract class Record {
     /**
      * Provides a complete list of selected reference records of a given class
      * referring to the mapped record through a given foreign key column.
-     * 
+     *
      * @param clazz
      *            the class of the records referring to the mapped record.
      * @param column
@@ -558,11 +558,11 @@ public abstract class Record {
     public <T extends Record> List<T> findReferences(Class<T> clazz, String column) throws SQLException {
         return findReferences(clazz, Symbol.get(column));
     }
-    
+
     /**
      * Provides a complete list of selected reference records of a given class
      * referring to the mapped record through a given foreign key column.
-     * 
+     *
      * @param clazz
      *            the class of the records referring to the mapped record.
      * @param symbol
@@ -578,11 +578,11 @@ public abstract class Record {
         return selectAll(clazz, "SELECT * FROM #1# WHERE #:2# = #3#", table, symbol, get(symbol));
     }
 
-    
+
     /**
      * Provides a selected record, populated with the result for which the id
      * column matches the given id value.
-     * 
+     *
      * @param clazz
      *            the class defining the table mapping.
      * @param id
@@ -599,7 +599,7 @@ public abstract class Record {
     /**
      * Provides a selected record, populated with the first result from the
      * query given by a Jorm SQL statement and applicable parameters.
-     * 
+     *
      * @param clazz
      *            the class defining the table mapping.
      * @param sql
@@ -622,7 +622,7 @@ public abstract class Record {
     /**
      * Provides a selected record, populated with the first result from the
      * given query.
-     * 
+     *
      * @param clazz
      *            the class defining the table mapping.
      * @param query
@@ -643,7 +643,7 @@ public abstract class Record {
     /**
      * Provides a list of selected records, populated with the results from the
      * query given by a Jorm SQL statement and applicable parameters.
-     * 
+     *
      * @param clazz
      *            the class defining the table mapping.
      * @param sql
@@ -662,7 +662,7 @@ public abstract class Record {
     /**
      * Provides a list of selected records, populated with the results from the
      * given query.
-     * 
+     *
      * @param clazz
      *            the class defining the table mapping.
      * @param query
@@ -694,13 +694,13 @@ public abstract class Record {
                 preparedStatement.close();
             }
         }
-        return records;   
+        return records;
     }
 
 //    /**
 //     * Provides a hash map of selected records, populated with the results from the
 //     * given query.
-//     * 
+//     *
 //     * @param clazz
 //     *            the class defining the table mapping.
 //     * @param column
@@ -729,7 +729,7 @@ public abstract class Record {
 //            if (resultSet != null) resultSet.close();
 //            preparedStatement.close();
 //        }
-//        return records;   
+//        return records;
 //    }
 //    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, Symbol column, String sql, Object... params) throws SQLException {
 //        return selectAllHashMap(clazz, column, new Query(transaction(clazz).getDialect(), sql, params));
@@ -746,7 +746,7 @@ public abstract class Record {
      * parameters and populates the record with the first row of the result. Any
      * values in the record object are cleared if the record was previously
      * populated.
-     * 
+     *
      * @param sql
      *            the Jorm SQL statement.
      * @param params
@@ -764,7 +764,7 @@ public abstract class Record {
      * Executes the given query and populates the record with the first row of
      * the result. Any values in the record object are cleared if the record was
      * previously populated.
-     * 
+     *
      * @param query
      *            the query.
      * @return true if the record was populated, otherwise false.
@@ -792,14 +792,14 @@ public abstract class Record {
                 preparedStatement.close();
             }
         }
-        return false;   
+        return false;
     }
 
     /**
      * Populates all records in the given collection of records with a single
      * prefetched reference of the given record class. Existing cached
      * references are not overwritten.
-     * 
+     *
      * @param records
      *            the records to populate with prefetched references.
      * @param foreignKeySymbol
@@ -852,7 +852,7 @@ public abstract class Record {
      * Populates all records in the given collection of records with a single
      * prefetched reference of the given record class. Existing cached
      * references are not overwritten.
-     * 
+     *
      * @param records
      *            the records to populate with prefetched references.
      * @param foreignKeySymbol
@@ -874,7 +874,7 @@ public abstract class Record {
     /**
      * Populates the record with the first row of the result. Any values in the
      * record object are cleared if the record was previously populated.
-     * 
+     *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -884,7 +884,7 @@ public abstract class Record {
         try {
             ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
             HashSet<Symbol> symbols = new HashSet<Symbol>();
-            
+
             for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
                 Symbol symbol = Symbol.get(resultSetMetaData.getColumnLabel(i));
 
@@ -912,7 +912,7 @@ public abstract class Record {
     /**
      * Save the record. This is done by a call to {@link #insert()} if the id
      * field is null, unset or changed, otherwise by a call to {@link #update()}.
-     * 
+     *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -930,7 +930,7 @@ public abstract class Record {
     /**
      * Deletes the record row from the database by executing the SQL query "DELETE FROM [tableName] WHERE [primaryKey] = [primaryKeyColumnValue]".
      * The primary key column value is also set to null.
-     * 
+     *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -966,13 +966,13 @@ public abstract class Record {
      */
     public void purify() {
         for (Field field : fields.values()) {
-            field.setChanged(false);                
+            field.setChanged(false);
         }
     }
 
     /**
      * Determines whether the record has been changed or not.
-     * 
+     *
      * @return true if at least one field has been changed, otherwise false.
      */
     public boolean isChanged() {
@@ -999,7 +999,7 @@ public abstract class Record {
      * re-populated in any upcoming call to {@link #set(String, Object)},
      * {@link #set(Symbol, Object)}, {@link #get(String)}, {@link #get(Symbol)}
      * or {@link #refresh()}, whichever comes first.
-     * 
+     *
      * @return true if the record is stale otherwise false.
      */
     public boolean isStale() {
@@ -1009,7 +1009,7 @@ public abstract class Record {
     /**
      * Inserts the record's changed values into the database by executing an SQL INSERT query.
      * The record's primary key value is set to the primary key generated by the database.
-     * 
+     *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -1085,7 +1085,7 @@ public abstract class Record {
 
     /**
      * Executes a batch INSERT (INSERT INTO ... (columns...) VALUES (row1), (row2), (row3), ...) and repopulates the list with stored entities.
-     * 
+     *
      * @param records List of records to insert (must be of the same class, and bound to the same DbConnection)
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
@@ -1098,10 +1098,10 @@ public abstract class Record {
     /**
      * Executes a batch INSERT (INSERT INTO ... (columns...) VALUES (row1), (row2), (row3), ...).
      *
-     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries. 
+     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
      *
      * Setting isFullRepopulate to true will re-populate the record fields with fresh values. This will generate
-     * an additional SELECT query for every chunk of records for databases that do not support RETURNING. 
+     * an additional SELECT query for every chunk of records for databases that do not support RETURNING.
      *
      * @param records List of records to insert (must be of the same class, and bound to the same DbConnection)
      * @param chunkSize Splits the records into chunks, <= 0 disables
@@ -1286,7 +1286,7 @@ public abstract class Record {
 
     /**
      * Updates the record's changed column values by executing an SQL UPDATE query.
-     * 
+     *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -1335,7 +1335,7 @@ public abstract class Record {
 
     /**
      * Determines whether a field has been changed or not.
-     * 
+     *
      * @param symbol
      *            the symbol of the column name defining the field.
      * @return true if the field has been changed, false otherwise.
@@ -1361,8 +1361,8 @@ public abstract class Record {
      * {@link Record#insert()} or {@link Record#insert()}, if the SQL dialect of
      * the mapped database does not support returning. A record mapped to a
      * table in a Postgres database is thus never stale.
-     * 
-     * 
+     *
+     *
      * @throws RuntimeException
      *             whenever a SQLException occurs.
      */
@@ -1383,7 +1383,7 @@ public abstract class Record {
 
     /**
      * Sets the record as read only according to given value
-     * 
+     *
      * @param isReadOnly
      *            the value determining read only state of the record.
      * @throws RuntimeException
@@ -1444,14 +1444,14 @@ public abstract class Record {
             }
             isChanged = isChanged(symbol, id);
             if (isChanged) {
-                notifyFieldChanged(symbol, value);                
+                notifyFieldChanged(symbol, value);
             }
             field.setReference(record);
             field.setValue(id);
         } else {
             isChanged = isChanged(symbol, value);
             if (isChanged) {
-                notifyFieldChanged(symbol, value);                
+                notifyFieldChanged(symbol, value);
             }
             if (isChanged) {
                 field.setReference(null); // invalidate cached reference
@@ -1472,7 +1472,7 @@ public abstract class Record {
      * Any field values extending {@link Record} are cached until the field is
      * changed again, and the mapped id of the record is set as field value
      * instead.
-     * 
+     *
      * @param column
      *            the name of the column corresponding to the field to set.
      * @param value
@@ -1487,7 +1487,7 @@ public abstract class Record {
      * Any field values extending {@link Record} are cached until the field is
      * changed again, and the mapped id of the record is set as field value
      * instead.
-     * 
+     *
      * @param symbol
      *            the symbol of the column corresponding to the field to set.
      * @param value
@@ -1500,17 +1500,17 @@ public abstract class Record {
 
     /**
      * Unsets the specified field corresponding to a column of the mapped record.
-     * 
+     *
      * @param column
      *            the name of the column corresponding to the field to set.
      */
     public void unset(String column) {
         unset(Symbol.get(column));
     }
-    
+
     /**
      * Unsets the specified field corresponding to a column of the mapped record.
-     * 
+     *
      * @param symbol
      *            the symbol of the column corresponding to the field to set.
      */
@@ -1530,7 +1530,7 @@ public abstract class Record {
     /**
      * Determines whether the field corresponding to a given column name is set
      * or not.
-     * 
+     *
      * @param column
      *            the name of the column corresponding to the field to set.
      * @return true if the field is set, false otherwise.
@@ -1542,7 +1542,7 @@ public abstract class Record {
     /**
      * Determines whether the field corresponding to a given column name is set
      * or not.
-     * 
+     *
      * @param symbol
      *            the symbol of the column corresponding to the field to set.
      * @return true if the field is set, false otherwise.
@@ -1556,7 +1556,7 @@ public abstract class Record {
      * Provides a cached instance of a record represented by a field defined by
      * a given column name. If the record has not previously been cached it is
      * fetched from the database and cached.
-     * 
+     *
      * @param column
      *            the column name.
      * @param clazz
@@ -1571,7 +1571,7 @@ public abstract class Record {
      * Provides a cached instance of a record represented by a field defined by
      * a given symbol for a column name. If the record has not previously been
      * cached it is fetched from the database and cached.
-     * 
+     *
      * @param symbol
      *            the symbol defining the column name.
      * @param clazz
@@ -1581,11 +1581,11 @@ public abstract class Record {
     public <T> T get(Symbol symbol, Class<T> clazz) {
         return getField(symbol, clazz, false);
     }
-    
+
     /**
      * Provides a cached instance of a record represented by a field defined by
      * a given symbol for a column name.
-     * 
+     *
      * @param symbol
      *            the symbol defining the column name.
      * @param clazz
@@ -1596,7 +1596,7 @@ public abstract class Record {
     public <T extends Record> T get(Symbol symbol, Class<T> clazz, boolean isCacheOnly)  {
         return getField(symbol, clazz, isCacheOnly);
     }
-    
+
     @SuppressWarnings("unchecked")
     private <T> T getField(Symbol symbol, Class<T> clazz, boolean isCacheOnly) {
         refresh();
@@ -1631,7 +1631,7 @@ public abstract class Record {
 
     /**
      * Provides the value of the field defined by a given column name.
-     * 
+     *
      * @param column
      *            the name of the column defining the field.
      * @throws RuntimeException
@@ -1640,11 +1640,11 @@ public abstract class Record {
     public Object get(String column) {
         return get(Symbol.get(column));
     }
-    
+
     /**
      * Provides the value of the field defined by a given symbol for a column
      * name.
-     * 
+     *
      * @param symbol
      *            the symbol of the column defining the field.
      * @throws RuntimeException
@@ -1657,7 +1657,7 @@ public abstract class Record {
         if (field == null) {
             throw new RuntimeException("column '" + symbol.getName() + "' does not exist, or has not yet been set");
         }
-         return field.getValue();
+        return field.getValue();
     }
 
     @Override
@@ -1690,15 +1690,15 @@ public abstract class Record {
 
         return stringBuilder.toString();
     }
-    
+
     @Override
     public boolean equals(Object object) {
         if (getClass().isInstance(object)) {
-            return ((Record) object).get(table.getId()).equals(get(table.getId()));            
+            return ((Record) object).get(table.getId()).equals(get(table.getId()));
         }
         return false;
     }
-    
+
     @Override
     public int hashCode() {
         return get(table.getId()).hashCode();

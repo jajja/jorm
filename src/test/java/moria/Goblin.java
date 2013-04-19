@@ -7,7 +7,7 @@ import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 
 @Jorm(database="moria", table="goblins", id="id")
-public class Goblin extends Record {  
+public class Goblin extends Record {
     public Integer getId() {
         return get("id", Integer.class);
     }
@@ -38,7 +38,7 @@ public class Goblin extends Record {
     public void setMindset(String mindset) {
         set("mindset", mindset);
     }
-    
+
     // part 2
     public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
         return find(Goblin.class, new Column("tribe_id", tribe), new Column("name", name));

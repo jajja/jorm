@@ -85,7 +85,7 @@ public class Transaction {
         this.dataSource = dataSource;
         table = new Table(database);
     }
-    
+
     /**
      * Provides the name of the database for the transaction.
      * 
@@ -308,7 +308,7 @@ public class Transaction {
     public void execute(String sql, Object... params) throws SQLException {
         execute(new Query(getDialect(), sql, params));
     }
-    
+
     /**
      * Executes the given query.
      * 
@@ -344,7 +344,7 @@ public class Transaction {
     public int executeUpdate(String sql, Object... params) throws SQLException {
         return executeUpdate(new Query(getDialect(), sql, params));
     }
-    
+
     /**
      * Executes the given update query.
      * 
@@ -419,7 +419,7 @@ public class Transaction {
     public List<Record> selectAll(String sql, Object... params) throws SQLException {
         return selectAll(new Query(getDialect(), sql, params));
     }
-    
+
     /**
      * Provides a list of selected anonymous read-only records, populated with
      * the results from the given query.
@@ -450,7 +450,7 @@ public class Transaction {
             }
         }
     }
-    
+
     /**
      * Sets an unnamed savepoint on the active transaction. If the transaction
      * is dormant it begins and enters the active state.
@@ -463,7 +463,7 @@ public class Transaction {
     public Savepoint save() throws SQLException {
         return getConnection().setSavepoint();
     }
-    
+
     /**
      * Sets an named savepoint on the active transaction. If the transaction is
      * dormant it begins and enters the active state.
@@ -478,7 +478,7 @@ public class Transaction {
     public Savepoint save(String name) throws SQLException {
         return getConnection().setSavepoint(name);
     }
-    
+
     /**
      * Removes the savepoint and any subsequent savepoints from the transaction.
      * Any reference to a removed savepoint will cause a SQL exception to be
@@ -493,10 +493,10 @@ public class Transaction {
      */
     public void release(Savepoint savepoint) throws SQLException {
         if (connection != null) {
-            connection.releaseSavepoint(savepoint);            
+            connection.releaseSavepoint(savepoint);
         }
     }
-    
+
     /**
      * Resets all changes made after the given savepoint. Removes any subsequent
      * savepoints from the transacion. Any reference to a removed savepoint will
@@ -512,14 +512,14 @@ public class Transaction {
      */
     public void rollback(Savepoint savepoint) throws SQLException {
         if (connection != null) {
-            connection.rollback(savepoint);            
+            connection.rollback(savepoint);
         }
     }
-    
+
     public void load(InputStream inputStream) throws IOException, SQLException {
         load(inputStream, "UTF-8");
     }
-    
+
     public void load(InputStream inputStream, String charset) throws IOException, SQLException {
         BufferedReader bufferedReader = null;
         Statement statement = null;
@@ -546,7 +546,7 @@ public class Transaction {
             }
         }
     }
-    
+
 
     /**
      * Anonymous transaction local record for read only queries.

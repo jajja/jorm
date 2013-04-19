@@ -204,7 +204,7 @@ public class Dialect {
             if (isIdentifierQuotingRequired(string)) {
                 throw new RuntimeException("Unable to quote SQL identifier '" + string + "'; no quote string available and value contains characters that must be quoted");
             } else {
-                return string;                
+                return string;
             }
         }
 
@@ -220,7 +220,7 @@ public class Dialect {
 
         return quotedValue.toString();
     }
-    
+
     //org.postgresql.core.Utils.appendEscapedLiteral()
     //com.mysql.jdbc.StringUtils.escapeQuote
     /*String brokenQuoteLiteral(String value) {
@@ -242,7 +242,7 @@ public class Dialect {
     public boolean isForeignKeyViolation(SQLException sqlException) {
         return ExceptionType.FOREIGN_KEY_VIOLATION.equals(getExceptionType(sqlException));
     }
-    
+
     /**
      * SQL exception predicate for unique violation.
      * 
@@ -254,7 +254,7 @@ public class Dialect {
     public boolean isUniqueViolation(SQLException sqlException) {
         return ExceptionType.UNIQUE_VIOLATION.equals(getExceptionType(sqlException));
     }
-    
+
     /**
      * SQL exception predicate for check violation.
      * 
@@ -278,7 +278,7 @@ public class Dialect {
     public boolean isDeadlockDetected(SQLException sqlException) {
         return ExceptionType.DEADLOCK_DETECTED.equals(getExceptionType(sqlException));
     }
-    
+
     /**
      * SQL exception predicate for lock timeout.
      * 
@@ -290,7 +290,7 @@ public class Dialect {
     public boolean isLockTimeout(SQLException sqlException) {
         return ExceptionType.LOCK_TIMEOUT.equals(getExceptionType(sqlException));
     }
-    
+
     /**
      * Classifies SQL exceptions by SQL states and error codes. In the current
      * configuration, PostgreSQL, MySQL and SQL Server exceptions can be classified.
@@ -338,7 +338,7 @@ public class Dialect {
         if (sqlException instanceof JormSqlException) {
             throw (JormSqlException) sqlException;
         } else if (isForeignKeyViolation(sqlException)) {
-           throw new ForeignKeyViolationException(database, sql, sqlException);
+            throw new ForeignKeyViolationException(database, sql, sqlException);
         } else if (isUniqueViolation(sqlException)) {
             throw new UniqueViolationException(database, sql, sqlException);
         } else if (isCheckViolation(sqlException)) {
@@ -394,7 +394,7 @@ public class Dialect {
     public DatabaseProduct getDatabaseProduct() {
         return databaseProduct;
     }
-    
+
     public static enum ExceptionType {
         UNKNOWN,
         FOREIGN_KEY_VIOLATION,
