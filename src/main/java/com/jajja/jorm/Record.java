@@ -938,7 +938,7 @@ public abstract class Record {
     public void delete() throws SQLException {
         checkReadOnly();
         refresh();
-        Query query = new Query(open().getDialect(), "DELETE FROM #1# WHERE #:2# = #3#", table, table.getId(), get(table.getId()));
+        Query query = new Query(open().getDialect(), "DELETE FROM #1# WHERE #:2# = #?3#", table, table.getId(), get(table.getId()));
         PreparedStatement preparedStatement = open().prepare(query);
         try {
             preparedStatement.execute();
@@ -1041,7 +1041,11 @@ public abstract class Record {
             isFirst = true;
             for (Field field : fields.values()) {
                 if (field.isChanged()) {
-                    query.append(isFirst ? "#1#" : ", #1#", field.getValue());
+                    if (field.getValue() instanceof Query) {
+                        query.append(isFirst ? "#1#" : ", #1#", field.getValue());
+                    } else {
+                        query.append(isFirst ? "#1#" : ", #1#", field.getValue());
+                    }
                     isFirst = false;
                 }
             }
@@ -1190,7 +1194,12 @@ public abstract class Record {
             for (Symbol column : columns) {
                 if (!table.isImmutable(column)) {
                     if (record.isFieldChanged(column)) {
-                        query.append(isColumnFirst ? "#1#" : ", #1#", record.get(column));
+                        Object value = record.get(column);
+                        if (value instanceof Query) {
+                            query.append(isColumnFirst ? "#1#" : ", #1#", value);
+                        } else {
+                            query.append(isColumnFirst ? "#?1#" : ", #?1#", value);
+                        }
                     } else {
                         query.append(isColumnFirst ? "DEFAULT" : ", DEFAULT");
                     }
@@ -1308,13 +1317,14 @@ public abstract class Record {
 
         boolean isFirst = true;
         for (Entry<Symbol, Field> entry : fields.entrySet()) {
-            if (entry.getValue().isChanged()) {
-                if (isFirst) {
-                    isFirst = false;
+            Field field = entry.getValue();
+            if (field.isChanged()) {
+                if (field.getValue() instanceof Query) {
+                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), field.getValue());
                 } else {
-                    query.append(", ");
+                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), field.getValue());
                 }
-                query.append("#:1# = #2#", entry.getKey(), entry.getValue().getValue());
+                isFirst = false;
             }
         }
 

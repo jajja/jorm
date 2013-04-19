@@ -60,7 +60,8 @@ public class Query {
     public static final char MODIFIER_NONE = 0;
     public static final char MODIFIER_UNQUOTED = '!';
     public static final char MODIFIER_IDENTIFIER = ':';
-    private static final String ALL_MODIFIERS = "!:";
+    public static final char MODIFIER_RAW = '?';
+    private static final String ALL_MODIFIERS = "!:?";
     private Dialect dialect;
     private StringBuilder sql = new StringBuilder(64);
     private List<Object> params;
@@ -168,8 +169,14 @@ public class Query {
         int i = Integer.decode(string);
         param = params[i-1];
 
-        if (param != null && param.getClass().isArray()) {
-            param = Arrays.asList(param);
+        if (modifier == MODIFIER_RAW) {
+            sql.append("?");
+            this.params.add(param);
+            return;
+        }
+
+        if (param != null && param.getClass().isArray() && !param.getClass().getComponentType().isPrimitive()) {
+            param = Arrays.asList((Object[])param);
         }
         if (param instanceof Collection) {
             boolean isFirst = true;
