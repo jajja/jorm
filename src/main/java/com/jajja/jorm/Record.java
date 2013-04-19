@@ -886,6 +886,7 @@ public abstract class Record {
             HashSet<Symbol> symbols = new HashSet<Symbol>();
 
             for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
+                System.out.println(i + " = " + resultSetMetaData.getColumnLabel(i));
                 Symbol symbol = Symbol.get(resultSetMetaData.getColumnLabel(i));
 
                 put(symbol, resultSet.getObject(i));
@@ -938,7 +939,7 @@ public abstract class Record {
     public void delete() throws SQLException {
         checkReadOnly();
         refresh();
-        Query query = new Query(open().getDialect(), "DELETE FROM #1# WHERE #:2# = #?3#", table, table.getId(), get(table.getId()));
+        Query query = new Query(open().getDialect(), "DELETE FROM #1# WHERE #:2# = #3#", table, table.getId(), get(table.getId()));
         PreparedStatement preparedStatement = open().prepare(query);
         try {
             preparedStatement.execute();
@@ -1044,7 +1045,7 @@ public abstract class Record {
                     if (field.getValue() instanceof Query) {
                         query.append(isFirst ? "#1#" : ", #1#", field.getValue());
                     } else {
-                        query.append(isFirst ? "#1#" : ", #1#", field.getValue());
+                        query.append(isFirst ? "#?1#" : ", #?1#", field.getValue());
                     }
                     isFirst = false;
                 }
