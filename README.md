@@ -23,6 +23,7 @@ Getting jORM to a public maven repo is one of the items on the timeline of the p
 
     > git clone git://github.com/jajja/jorm.git
     > cd jorm
+    > git checkout 1.0.1
     > mvn install
 
 Then include the dependency to jORM in any project you are working on that needs a lightweight ORM.
@@ -30,7 +31,7 @@ Then include the dependency to jORM in any project you are working on that needs
     <dependency>
         <groupId>com.jajja</groupId>
         <artifactId>jorm</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </dependency>
 
 Now that you've got the code, let's see if we cannot conjure some cheap tricks!
