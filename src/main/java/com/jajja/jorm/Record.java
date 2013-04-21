@@ -886,7 +886,6 @@ public abstract class Record {
             HashSet<Symbol> symbols = new HashSet<Symbol>();
 
             for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
-                System.out.println(i + " = " + resultSetMetaData.getColumnLabel(i));
                 Symbol symbol = Symbol.get(resultSetMetaData.getColumnLabel(i));
 
                 put(symbol, resultSet.getObject(i));
