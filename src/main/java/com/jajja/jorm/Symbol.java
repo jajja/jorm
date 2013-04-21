@@ -67,12 +67,17 @@ public final class Symbol {
      */
     public static Symbol get(String name) {
         Symbol symbol = symbols.get(name);
-        if (symbol != null) {
-            return symbol;
+
+        if (symbol == null) {
+            synchronized (symbols) {
+                symbol = symbols.get(name);
+                if (symbol == null) {
+                    symbol = new Symbol(symbols.size() + 1, name);
+                    symbols.put(name, symbol);
+                }
+            }
         }
 
-        symbol = new Symbol(symbols.size() + 1, name);
-        symbols.put(name, symbol);
         return symbol;
     }
 
