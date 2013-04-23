@@ -79,6 +79,7 @@ public class Transaction {
     private Connection connection;
     private Table table;
     private boolean isLoggingEnabled = false;
+    boolean isDestroyed = false;
 
     Transaction(DataSource dataSource, String database) {
         this.database = database;
@@ -178,6 +179,9 @@ public class Transaction {
      *             if a database access error occurs.
      */
     Connection getConnection() throws SQLException {
+        if (isDestroyed) {
+            throw new IllegalStateException("Attempted to use destroyed transaction!");
+        }
         if (connection == null) {
             connection = dataSource.getConnection();
             connection.setAutoCommit(false);

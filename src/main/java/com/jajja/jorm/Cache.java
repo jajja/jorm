@@ -83,21 +83,27 @@ public class Cache<C extends Record> {
     }
 
     public void put(Collection<C> records) {
-        for (C record : records) {
-            Object key = record.id();
-            if (key != null) {
-                index(record);
+        synchronized (map) {
+            for (C record : records) {
+                Object key = record.id();
+                if (key != null) {
+                    index(record);
+                }
             }
         }
     }
 
     private void index(C record) {
+        if (map.containsKey(record.id())) {
+            touch(record.id());
+            return;
+        }
         map.put(record.id(), record);
         for (String column : additionalColumns) {
             Map<Object, Object> amap = additionalMap.get(column);
             Object value = record.get(column);
             if (amap.containsKey(value)) {
-                throw new RuntimeException("collision! " + column + " already contains value " + value + " (while indexing record " + record + ")");
+                throw new RuntimeException("collision! column '" + column + "' already contains value '" + value + "' (while indexing record " + record + ")");
             }
             amap.put(value, record.id());
         }
@@ -108,9 +114,9 @@ public class Cache<C extends Record> {
             Map<Object, Object> amap = additionalMap.get(column);
             Object value = record.get(column);
             if (!amap.containsKey(value)) {
-                throw new RuntimeException("index corruption! " + column + " no longer contains value " + value);
+                throw new RuntimeException("index corruption! column '" + column + "' no longer contains value '" + value + "'");
             }
-            amap.remove(record.get(column));
+            amap.remove(value);
         }
     }
 
@@ -122,7 +128,7 @@ public class Cache<C extends Record> {
                 record = map.get(value);
             } else {
                 if (!additionalColumns.contains(column)) {
-                    throw new IllegalArgumentException("column " + column + " is not indexed");
+                    throw new IllegalArgumentException("column '" + column + "' is not indexed");
                 }
                 Map<Object, Object> amap = additionalMap.get(column);
                 record = map.get( amap.get(value) );

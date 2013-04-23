@@ -206,12 +206,13 @@ public class Database {
     }
 
     /**
-     * Closes all transactions for the current thread.
+     * Closes and destroys all transactions for the current thread.
      */
     public static void close() {
     	HashMap<String, Transaction> map = instance.getTransactions();
     	for (Transaction transaction : map.values()) {
     	    transaction.close();
+    	    transaction.isDestroyed = true;
     	}
     	map.clear();
     	instance.transactions.remove();
