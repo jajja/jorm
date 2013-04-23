@@ -1429,12 +1429,18 @@ public abstract class Record {
         if (isReadOnly || table.isImmutable(symbol)) {
             return false;
         }
+
         Field field = fields.get(symbol);
-        if (field != null) {
-            Object oldValue = field.getValue();
-            return (oldValue == null ^ newValue == null) || oldValue == null || !oldValue.equals(newValue);
+        if (field == null) {
+            return true;
         }
-        return true;
+
+        Object oldValue = field.getValue();
+        if (oldValue == null && newValue == null) {
+            return false;
+        } else {
+            return oldValue == null || !oldValue.equals(newValue);
+        }
     }
 
     private void put(Symbol symbol, Object value) {

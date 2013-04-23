@@ -1,16 +1,16 @@
 /*
  * Copyright (C) 2013 Jajja Communications AB
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -36,7 +36,7 @@ import org.apache.commons.logging.LogFactory;
  * recommended implementation for easy configuration is
  * <tt>org.apache.commons.dbcp.BasicDataSource</tt> from the Apache project
  * <tt>commons-dbcp</tt>.
- * 
+ *
  * @see Jorm
  * @see Record
  * @author Martin Korinth <martin.korinth@jajja.com>
@@ -55,7 +55,7 @@ public class Database {
     /**
      * Acts as singleton factory for bean configuration access. All other access
      * to databases should be static.
-     * 
+     *
      * @return the singleton database representation containing configured data
      *         sources for databases.
      */
@@ -79,7 +79,7 @@ public class Database {
     /**
      * Configures all databases accessible through {@link Database#open(String)}
      * and {@link Database#close(String)}. Overrides any previous configuration.
-     * 
+     *
      * @param dataSources
      *            the named databases, each represented by a string and a data
      *            source.
@@ -90,7 +90,7 @@ public class Database {
 
     /**
      * Configures the named database by means of a data source.
-     * 
+     *
      * @param database
      *            the named database.
      * @param dataSource
@@ -102,7 +102,7 @@ public class Database {
 
     /**
      * Configures the named database by means of a data source.
-     * 
+     *
      * @param database
      *            the named database.
      * @param dataSource
@@ -120,7 +120,7 @@ public class Database {
 
     /**
      * Determines whether a named database has been configured or not.
-     * 
+     *
      * @param database
      *            the named database.
      * @return true if the named database has been configured, false otherwise.
@@ -132,7 +132,7 @@ public class Database {
     /**
      * Ensures that a named database is configured by throwing an illegal state
      * exception if it is not.
-     * 
+     *
      * @param database
      *            the named database.
      * @throws IllegalStateException
@@ -146,7 +146,7 @@ public class Database {
      * Opens a thread local transaction for the given database name. If an open
      * transaction already exists, it is reused. This method is idempotent when
      * called from the same thread.
-     * 
+     *
      * @param database
      *            the name of the database.
      * @return the open transaction.
@@ -168,7 +168,7 @@ public class Database {
     /**
      * Commits the thread local transaction for the given database name if it
      * has been opened.
-     * 
+     *
      * @param database
      *            the name of the database.
      * @return the closed transaction or null for no active transaction.
@@ -189,7 +189,7 @@ public class Database {
     /**
      * Closes the thread local transaction for the given database name if it has
      * been opened. This method is idempotent when called from the same thread.
-     * 
+     *
      * @param database
      *            the name of the database.
      * @return the closed transaction or null for no active transaction.
@@ -206,12 +206,12 @@ public class Database {
     }
 
     /**
-     * Closes all transactions for the current thread.
+     * Closes and destroys all transactions for the current thread.
      */
     public static void close() {
         HashMap<String, Transaction> map = instance.getTransactions();
         for (Transaction transaction : map.values()) {
-            transaction.close();
+            transaction.destroy();
         }
         map.clear();
         instance.transactions.remove();

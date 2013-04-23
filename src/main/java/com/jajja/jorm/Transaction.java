@@ -1,16 +1,16 @@
 /*
  * Copyright (C) 2013 Jajja Communications AB
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -43,7 +43,7 @@ import org.apache.commons.logging.LogFactory;
 /**
  * The transaction implementation executing all queries in for {@link Jorm}
  * mapped and anonymous records alike.
- * 
+ *
  * <h3>Lifecycle</h3>
  * <ul>
  * <li><tt>Begin&nbsp;&nbsp;:&nbsp;Dormant&nbsp;->&nbsp;Active</tt></li>
@@ -61,7 +61,7 @@ import org.apache.commons.logging.LogFactory;
  * a dormant phase. The Close transition is explicitly defined by a call to
  * {@link #close()}, which is automatically propagated by
  * {@link Database#close()}.
- * 
+ *
  * @see Query
  * @see Database
  * @see Record
@@ -79,6 +79,7 @@ public class Transaction {
     private Connection connection;
     private Table table;
     private boolean isLoggingEnabled = false;
+    private boolean isDestroyed = false;
 
     Transaction(DataSource dataSource, String database) {
         this.database = database;
@@ -88,7 +89,7 @@ public class Transaction {
 
     /**
      * Provides the name of the database for the transaction.
-     * 
+     *
      * @return the name of the database
      */
     public String getDatabase() {
@@ -128,7 +129,7 @@ public class Transaction {
     /**
      * Provides the start time of the current transaction. The result is cached
      * until the end of the transaction.
-     * 
+     *
      * @return the start time of the current transaction.
      * @throws RuntimeException
      *             if a database access error occurs.
@@ -172,12 +173,15 @@ public class Transaction {
     /**
      * Provides the current connection, opening a new if needed. Disables auto
      * commit.
-     * 
+     *
      * @return the connection of the transaction.
      * @throws SQLException
      *             if a database access error occurs.
      */
     public Connection getConnection() throws SQLException {
+        if (isDestroyed) {
+            throw new IllegalStateException("Attempted to use destroyed transaction!");
+        }
         if (connection == null) {
             connection = dataSource.getConnection();
             connection.setAutoCommit(false);
@@ -207,6 +211,14 @@ public class Transaction {
     }
 
     /**
+     * Destroys the transaction.
+     */
+    public void destroy() {
+        close();
+        isDestroyed = true;
+    }
+
+    /**
      * Commits the current transaction and closes the database connection.
      *
      * @throws SQLException
@@ -221,7 +233,7 @@ public class Transaction {
 
     /**
      * Provides a prepared statement for the given query.
-     * 
+     *
      * @param query
      *            the query.
      * @throws SQLException
@@ -233,7 +245,7 @@ public class Transaction {
 
     /**
      * Provides a prepared statement for the given query.
-     * 
+     *
      * @param query
      *            the query.
      * @param returnGeneratedKeys sets Statement.RETURN_GENERATED_KEYS iff true
@@ -246,7 +258,7 @@ public class Transaction {
 
     /**
      * Provides a prepared statement for the query given by a JDBC SQL statement and applicable parameters.
-     * 
+     *
      * @param sql
      *            the JDBC SQL statement.
      * @param params
@@ -260,7 +272,7 @@ public class Transaction {
 
     /**
      * Provides a prepared statement for the query given by a JDBC SQL statement and applicable parameters.
-     * 
+     *
      * @param sql
      *            the JDBC SQL statement.
      * @param params
@@ -296,7 +308,7 @@ public class Transaction {
 
     /**
      * Executes the update query given by a Jorm SQL statement and applicable parameters.
-     * 
+     *
      * @param sql
      *            the Jorm SQL statement.
      * @param params
@@ -311,7 +323,7 @@ public class Transaction {
 
     /**
      * Executes the given query.
-     * 
+     *
      * @param query
      *            the query.
      * @throws SQLException
@@ -331,7 +343,7 @@ public class Transaction {
 
     /**
      * Executes the update query given by a Jorm SQL statement and applicable parameters.
-     * 
+     *
      * @param sql
      *            the Jorm SQL statement.
      * @param params
@@ -347,7 +359,7 @@ public class Transaction {
 
     /**
      * Executes the given update query.
-     * 
+     *
      * @param query
      *            the update query.
      * @return the number of updated rows in the database.
@@ -369,7 +381,7 @@ public class Transaction {
     /**
      * Provides an anonymous read-only record, populated with the first result
      * from the query given by a Jorm SQL statement and applicable parameters.
-     * 
+     *
      * @param sql
      *            the Jorm SQL statement.
      * @param params
@@ -390,7 +402,7 @@ public class Transaction {
     /**
      * Provides an anonymous read-only record, populated with the first result from the
      * given query.
-     * 
+     *
      * @param query
      *            the query.
      * @return the matched record or null for no match.
@@ -406,7 +418,7 @@ public class Transaction {
      * Provides a list of selected anonymous read-only records, populated with
      * the results from the query given by a Jorm SQL statement and applicable
      * parameters.
-     * 
+     *
      * @param sql
      *            the Jorm SQL statement.
      * @param params
@@ -423,7 +435,7 @@ public class Transaction {
     /**
      * Provides a list of selected anonymous read-only records, populated with
      * the results from the given query.
-     * 
+     *
      * @param query
      *            the query.
      * @return the matched records.
@@ -454,7 +466,7 @@ public class Transaction {
     /**
      * Sets an unnamed savepoint on the active transaction. If the transaction
      * is dormant it begins and enters the active state.
-     * 
+     *
      * @return the savepoint.
      * @throws SQLException
      * @throws SQLException
@@ -467,7 +479,7 @@ public class Transaction {
     /**
      * Sets an named savepoint on the active transaction. If the transaction is
      * dormant it begins and enters the active state.
-     * 
+     *
      * @param name
      *            the name of the savepoint.
      * @return the savepoint.
@@ -484,7 +496,7 @@ public class Transaction {
      * Any reference to a removed savepoint will cause a SQL exception to be
      * thrown. If the transaction is dormant releasing a savepoint has no effect
      * and the state of the transaction is unchanged.
-     * 
+     *
      * @param savepoint
      *            the savepoint to release.
      * @throws SQLException
@@ -503,7 +515,7 @@ public class Transaction {
      * cause a SQL exception to be thrown. If the transaction is dormant,
      * rollback to a savepoint has no effect and the state of the transaction is
      * unchanged.
-     * 
+     *
      * @param savepoint
      *            the savepoint to rollback the transaction to.
      * @throws SQLException
