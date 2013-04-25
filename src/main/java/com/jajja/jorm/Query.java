@@ -69,7 +69,7 @@ public class Query {
         this.dialect = dialect;
         params = new LinkedList<Object>();
     }
-    
+
     Query(Dialect dialect, String sql) {
         this(dialect);
         append(sql);
@@ -83,7 +83,7 @@ public class Query {
     public Query(Transaction transaction) {
         this(transaction.getDialect());
     }
-    
+
     public Query(Transaction transaction, String sql) {
         this(transaction.getDialect(), sql);
     }
@@ -95,13 +95,14 @@ public class Query {
     @SuppressWarnings("rawtypes")
     private void append(char modifier, Object param, String label) {
         // TODO: refactor
-        if (param instanceof Record) {
-            if (label == null) throw new IllegalArgumentException("Cannot append record field without a label! (e.g. #1:foo_column#)");
-            param = ((Record)param).get(label);
-        } else if (param instanceof Map) {
+        if (param instanceof Map) {
             if (label == null) throw new IllegalArgumentException("Cannot append map without a label! (e.g. #1:map_key#)");
             param = ((Map)param).get(label);
-        } else if (param instanceof Table) {
+        } else if (param instanceof Record) {
+            if (label == null) throw new IllegalArgumentException("Cannot append record field without a label! (e.g. #1:foo_column#)");
+            param = ((Record)param).get(label);
+        }
+        if (param instanceof Table) {
             Table table = (Table)param;
             if (table.getSchema() != null) {
                 sql.append(dialect.quoteIdentifier(table.getSchema()));
@@ -204,8 +205,8 @@ public class Query {
                     hashStart = -1;
                     this.sql.append('#');
                     continue;
-               }
-               inHash = true;
+                }
+                inHash = true;
             } else if (ch == '#') {
                 hashStart = i;
             } else {
@@ -238,5 +239,5 @@ public class Query {
     public List<Object> getParams() {
         return params;
     }
-    
+
 }
