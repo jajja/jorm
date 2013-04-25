@@ -253,7 +253,15 @@ The `Record#build(String, Object...)` method provides a query usable as a field 
 
 Queries are expressed in a SQL with hash-markup. References to parameters are enclosed by two hashses (#), and use numbers to address parameters in order of appearance.
 
-    query("SELECT * FROM foo WHERE bar < #1# AND #1# < baz AND baz < #2# ", 10, 100);
+    Record.select("SELECT * FROM foo WHERE bar < #1# AND #1# < baz AND baz < #2# ", 10, 100);
+    
+Quaries are implicitly created by `Record#select(String, Object...)`, but can also be explicitly created.
+
+    Transaction transaction = Database.open("bar");
+    Dialect dialect = transaction.getDialect();
+    Query query = new Query(dialect, "SELECT * FROM foo WHERE bar < #1# AND #1# < baz AND baz < #2# ", 10, 100);
+    
+Instances of `Record` wrap dialect retrieval in `Record#build(String, Object...)`, as a syntactic sugar to build queries shown in the previous section 'Queries as fields'.
 
 ###Tokens
 
@@ -265,45 +273,47 @@ Queries are expressed in a SQL with hash-markup. References to parameters are en
 
 Hashes (#) can be quoted by double-hashing, i.e ##, ? cannot be escaped properly due to design flaws in the JDBC.
 
-    query("SELECT 1 ## 2");     // = "SELECT 1 # 2"
+    Record.select("SELECT 1 ## 2");     // = "SELECT 1 # 2"
 
 ### Java arrays
 
     Integer[] ids = new Integer[]{1, 2, 3};
-    query("SELECT * FROM foo WHERE id IN (#1#)", ids);
-    query("SELECT * FROM foo WHERE id IN (#!1#)", ids); // No quoting performed!
+    Record.select("SELECT * FROM foo WHERE id IN (#1#)", ids);
+    Record.select("SELECT * FROM foo WHERE id IN (#!1#)", ids); // No quoting performed!
 
 ### Java collections
 
     List<String> names = new LinkedList<String>();
     names.add("John");
     names.add("Doe");
-    query("SELECT * FROM foo WHERE names IN (#1#)", names);
+    Record.select("SELECT * FROM foo WHERE names IN (#1#)", names);
 
 ### Java collections
 
     List<Record> records = new LinkedList<Record>();
     records.add(someRecord1);
     records.add(someRecord2);
-    query("SELECT * FROM foo WHERE names IN (#1:some_column#)", records);
+    Record.select("SELECT * FROM foo WHERE names IN (#1:some_column#)", records);
 
 ### Java maps
 
     Map<String, Integer> map = new HashMap<String, Integer>();
     map.put("foo", 5);
     map.put("bar", 3);
-    query("SELECT * FROM foobars WHERE foo_id = #1:foo# OR bar_id = #1:bar#", map);
+    Record.select("SELECT * FROM foobars WHERE foo_id = #1:foo# OR bar_id = #1:bar#", map);
 
 ### jORM tables
   
-    query("SELECT * FROM #1# WHERE id = 5", table());   // Modifier ignored, tables are always quoted as a identifiers
+    Record.select("SELECT * FROM #1# WHERE id = 5", table(Goblin.class));   // Modifier ignored, tables are always quoted as a identifiers
 
 ### jORM symbols
 
-    query("SELECT * FROM foo WHERE #1# = 5", Symbol.get("id")); // Modifier ignored, Symbols are always quoted as identifiers
+    Record.select("SELECT * FROM foo WHERE #1# = 5", Symbol.get("id")); // Modifier ignored, Symbols are always quoted as identifiers
 
 ### Nested jORM queries
 
+    Transaction transaction = Database.open("moria");
+    Dialect dialect = transaction.getDialect();
     Query subQuery = new Query(dialect, "SELECT id FROM bar WHERE baz LIKE #1#", "%moo%");
     Query query = new Query(dialect, "SELECT * FROM foo WHERE bar_id IN (#1#)", subQuery);
 
