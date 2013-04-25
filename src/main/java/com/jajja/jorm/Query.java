@@ -99,11 +99,11 @@ public class Query {
         if (param instanceof Map) {
             if (label == null) throw new IllegalArgumentException("Cannot append map without a label! (e.g. #1:map_key#)");
             param = ((Map)param).get(label);
-        }
-        if (param instanceof Record) {
+        } else if (param instanceof Record) {
             if (label == null) throw new IllegalArgumentException("Cannot append record field without a label! (e.g. #1:foo_column#)");
             param = ((Record)param).get(label);
-        } else if (param instanceof Table) {
+        }
+        if (param instanceof Table) {
             Table table = (Table)param;
             if (table.getSchema() != null) {
                 sql.append(dialect.quoteIdentifier(table.getSchema()));
