@@ -13,7 +13,8 @@ Would you like to be able to do the following without writing a single line of b
 
     Goblin goblin = Record.findById(Goblin.class, 42);
     goblin.setName("Azog");
-    goblin.saveAndCommit();
+    goblin.save();
+    goblin.commit();
     
 You will be done before you are halfway through _getting started_.
 
@@ -348,7 +349,7 @@ However, code modularization can make passing of references to transactions cumb
         Database.close("moria");
     }
 
-There is conveniently wrapped by static methods of the record, using @Jorm annotations to define named datbases.
+There is conveniently wrapped by static methods of the record, using `@Jorm` annotations to define named datbases.
 
     Record.open(Goblin.class);
     try {
