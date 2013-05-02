@@ -73,6 +73,10 @@ public final class Postgres {
     }
 
     public static Period toPeriod(PGInterval interval) {
+        if (interval == null) {
+            return null;
+        }
+
         int seconds = (int)interval.getSeconds();
         int millis = (int)(interval.getSeconds() * 1000.0 - seconds);
 
@@ -87,6 +91,9 @@ public final class Postgres {
     }
 
     public static PGInterval toInterval(Period period) {
+        if (period == null) {
+            return null;
+        }
         return new PGInterval(
                     period.getYears(),
                     period.getMonths(),
