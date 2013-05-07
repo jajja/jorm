@@ -1681,8 +1681,6 @@ public abstract class Record {
         StringBuilder stringBuilder = new StringBuilder();
         boolean isFirst = true;
 
-        refresh();
-
         if (table.getSchema() != null) {
             stringBuilder.append(table.getSchema());
             stringBuilder.append('.');
