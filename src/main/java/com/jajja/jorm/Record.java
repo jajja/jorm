@@ -598,6 +598,23 @@ public abstract class Record {
 
     /**
      * Provides a selected record, populated with the first result from the
+     * query given by a plain SQL statement and applicable parameters.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the plain SQL statement.
+     * @return the matched record or null for no match.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> T select(Class<T> clazz, String sql) throws SQLException {
+        return select(clazz, new Query(open(clazz).getDialect(), sql));
+    }
+
+    /**
+     * Provides a selected record, populated with the first result from the
      * query given by a Jorm SQL statement and applicable parameters.
      *
      * @param clazz
@@ -612,11 +629,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T select(Class<T> clazz, String sql, Object... params) throws SQLException {
-        T record = construct(clazz);
-        if (record.selectInto(sql, params)) {
-            return record;
-        }
-        return null;
+        return select(clazz, new Query(open(clazz).getDialect(), sql, params));
     }
 
     /**
@@ -638,6 +651,23 @@ public abstract class Record {
             return record;
         }
         return null;
+    }
+
+    /**
+     * Provides a list of selected records, populated with the results from the
+     * query given by a plain SQL statement.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the plain SQL statement.
+     * @return the matched records
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql) throws SQLException {
+        return selectAll(clazz, new Query(open(clazz).getDialect(), sql));
     }
 
     /**
@@ -740,6 +770,23 @@ public abstract class Record {
 //    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, String column, String sql, Object... params) throws SQLException {
 //        return selectAllHashMap(clazz, Symbol.get(column), new Query(transaction(clazz).getDialect(), sql, params));
 //    }
+
+    /**
+     * Executes the query given by a plain SQL statement and applicable
+     * parameters and populates the record with the first row of the result. Any
+     * values in the record object are cleared if the record was previously
+     * populated.
+     *
+     * @param sql
+     *            the plain SQL statement.
+     * @return true if the record was populated, otherwise false.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public boolean selectInto(String sql) throws SQLException {
+        return selectInto(new Query(open().getDialect(), sql));
+    }
 
     /**
      * Executes the query given by a Jorm SQL statement and applicable
