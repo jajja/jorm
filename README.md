@@ -361,7 +361,7 @@ There is conveniently wrapped by static methods of the record, using `@Jorm` ann
         Record.close(Goblin.class);
     }
 
-Transactions are even available through record instances, which cane sometimes be convenient. Note that any record may act as reference to the thread local transaction possibly shared by multiple records.
+Transactions are even available through record instances, which can sometimes be convenient. Note that any record may act as reference to the thread local transaction possibly shared by multiple records.
 
     Record context = null
     try {
@@ -387,7 +387,7 @@ The above example closes all thread local transactions are releasing the current
 
 ### Transaction savepoints
 
-For some types of problems it may be beneficiary to make use of savepoints. For this reason the savepoints of JDBC are wrapped by transactions.
+For some types of problems it may be beneficial to make use of savepoints. For this reason the savepoints of JDBC are wrapped by transactions.
 
     Transation transaction = Database.open("moria");
     try {
@@ -414,7 +414,7 @@ Note that not every database engine supports release of savepoints. MSSQL only s
 
 ## Database engines
 
-jORM has been tested on Postgres, MySQL and MSSQL. If you have a license to a dababase engine and would like to contribute, please feel free to contact the authors.
+jORM has been tested on Postgres, MySQL and MSSQL. If you have a license to a database engine and would like to contribute, please feel free to contact the authors.
 
 ### Is jORM database agnostic?
 
