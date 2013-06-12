@@ -26,6 +26,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -135,7 +136,7 @@ public abstract class Record {
     private boolean isReadOnly = false;
     private static Map<Class<? extends Record>, Log> logs = new ConcurrentHashMap<Class<? extends Record>, Log>();
 
-    private static class Field {
+    public static class Field {
         private Object value = null;
         // XXX NEVER SET THIS TO TRUE (taint(), insert(), update(), etc) FOR ID-COLUMNS UNLESS SET EXPLICITLY AND EXTERNALLY BY set() (i.e. user forced an ID change)
         private boolean isChanged = false;
@@ -143,7 +144,7 @@ public abstract class Record {
 
         private Field() {}
 
-        public void setValue(Object value) {
+       void setValue(Object value) {
             this.value = value;
         }
 
@@ -151,15 +152,15 @@ public abstract class Record {
             return value;
         }
 
-        public void setChanged(boolean isChanged) {
+        void setChanged(boolean isChanged) {
             this.isChanged = isChanged;
         }
 
-        public boolean isChanged() {
+        boolean isChanged() {
             return isChanged;
         }
 
-        public void setReference(Record reference) {
+        void setReference(Record reference) {
             this.reference = reference;
         }
 
@@ -260,6 +261,15 @@ public abstract class Record {
      */
     public Table table() {
         return table;
+    }
+    
+    /**
+     * Provides an immutable view of the fields of the record.
+     *
+     * @return the fields.
+     */
+    public Map<Symbol, Field> fields() {
+        return Collections.unmodifiableMap(fields);
     }
 
     /**
