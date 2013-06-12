@@ -93,7 +93,7 @@ public class Query {
         this(transaction.getDialect(), sql, params);
     }
 
-    @SuppressWarnings("rawtypes")
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     private void append(char modifier, Object param, String label) {
         // TODO: refactor
         if (param instanceof Map) {
@@ -102,7 +102,10 @@ public class Query {
         } else if (param instanceof Record) {
             if (label == null) throw new IllegalArgumentException("Cannot append record field without a label! (e.g. #1:foo_column#)");
             param = ((Record)param).get(label);
+        } else if (param instanceof Class && Record.isRecordSubclass((Class)param)) {
+            param = Table.get((Class<? extends Record>)param);
         }
+
         if (param instanceof Table) {
             Table table = (Table)param;
             if (table.getSchema() != null) {
