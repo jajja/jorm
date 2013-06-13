@@ -193,11 +193,18 @@ public class Generator {
                 int dataType = resultSet.getInt("DATA_TYPE");
                 String javaDataType = typeMap.get(dataType);
 
-                // MySQL hack.
-                if ("INT UNSIGNED".equals(typeName)) {
-                    javaDataType = "Long";
-                } else if ("BIGINT UNSIGNED".equals(typeName)) {
-                    javaDataType = "java.math.BigInteger";
+                if (Dialect.DatabaseProduct.MYSQL.equals(transaction.getDialect().getDatabaseProduct())) {
+                    if ("INT UNSIGNED".equals(typeName)) {
+                        javaDataType = "Long";
+                    } else if ("BIGINT UNSIGNED".equals(typeName)) {
+                        javaDataType = "java.math.BigInteger";
+                    }
+                }
+
+                if (Dialect.DatabaseProduct.POSTGRESQL.equals(transaction.getDialect().getDatabaseProduct())) {
+                    if ("interval".equals(typeName)) {
+                        javaDataType = "org.postgresql.util.PGInterval";
+                    }
                 }
 
                 if (javaDataType == null) javaDataType = "Object";
