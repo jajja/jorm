@@ -137,7 +137,8 @@ public class Generator {
 
     private Map<String, String> generate(String table, String schema) throws SQLException {
         StringBuilder stringBuilder = new StringBuilder();
-        Connection c = Database.open(database).getConnection();
+        Transaction transaction = Database.open(database);
+        Connection c = transaction.getConnection();
 
         String id = "id";
         ResultSet resultSet = null;
@@ -216,6 +217,7 @@ public class Generator {
             }
         } finally {
             if (resultSet != null) resultSet.close();
+            transaction.close();
         }
 
         stringBuilder.append("}\n");
@@ -223,6 +225,7 @@ public class Generator {
         Map<String, String> map = new HashMap<String, String>();
         map.put("name", className);
         map.put("content", stringBuilder.toString());
+
         return map;
     }
 
