@@ -33,6 +33,7 @@ public class Moria {
         try {
             Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
             Database.commit("moria");
+            Database.open("moria").setLoggingEnabled(true);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -116,6 +117,7 @@ public class Moria {
                 litter.save();
             }
             Assert.assertEquals(Record.findAll(Litter.class).size(), goblins.size());
+            Database.commit("moria");
         } catch (SQLException e) {
             e.printStackTrace();
             Assert.fail();
@@ -130,6 +132,7 @@ public class Moria {
             Litter litter = Record.find(Litter.class);
             litter.setStench(2.);
             litter.save();
+            Database.commit("moria");
         } catch (SQLException e2) {
             e = e2;
             Database.close("moria");
@@ -145,6 +148,7 @@ public class Moria {
             goblin.setName("Bolg");
             goblin.setTribeId(1);
             goblin.insert();
+            Database.commit("moria");
         } catch (SQLException e2) {
             e = e2;
             Database.close("moria");

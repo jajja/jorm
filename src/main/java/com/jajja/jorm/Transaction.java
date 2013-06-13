@@ -78,8 +78,21 @@ public class Transaction {
     private Timestamp now;
     private Connection connection;
     private Table table;
-    private boolean isLoggingEnabled = false;
     private boolean isDestroyed = false;
+    private boolean isLoggingEnabled = false;
+    
+    private void tracelog(String message) {
+        if (isLoggingEnabled) {
+            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+            for (int i = 1; i < stackTrace.length; i++) {
+                StackTraceElement stackTraceElement = stackTrace[i];
+                if (!stackTraceElement.getClassName().startsWith("com.jajja.jorm.")) {
+                    log.info(stackTraceElement + ": " + message);
+                    break;
+                }
+            }
+        }
+    }
 
     Transaction(DataSource dataSource, String database) {
         this.database = database;
@@ -184,6 +197,7 @@ public class Transaction {
         }
         if (connection == null) {
             connection = dataSource.getConnection();
+            tracelog("BEGIN");
             connection.setAutoCommit(false);
         }
         return connection;
@@ -195,6 +209,7 @@ public class Transaction {
     public void close() {
         if (connection != null) {
             try {
+                tracelog("ROLLBACK");
                 connection.rollback();
             } catch (SQLException e) {
                 log.fatal("Failed to rollback transaction", e);
@@ -226,6 +241,7 @@ public class Transaction {
      */
     public void commit() throws SQLException {
         if (connection != null) {
+            tracelog("COMMIT");
             getConnection().commit();
             close();
         }
@@ -282,16 +298,7 @@ public class Transaction {
      *             if a database access error occurs.
      */
     public PreparedStatement prepare(String sql, List<Object> params, boolean returnGeneratedKeys) throws SQLException {
-        if (isLoggingEnabled) {
-            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-            for (int i = 1; i < stackTrace.length; i++) {
-                StackTraceElement stackTraceElement = stackTrace[i];
-                if (!stackTraceElement.getClassName().startsWith("com.jajja.jorm.")) {
-                    log.info(stackTraceElement + ": " + sql);
-                    break;
-                }
-            }
-        }
+        tracelog(sql);
         try {
             PreparedStatement preparedStatement = getConnection().prepareStatement(sql, returnGeneratedKeys ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS);
             if (params != null) {
