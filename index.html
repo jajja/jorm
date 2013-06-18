@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Jorm : jORM is a Lightweight Java ORM" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Jorm</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/jajja/jorm">View on GitHub</a>
+
+          <h1 id="project_title">Jorm</h1>
+          <h2 id="project_tagline">jORM is a Lightweight Java ORM</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/jajja/jorm/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/jajja/jorm/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a name="jorm" class="anchor" href="#jorm"><span class="octicon octicon-link"></span></a>jORM</h1>
+
+<p>jORM is a lightweight Java ORM. It does not aim at solving every database problem. It primarily cures the boilerplatisis that many Java solutions suffer from, while exposing the functionality of the JDBC through a convenient interface.</p>
+
+<p>At <a href="http://www.jajja.com" title="Jajja Communications AB">Jajja</a> we've found that many applications have a need both for non teadious mapping of databases and for the full freedom of expression provided by raw SQL. This is an attempt to bridge the gap.</p>
+
+<p>jORM has primarily been tested on Postgres, MySQL and MSSQL. Usage with other engines may lack some of the niftiness provided by the current dialect adoptions.</p>
+
+<h2>
+<a name="getting-started" class="anchor" href="#getting-started"><span class="octicon octicon-link"></span></a>Getting started</h2>
+
+<p>Would you like to be able to do the following without writing a single line of boilerplate?</p>
+
+<pre><code>Goblin goblin = Record.findById(Goblin.class, 42);
+goblin.setName("Azog");
+goblin.save();
+goblin.commit();
+</code></pre>
+
+<p>You will be done before you are halfway through <em>getting started</em>.</p>
+
+<h3>
+<a name="getting-the-code" class="anchor" href="#getting-the-code"><span class="octicon octicon-link"></span></a>Getting the code</h3>
+
+<p>Getting jORM to a public maven repo is one of the items on the timeline of the project. For now clone the git repo to get a fresh copy!</p>
+
+<pre><code>&gt; git clone git://github.com/jajja/jorm.git
+&gt; cd jorm
+&gt; git checkout 1.0.3
+&gt; mvn install
+</code></pre>
+
+<p>Then include the dependency to jORM in any project you are working on that needs a lightweight ORM.</p>
+
+<pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;com.jajja&lt;/groupId&gt;
+    &lt;artifactId&gt;jorm&lt;/artifactId&gt;
+    &lt;version&gt;1.0.3&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+
+<p>Now that you've got the code, let's see if we cannot conjure some cheap tricks!</p>
+
+<h3>
+<a name="configuring-database" class="anchor" href="#configuring-database"><span class="octicon octicon-link"></span></a>Configuring database</h3>
+
+<p>The database abstraction in jORM needs a <code>javax.sql.DataSource</code> data source. One recommended implementation is the Tomcat JDBC Connection Pool.</p>
+
+<pre><code>DataSource moriaDataSource = new DataSource();
+moriaDataSource.setDriverClassName("org.postgresql.Driver");
+moriaDataSource.setUrl("jdbc:postgresql://localhost:5432/moria");
+moriaDataSource.setUsername("gandalf");
+moriaDataSource.setPassword("mellon");
+
+Database.configure("moria", moriaDataSource);
+</code></pre>
+
+<p>This will configure the pooled data source as a named database. For all of those who prefer Spring Beans this can be achieved through a singleton factory method.</p>
+
+<pre><code>&lt;bean id="moriaDataSource" class="org.apache.tomcat.jdbc.pool.DataSource" destroy-method="close"&gt;
+    &lt;property name="driverClassname" value="org.postgresql.Driver" /&gt;
+    &lt;property name="url" value="jdbc:postgresql://localhost:5432/moria" /&gt;
+    &lt;property name="username" value="gandalf" /&gt;
+    &lt;property name="password" value="mellon" /&gt;
+&lt;/bean&gt;
+
+&lt;bean class="com.jajja.jorm.Database" factory-method="get"&gt;
+    &lt;property name="dataSources"&gt;
+        &lt;map&gt;
+            &lt;entry key="moria" value-ref="moriaDataSource" /&gt;
+        &lt;/map&gt;
+    &lt;/property&gt;
+&lt;/bean&gt;
+</code></pre>
+
+<h3>
+<a name="using-databases" class="anchor" href="#using-databases"><span class="octicon octicon-link"></span></a>Using databases</h3>
+
+<p>All database queries in jORM are executed through a thread local transaction. The first query begins the transaction. After that the transaction can be committed or closed, which implicitly rolls back the transaction.</p>
+
+<pre><code>Transaction transaction = Database.open("moria");
+try {
+    transaction.select("UPDATE goblins SET mindset = 'provoked' RETURNING *");
+    transaction.commit();
+} catch (SQLException e) {
+    // handle e
+} finally {
+    transaction.close();
+}
+</code></pre>
+
+<p>The database has a shorthand to the thread local transactions. The above can also be expressed as below.</p>
+
+<pre><code>try {
+    Database.open("moria").select("UPDATE goblins SET mindset = 'provoked' RETURNING *");
+    Database.commit("moria");
+} catch (SQLException e) {
+    // handle e
+} finally {
+    Database.close("moria");
+}
+</code></pre>
+
+<p>If you are using multiple databases it may be a good idea to close all thread local transactions at the end of execution. This can be done by a single call.</p>
+
+<pre><code>Database.close();
+</code></pre>
+
+<p>Maybe you were interested in something more than executing generic queries? Let's map a table!</p>
+
+<h3>
+<a name="mapping-tables" class="anchor" href="#mapping-tables"><span class="octicon octicon-link"></span></a>Mapping tables</h3>
+
+<p>In order to map a table we need to get an idea of how it is declared. Imagine a table was created using the following statement.</p>
+
+<pre><code>CREATE TABLE goblins (
+    id          serial    NOT NULL,
+    tribe_id    int       NOT NULL    REFERENCES tribes(id),
+    name        varchar   NOT NULL    DEFAULT 'Azog', 
+    mindset     varchar,
+    PRIMARY KEY (id),
+    UNIQUE (tribe_id, name)
+);
+</code></pre>
+
+<p>Tables are mapped by records with a little help by the <code>@Jorm</code> annotation. Records bind to the tread local transactions defined by the <code>database</code> attribute. The <code>table</code> attribute defines the mapped table, and the <code>id</code> attribute provides primary key functionality.</p>
+
+<pre><code>@Jorm(database="moria", table="goblins", id="id")
+public class Goblin extends Record {  
+    public Integer getId() {
+        return get("id", Integer.class);
+    }
+    public void setId(Integer id) {
+        set("id", id);
+    }
+    public Integer getTribeId() {
+        return get("tribe_id", Integer.class);
+    }
+    public void setTribeId(Integer id) {
+        set("tribe_id", id);
+    }
+    public Tribe getTribe() {
+        return get("tribe_id", Tribe.class);
+    }
+    public void setTribe(Tribe tribe) {
+        set("tribe_id", tribe);
+    }
+    public String getName() {
+        return get("name", String.class);
+    }
+    public void setName(String name) {
+        set("name", name);
+    }
+    public String getMindset() {
+        return get("mindset", String.class);
+    }
+    public void setMindset(String mindset) {
+        set("mindset", mindset);
+    }
+}
+</code></pre>
+
+<p>Such records can be automatically generated by the <code>Generator</code> class. Note that the <code>Goblin#getTribe()</code> and <code>Goblin#setTribe()</code> methods refers to the <code>tribe_id</code> field of the mapped <code>Goblin</code> record, but <code>Tribe</code> record is also cached for subsequent references. Thus simple foreign keys can be mapped, but how would a tribe look?</p>
+
+<pre><code>@Jorm(database="moria", table="tribes", id="id")
+public class Tribe extends Record {
+    public Integer getId() {
+        return get("id", Integer.class);
+    }
+    public void setId(Integer id) {
+        set("id", id);
+    }
+    public String getName() {
+        return get("name", String.class);
+    }
+    public void setName(String name) {
+        set("name", name);
+    }
+    public List&lt;Goblin&gt; getGoblins() throws SQLException {
+        return findReferences(Goblin.class, "id");
+    }
+}
+</code></pre>
+
+<p>There is no default implementation of <code>Tribe#setGoblins(List&lt;Goblin&gt;)</code>. This is not because it is impossible to implement using jORM, but because at this point jORM makes no claim at providing a proper cache for one-to-many relations. There is however a cache implementation for records that could be used for methods like <code>Tribe#getGoblins()</code>. For now we'll just let it use a query for each access, and we'll get back to caching strategies.</p>
+
+<p>Did you notice the <code>UNIQUE</code> constraint on goblins? It can be used to provide convenient methods for queries on goblins.</p>
+
+<pre><code>public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
+    return find(Goblin.class, new Column("tribe_id", tribe), new Column("name", name));
+}
+</code></pre>
+
+<p>If you prefer the write SQL this can also be achieved through manual queries.</p>
+
+<pre><code>public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
+    return Record.select(Goblin.class, "SELECT * FROM goblins WHERE tribe_id = #1:id# AND name = #2#", tribe, name);
+}
+</code></pre>
+
+<p>This should be where you've caught the glimpse of a tip of an iceberg, and should ask yourself. What else is there?</p>
+
+<h3>
+<a name="immutable-fields" class="anchor" href="#immutable-fields"><span class="octicon octicon-link"></span></a>Immutable fields</h3>
+
+<p>Sometimes a field in a record mapped from a table could just as well be immutable, such as <code>left_at</code> described in the following SQL create statement. Goblin litter is left at exactly one time, never picked up and never left again.</p>
+
+<pre><code>CREATE TABLE litters (
+    id          serial    NOT NULL,
+    goblin_id   int       NOT NULL    REFERENCES goblins(id),
+    stench      float     NOT NULL    CHECK (stench BETWEEN 0 AND 1),
+    left_at     timestamp NOT NULL    DEFAULT now(),
+    PRIMARY KEY (id)
+);
+</code></pre>
+
+<p>Marking immutability for fields can be done by defining the <code>immutable</code> attribute in the <code>@Jorm</code> mapping. </p>
+
+<pre><code>@Jorm(database="moria", table="litters", immutable={"left_at"})
+public class Litter extends Record { 
+    public Integer getId() {
+        return get("id", Integer.class);
+    }
+    public void setId(Integer id) {
+        set("id", id);
+    }
+    public Integer getGoblinId() {
+        return get("goblin_id", Integer.class);
+    }
+    public void setGoblinId(Integer goblinId) {
+        set("goblin_id", goblinId);
+    }
+    public Float getStench() {
+        return get("stench", Float.class);
+    }
+    public void setStench(Float stench) {
+        set("stench", stench);
+    }
+    public java.sql.Timestamp getLeftAt() {
+        return get("left_at", java.sql.Timestamp.class);
+    }
+}
+</code></pre>
+
+<p>The <code>left_at</code> column will never change even if an explicit call to <code>Record#set(String, Object)</code> has been made.</p>
+
+<h3>
+<a name="rebranded-sql-exceptions" class="anchor" href="#rebranded-sql-exceptions"><span class="octicon octicon-link"></span></a>Rebranded SQL exceptions</h3>
+
+<p>If you have been wondering why the previous example had a check condition on <code>stench</code> in the create statement of <code>litters</code>, you are about to find out. The records rebrand <code>SQLException</code> through dialect specific adaptions, classifying known errors with specific types.</p>
+
+<pre><code>try {
+    litter.setStench(2);    // CHECK (stench BETWEEN 0 AND 1),  
+    litter.save();
+} catch (CheckViolationException e) {
+    // handle exception
+}
+</code></pre>
+
+<p>There are four specific types of exceptions and one generic base exception. If this sounds interesting chek out the section about exception handling.</p>
+
+<h3>
+<a name="queries-as-fields" class="anchor" href="#queries-as-fields"><span class="octicon octicon-link"></span></a>Queries as fields</h3>
+
+<p>Sometimes it can be convenient to have the ability to set fields of records to database queries. One of the most frequent queries usable in this context is <code>now()</code>, but it can be any valid query resulting in one row and one column. Let's extend <code>Goblin</code> with some random functionality!</p>
+
+<pre><code>public void relieve() {
+    Litter litter = new Litter();
+    litter.set("stench", build("random() * 0.9")) ;
+    litter.setGoblin(this);
+}
+</code></pre>
+
+<p>The <code>Record#build(String, Object...)</code> method provides a query usable as a field value. Note that the goblin instance needs to be saved before the actual value can be accessed!</p>
+
+<h2>
+<a name="queries-and-sql-markup" class="anchor" href="#queries-and-sql-markup"><span class="octicon octicon-link"></span></a>Queries and SQL markup</h2>
+
+<p>Queries are expressed in a SQL with hash-markup. References to parameters are enclosed by two hashses (#), and use numbers to address parameters in order of appearance.</p>
+
+<pre><code>Record.select("SELECT * FROM foo WHERE bar &lt; #1# AND #1# &lt; baz AND baz &lt; #2# ", 10, 100);
+</code></pre>
+
+<p>Quaries are implicitly created by <code>Record#select(String, Object...)</code>, but can also be explicitly created.</p>
+
+<pre><code>Transaction transaction = Database.open("bar");
+Dialect dialect = transaction.getDialect();
+Query query = new Query(dialect, "SELECT * FROM foo WHERE bar &lt; #1# AND #1# &lt; baz AND baz &lt; #2# ", 10, 100);
+</code></pre>
+
+<p>Instances of <code>Record</code> wrap dialect retrieval in <code>Record#build(String, Object...)</code>, as a syntactic sugar to build queries shown in the previous section 'Queries as fields'.</p>
+
+<h3>
+<a name="tokens" class="anchor" href="#tokens"><span class="octicon octicon-link"></span></a>Tokens</h3>
+
+<pre><code>#1#     - parameter 1, quoted as value
+#:1#    - parameter 1, quoted as identifier
+#!1#    - parameter 1, not quoted!
+</code></pre>
+
+<h3>
+<a name="escaping" class="anchor" href="#escaping"><span class="octicon octicon-link"></span></a>Escaping</h3>
+
+<p>Hashes (#) can be quoted by double-hashing, i.e ##, ? cannot be escaped properly due to design flaws in the JDBC.</p>
+
+<pre><code>Record.select("SELECT 1 ## 2");     // = "SELECT 1 # 2"
+</code></pre>
+
+<h3>
+<a name="java-arrays" class="anchor" href="#java-arrays"><span class="octicon octicon-link"></span></a>Java arrays</h3>
+
+<pre><code>Integer[] ids = new Integer[]{1, 2, 3};
+Record.select("SELECT * FROM foo WHERE id IN (#1#)", ids);
+Record.select("SELECT * FROM foo WHERE id IN (#!1#)", ids); // No quoting performed!
+</code></pre>
+
+<h3>
+<a name="java-collections" class="anchor" href="#java-collections"><span class="octicon octicon-link"></span></a>Java collections</h3>
+
+<pre><code>List&lt;String&gt; names = new LinkedList&lt;String&gt;();
+names.add("John");
+names.add("Doe");
+Record.select("SELECT * FROM foo WHERE names IN (#1#)", names);
+</code></pre>
+
+<h3>
+<a name="java-collections-1" class="anchor" href="#java-collections-1"><span class="octicon octicon-link"></span></a>Java collections</h3>
+
+<pre><code>List&lt;Record&gt; records = new LinkedList&lt;Record&gt;();
+records.add(someRecord1);
+records.add(someRecord2);
+Record.select("SELECT * FROM foo WHERE names IN (#1:some_column#)", records);
+</code></pre>
+
+<h3>
+<a name="java-maps" class="anchor" href="#java-maps"><span class="octicon octicon-link"></span></a>Java maps</h3>
+
+<pre><code>Map&lt;String, Integer&gt; map = new HashMap&lt;String, Integer&gt;();
+map.put("foo", 5);
+map.put("bar", 3);
+Record.select("SELECT * FROM foobars WHERE foo_id = #1:foo# OR bar_id = #1:bar#", map);
+</code></pre>
+
+<h3>
+<a name="jorm-tables" class="anchor" href="#jorm-tables"><span class="octicon octicon-link"></span></a>jORM tables</h3>
+
+<pre><code>Record.select("SELECT * FROM #1# WHERE id = 5", table(Goblin.class));   // Modifier ignored, tables are always quoted as a identifiers
+</code></pre>
+
+<h3>
+<a name="jorm-symbols" class="anchor" href="#jorm-symbols"><span class="octicon octicon-link"></span></a>jORM symbols</h3>
+
+<pre><code>Record.select("SELECT * FROM foo WHERE #1# = 5", Symbol.get("id")); // Modifier ignored, Symbols are always quoted as identifiers
+</code></pre>
+
+<h3>
+<a name="nested-jorm-queries" class="anchor" href="#nested-jorm-queries"><span class="octicon octicon-link"></span></a>Nested jORM queries</h3>
+
+<pre><code>Transaction transaction = Database.open("moria");
+Dialect dialect = transaction.getDialect();
+Query subQuery = new Query(dialect, "SELECT id FROM bar WHERE baz LIKE #1#", "%moo%");
+Query query = new Query(dialect, "SELECT * FROM foo WHERE bar_id IN (#1#)", subQuery);
+</code></pre>
+
+<h2>
+<a name="transaction-lifecycle" class="anchor" href="#transaction-lifecycle"><span class="octicon octicon-link"></span></a>Transaction lifecycle</h2>
+
+<p>Transactions opened to a database are thread local and there is atmost one transaction for each named database (which may be exploited by providing more than one name for a single logical database). These transactions need to be closed at the logical end of execution. A web server may typically reuse threads for subsequent request, making the end of a request the logical end of execution. Any other application  reusing threads need the corresponding adaptions described throughout this section.</p>
+
+<h3>
+<a name="transaction-access" class="anchor" href="#transaction-access"><span class="octicon octicon-link"></span></a>Transaction access</h3>
+
+<p>The safest way of ensuring transaction lifecycle through an application reusing threads is to manually close the connection within the scope of the change to the database.</p>
+
+<pre><code>Transaction transaction = Database.open("moria");
+try {
+    // do stuff 
+    transaction.commit();
+} catch (SQLException e) {
+    // handle exception
+} finally {
+    transaction.close();
+}
+</code></pre>
+
+<p>However, code modularization can make passing of references to transactions cumbersome. For this reason transactions can be uniquely accessed through the named database, in the context of the current thread.</p>
+
+<pre><code>Database.open("moria");
+try {
+    // do stuff
+    Database.commit("moria");
+} catch (SQLException e) {
+    // handle exception
+} finally {
+    Database.close("moria");
+}
+</code></pre>
+
+<p>There is conveniently wrapped by static methods of the record, using <code>@Jorm</code> annotations to define named datbases.</p>
+
+<pre><code>Record.open(Goblin.class);
+try {
+    // do stuff
+    Record.commit(Goblin.class);
+} catch (SQLException e) {
+    // handle exception
+} finally {
+    Record.close(Goblin.class);
+}
+</code></pre>
+
+<p>Transactions are even available through record instances, which can sometimes be convenient. Note that any record may act as reference to the thread local transaction possibly shared by multiple records.</p>
+
+<pre><code>Record context = null
+try {
+    // do stuff
+    if (context != null) context.commit();
+} catch (SQLException e) {
+    // handle exception
+} finally {
+    if (context != null) context.close();
+    // else what?
+}
+</code></pre>
+
+<p>This last example points to the fact that execution is not always predictable. In most applications a runtime exception may occurr depending on user input or other uncontrolled circumstances.</p>
+
+<pre><code>try {
+    // do unpredictable stuff
+} finally {
+    Database.close();
+    // release thread
+}
+</code></pre>
+
+<p>The above example closes all thread local transactions are releasing the current thread to its imagined thread pool. It may be considered good practice to build this into your applications execution lifecycle.</p>
+
+<h3>
+<a name="transaction-savepoints" class="anchor" href="#transaction-savepoints"><span class="octicon octicon-link"></span></a>Transaction savepoints</h3>
+
+<p>For some types of problems it may be beneficial to make use of savepoints. For this reason the savepoints of JDBC are wrapped by transactions.</p>
+
+<pre><code>Transation transaction = Database.open("moria");
+try {
+    Goblin azog = new Goblin("Azog");
+    Tribe tribe = Record.findById(Tribe.class, 1);
+    azog.setTribe(tribe);
+    Savepoint savepoint = transaction.save();
+    try {
+        azog.save();
+        transaction.release(savepoint);
+    } catch (UniqueViolationException) {
+        transaction.rollback(savepoint);
+        azog = findByTribeAndName(tribe, "Azog");
+    }
+    // do more stuff
+    transaction.commit();
+} catch (SQLException e) {
+    // handle exception
+} finally {
+    transaction.close();
+}
+</code></pre>
+
+<p>Note that not every database engine supports release of savepoints. MSSQL only supports rollback, and there is more to read about engine/driver specific behaviour in the next section!</p>
+
+<h2>
+<a name="database-engines" class="anchor" href="#database-engines"><span class="octicon octicon-link"></span></a>Database engines</h2>
+
+<p>jORM has been tested on Postgres, MySQL and MSSQL. If you have a license to a database engine and would like to contribute, please feel free to contact the authors.</p>
+
+<h3>
+<a name="is-jorm-database-agnostic" class="anchor" href="#is-jorm-database-agnostic"><span class="octicon octicon-link"></span></a>Is jORM database agnostic?</h3>
+
+<p>The not so simple answer is <em>yes and no</em>! The library should be able to execute database agnostically using the JDBC as abstraction. However, jORM takes advantage of engine specific functionality. For instance Postgres is the only database engine supporting the <code>RETURNING</code> clause (that we've stumbled across so far), and thus Postgres integrations using jORM do not need to query for results explicitly after an insert or update. </p>
+
+<p>There are also targeted fixes patching unexpected behaviour in specific JDBC-implementations. Any database engines that have not been validated might just as well contain similar problems in their respecitve implementations of the JDBC.</p>
+
+<p>One thing that will differ if using another database egine is a rebrand strategy for <code>SQLException</code> that jORM use to classify different types of SQL errors. These are only available for Postgres, MySQL and MSSQL at this moment. More about this will appear in the nondistant future.</p>
+
+<h2>
+<a name="to-be-continued" class="anchor" href="#to-be-continued"><span class="octicon octicon-link"></span></a>To be continued..</h2>
+
+<p>This README will be updated with more advanced and in-depth examples of how to best make use of jORM. One of the first things on our TODO list is to document the SQL markup syntax for queries through records and transactions properly.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Jorm maintained by <a href="https://github.com/jajja">jajja</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
