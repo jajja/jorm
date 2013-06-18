@@ -80,7 +80,7 @@ public class Transaction {
     private Table table;
     private boolean isDestroyed = false;
     private boolean isLoggingEnabled = false;
-    
+
     private void tracelog(String message) {
         if (isLoggingEnabled) {
             StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
@@ -399,11 +399,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public Record select(String sql, Object... params) throws SQLException {
-        Select select = new Select(table);
-        if (!select.selectInto(sql, params)) {
-            select = null;
-        }
-        return select;
+        return select(new Query(getDialect(), sql, params));
     }
 
     /**
@@ -418,7 +414,11 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public Record select(Query query) throws SQLException {
-        return select(query.getSql(), query.getParams());
+        Select select = new Select(table);
+        if (!select.selectInto(query)) {
+            select = null;
+        }
+        return select;
     }
 
     /**
