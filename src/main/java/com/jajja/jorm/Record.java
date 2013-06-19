@@ -262,7 +262,7 @@ public abstract class Record {
     public Table table() {
         return table;
     }
-    
+
     /**
      * Provides an immutable view of the fields of the record.
      *
@@ -1637,7 +1637,16 @@ public abstract class Record {
      * @return the cached record corresponding to the given symbol.
      */
     public <T> T get(String column, Class<T> clazz) {
-        return getField(Symbol.get(column), clazz, false);
+        try {
+            return getField(Symbol.get(column), clazz, false, false);
+        } catch (SQLException e) {
+            // UNREACHABLE
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public <T extends Record> T ref(String column, Class<T> clazz) throws SQLException {
+        return getField(Symbol.get(column), clazz, false, true);
     }
 
     /**
@@ -1652,7 +1661,16 @@ public abstract class Record {
      * @return the cached record corresponding to the given symbol.
      */
     public <T> T get(Symbol symbol, Class<T> clazz) {
-        return getField(symbol, clazz, false);
+        try {
+            return getField(symbol, clazz, false, false);
+        } catch (SQLException e) {
+            // UNREACHABLE
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public <T extends Record> T ref(Symbol symbol, Class<T> clazz) throws SQLException {
+        return getField(symbol, clazz, false, true);
     }
 
     /**
@@ -1666,12 +1684,12 @@ public abstract class Record {
      * @param isCacheOnly only retrieves previously cached values.
      * @return the cached record corresponding to the given symbol.
      */
-    public <T extends Record> T get(Symbol symbol, Class<T> clazz, boolean isCacheOnly)  {
-        return getField(symbol, clazz, isCacheOnly);
+    public <T extends Record> T get(Symbol symbol, Class<T> clazz, boolean isCacheOnly) throws SQLException {
+        return getField(symbol, clazz, isCacheOnly, true);
     }
 
     @SuppressWarnings("unchecked")
-    private <T> T getField(Symbol symbol, Class<T> clazz, boolean isCacheOnly) {
+    private <T> T getField(Symbol symbol, Class<T> clazz, boolean isCacheOnly, boolean throwSqlException) throws SQLException {
         refresh();
 
         Field field = fields.get(symbol);
@@ -1690,6 +1708,9 @@ public abstract class Record {
                         field.setReference(reference);
                         value = reference;
                     } catch (SQLException e) {
+                        if (throwSqlException) {
+                            throw e;
+                        }
                         throw new RuntimeException("failed to findById(" + clazz + ", " + value + ")", e);
                     }
                 } else {
