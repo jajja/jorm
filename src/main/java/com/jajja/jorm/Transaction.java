@@ -264,7 +264,7 @@ public class Transaction {
      *
      * @param query
      *            the query.
-     * @param returnGeneratedKeys sets Statement.RETURN_GENERATED_KEYS iff true
+     * @param returnGeneratedKeys sets Statement.RETURN_GENERATED_KEYS if true
      * @throws SQLException
      *             if a database access error occurs.
      */
@@ -293,7 +293,7 @@ public class Transaction {
      *            the JDBC SQL statement.
      * @param params
      *            the applicable parameters.
-     * @param returnGeneratedKeys sets Statement.RETURN_GENERATED_KEYS iff true
+     * @param returnGeneratedKeys sets Statement.RETURN_GENERATED_KEYS if true
      * @throws SQLException
      *             if a database access error occurs.
      */

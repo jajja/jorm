@@ -1557,7 +1557,7 @@ public abstract class Record {
         }
 
         if (isChanged) {
-            // it's OK to mark the id column has changed here
+            // it's OK to mark the id column as changed here
             field.setChanged(true);
         }
 
