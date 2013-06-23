@@ -144,7 +144,7 @@ public abstract class Record {
 
         private Field() {}
 
-       void setValue(Object value) {
+        void setValue(Object value) {
             this.value = value;
         }
 
@@ -718,9 +718,10 @@ public abstract class Record {
         LinkedList<T> records = new LinkedList<T>();
         try {
             resultSet = preparedStatement.executeQuery();
+            SymbolMap symbolMap = symbolMap(resultSet.getMetaData());
             while (resultSet.next()) {
                 T record = construct(clazz);
-                record.populate(resultSet);
+                record.populate(resultSet, symbolMap);
                 records.add(record);
             }
         } catch (SQLException sqlException) {
@@ -737,49 +738,49 @@ public abstract class Record {
         return records;
     }
 
-//    /**
-//     * Provides a hash map of selected records, populated with the results from the
-//     * given query.
-//     *
-//     * @param clazz
-//     *            the class defining the table mapping.
-//     * @param column
-//     *            the column to use as key.
-//     * @param query
-//     *            the query.
-//     * @return the matched records.
-//     * @throws SQLException
-//     *             if a database access error occurs or the generated SQL
-//     *             statement does not return a result set.
-//     */
-//    public static <T extends Record> Map<Object, T> selectAllAsMap(Class<T> clazz, Symbol column, Query query) throws SQLException {
-//        PreparedStatement preparedStatement = transaction(clazz).prepare(query.getSql(), query.getParams());
-//        ResultSet resultSet = null;
-//        HashMap<Object, T> records = new HashMap<Object, T>();
-//        try {
-//            resultSet = preparedStatement.executeQuery();
-//            while (resultSet.next()) {
-//                T record = construct(clazz);
-//                record.populate(resultSet);
-//                records.put(record.get(column), record);
-//            }
-//        } catch (SQLException sqlException) {
-//            transaction(clazz).getDialect().rethrow(sqlException, query.getSql());
-//        } finally {
-//            if (resultSet != null) resultSet.close();
-//            preparedStatement.close();
-//        }
-//        return records;
-//    }
-//    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, Symbol column, String sql, Object... params) throws SQLException {
-//        return selectAllHashMap(clazz, column, new Query(transaction(clazz).getDialect(), sql, params));
-//    }
-//    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, String column, Query query) throws SQLException {
-//        return selectAllHashMap(clazz, Symbol.get(column), query);
-//    }
-//    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, String column, String sql, Object... params) throws SQLException {
-//        return selectAllHashMap(clazz, Symbol.get(column), new Query(transaction(clazz).getDialect(), sql, params));
-//    }
+    //    /**
+    //     * Provides a hash map of selected records, populated with the results from the
+    //     * given query.
+    //     *
+    //     * @param clazz
+    //     *            the class defining the table mapping.
+    //     * @param column
+    //     *            the column to use as key.
+    //     * @param query
+    //     *            the query.
+    //     * @return the matched records.
+    //     * @throws SQLException
+    //     *             if a database access error occurs or the generated SQL
+    //     *             statement does not return a result set.
+    //     */
+    //    public static <T extends Record> Map<Object, T> selectAllAsMap(Class<T> clazz, Symbol column, Query query) throws SQLException {
+    //        PreparedStatement preparedStatement = transaction(clazz).prepare(query.getSql(), query.getParams());
+    //        ResultSet resultSet = null;
+    //        HashMap<Object, T> records = new HashMap<Object, T>();
+    //        try {
+    //            resultSet = preparedStatement.executeQuery();
+    //            while (resultSet.next()) {
+    //                T record = construct(clazz);
+    //                record.populate(resultSet);
+    //                records.put(record.get(column), record);
+    //            }
+    //        } catch (SQLException sqlException) {
+    //            transaction(clazz).getDialect().rethrow(sqlException, query.getSql());
+    //        } finally {
+    //            if (resultSet != null) resultSet.close();
+    //            preparedStatement.close();
+    //        }
+    //        return records;
+    //    }
+    //    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, Symbol column, String sql, Object... params) throws SQLException {
+    //        return selectAllHashMap(clazz, column, new Query(transaction(clazz).getDialect(), sql, params));
+    //    }
+    //    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, String column, Query query) throws SQLException {
+    //        return selectAllHashMap(clazz, Symbol.get(column), query);
+    //    }
+    //    public static <T extends Record> Map<Object, T> selectAllHashMap(Class<T> clazz, String column, String sql, Object... params) throws SQLException {
+    //        return selectAllHashMap(clazz, Symbol.get(column), new Query(transaction(clazz).getDialect(), sql, params));
+    //    }
 
     /**
      * Executes the query given by a plain SQL statement and applicable
@@ -937,16 +938,14 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void populate(ResultSet resultSet) throws SQLException {
+        populate(resultSet, symbolMap(resultSet.getMetaData()));
+    }
+
+    public void populate(ResultSet resultSet, SymbolMap symbolMap) throws SQLException {
         isStale = false;
         try {
-            ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
-            HashSet<Symbol> symbols = new HashSet<Symbol>();
-
-            for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
-                Symbol symbol = Symbol.get(resultSetMetaData.getColumnLabel(i));
-
-                put(symbol, resultSet.getObject(i));
-                symbols.add(symbol);
+            for (int i = 0; i < symbolMap.symbols.length; i++) {
+                put(symbolMap.symbols[i], resultSet.getObject(i + 1));
             }
 
             purify();
@@ -954,7 +953,7 @@ public abstract class Record {
             Iterator<Symbol> i = fields.keySet().iterator();
             while (i.hasNext()) {
                 Symbol symbol = i.next();
-                if (!symbols.contains(symbol)) {
+                if (!symbolMap.symbolSet.contains(symbol)) {
                     unset(symbol);
                 }
             }
@@ -964,6 +963,26 @@ public abstract class Record {
             isStale = true; // lol exception
         }
         isStale = false;
+    }
+
+    public static class SymbolMap {
+        private Symbol[] symbols;
+        private Set<Symbol> symbolSet = new HashSet<Symbol>();
+        private SymbolMap(int size) {
+            symbols = new Symbol[size];
+            symbolSet = new HashSet<Symbol>(size + 1, 1.0f);    // + 1 to prevent resize
+        }
+    }
+
+    public static SymbolMap symbolMap(ResultSetMetaData resultSetMetaData) throws SQLException {
+        int columnCount = resultSetMetaData.getColumnCount();
+        SymbolMap map = new SymbolMap(columnCount);
+
+        for (int i = 0; i < columnCount; i++) {
+            map.symbols[i] = Symbol.get(resultSetMetaData.getColumnLabel(i + 1));
+            map.symbolSet.add(map.symbols[i]);
+        }
+        return map;
     }
 
     /**
@@ -1287,13 +1306,18 @@ public abstract class Record {
                 }
             }
 
+            SymbolMap symbolMap = null;
+
             for (Record record : records) {
                 if (!resultSet.next()) {
                     throw new IllegalStateException("too few rows returned?");
                 }
                 if (usingReturning) {
                     // RETURNING rocks!
-                    record.populate(resultSet);
+                    if (symbolMap == null) {
+                        symbolMap = symbolMap(resultSet.getMetaData());
+                    }
+                    record.populate(resultSet, symbolMap);
                 } else {
                     Field field = record.getOrCreateField(table.getId());
                     field.setValue(resultSet.getObject(1));

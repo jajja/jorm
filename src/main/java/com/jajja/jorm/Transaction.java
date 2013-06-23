@@ -455,9 +455,10 @@ public class Transaction {
         try {
             List<Record> records = new LinkedList<Record>();
             resultSet = prepare(query).executeQuery();
+            Record.SymbolMap symbolMap = Record.symbolMap(resultSet.getMetaData());
             while (resultSet.next()) {
                 Select select = new Select(table);
-                select.populate(resultSet);
+                select.populate(resultSet, symbolMap);
                 records.add(select);
             }
             return records;
