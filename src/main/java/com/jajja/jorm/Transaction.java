@@ -40,6 +40,8 @@ import javax.sql.DataSource;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import com.jajja.jorm.Record.SymbolMap;
+
 /**
  * The transaction implementation executing all queries in for {@link Jorm}
  * mapped and anonymous records alike.
@@ -455,10 +457,10 @@ public class Transaction {
         try {
             List<Record> records = new LinkedList<Record>();
             resultSet = prepare(query).executeQuery();
-            Record.SymbolMap symbolMap = Record.symbolMap(resultSet.getMetaData());
+            SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
             while (resultSet.next()) {
                 Select select = new Select(table);
-                select.populate(resultSet, symbolMap);
+                symbolMap.populate(select, resultSet);
                 records.add(select);
             }
             return records;

@@ -718,10 +718,10 @@ public abstract class Record {
         LinkedList<T> records = new LinkedList<T>();
         try {
             resultSet = preparedStatement.executeQuery();
-            SymbolMap symbolMap = symbolMap(resultSet.getMetaData());
+            SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
             while (resultSet.next()) {
                 T record = construct(clazz);
-                record.populate(resultSet, symbolMap);
+                symbolMap.populate(record, resultSet);
                 records.add(record);
             }
         } catch (SQLException sqlException) {
@@ -938,25 +938,12 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void populate(ResultSet resultSet) throws SQLException {
-        populate(resultSet, symbolMap(resultSet.getMetaData()));
-    }
-
-    public void populate(ResultSet resultSet, SymbolMap symbolMap) throws SQLException {
         isStale = false;
         try {
-            for (int i = 0; i < symbolMap.symbols.length; i++) {
-                put(symbolMap.symbols[i], resultSet.getObject(i + 1));
-            }
-
+            SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
+            symbolMap.populate(this, resultSet);
+            
             purify();
-
-            Iterator<Symbol> i = fields.keySet().iterator();
-            while (i.hasNext()) {
-                Symbol symbol = i.next();
-                if (!symbolMap.symbolSet.contains(symbol)) {
-                    unset(symbol);
-                }
-            }
         } catch (SQLException sqlException) {
             open().getDialect().rethrow(sqlException);
         } finally {
@@ -965,24 +952,56 @@ public abstract class Record {
         isStale = false;
     }
 
+//    public void populate(ResultSet resultSet, SymbolMap symbolMap) throws SQLException {
+//        isStale = false;
+//        try {
+//            for (int i = 0; i < symbolMap.symbols.length; i++) {
+//                put(symbolMap.symbols[i], resultSet.getObject(i + 1));
+//            }
+//
+//            purify();
+//
+//            Iterator<Symbol> i = fields.keySet().iterator();
+//            while (i.hasNext()) {
+//                Symbol symbol = i.next();
+//                if (!symbolMap.symbolSet.contains(symbol)) {
+//                    unset(symbol);
+//                }
+//            }
+//        } catch (SQLException sqlException) {
+//            open().getDialect().rethrow(sqlException);
+//        } finally {
+//            isStale = true; // lol exception
+//        }
+//        isStale = false;
+//    }
+
     public static class SymbolMap {
         private Symbol[] symbols;
         private Set<Symbol> symbolSet = new HashSet<Symbol>();
-        private SymbolMap(int size) {
-            symbols = new Symbol[size];
-            symbolSet = new HashSet<Symbol>(size + 1, 1.0f);    // + 1 to prevent resize
+        public SymbolMap(ResultSetMetaData resultSetMetaData) throws SQLException {
+            symbols = new Symbol[resultSetMetaData.getColumnCount()];
+            symbolSet = new HashSet<Symbol>(symbols.length + 1, 1.0f);    // + 1 to prevent resize
+            for (int i = 0; i < symbols.length; i++) {
+                symbols[i] = Symbol.get(resultSetMetaData.getColumnLabel(i + 1));
+                symbolSet.add(symbols[i]);
+            }
         }
-    }
-
-    public static SymbolMap symbolMap(ResultSetMetaData resultSetMetaData) throws SQLException {
-        int columnCount = resultSetMetaData.getColumnCount();
-        SymbolMap map = new SymbolMap(columnCount);
-
-        for (int i = 0; i < columnCount; i++) {
-            map.symbols[i] = Symbol.get(resultSetMetaData.getColumnLabel(i + 1));
-            map.symbolSet.add(map.symbols[i]);
+        public void populate(Record record, ResultSet resultSet) throws SQLException {
+            for (int i = 0; i < symbols.length; i++) {
+                record.put(symbols[i], resultSet.getObject(i + 1));
+            }
+            Iterator<Symbol> i = record.fields.keySet().iterator();
+            while (i.hasNext()) {
+                Symbol symbol = i.next();
+                if (!contains(symbol)) {
+                    record.unset(symbol);
+                }
+            }
         }
-        return map;
+        public boolean contains(Symbol symbol) {
+            return symbolSet.contains(symbol);
+        }
     }
 
     /**
@@ -1315,9 +1334,9 @@ public abstract class Record {
                 if (usingReturning) {
                     // RETURNING rocks!
                     if (symbolMap == null) {
-                        symbolMap = symbolMap(resultSet.getMetaData());
+                        symbolMap = new SymbolMap(resultSet.getMetaData());
                     }
-                    record.populate(resultSet, symbolMap);
+                    symbolMap.populate(record, resultSet);
                 } else {
                     Field field = record.getOrCreateField(table.getId());
                     field.setValue(resultSet.getObject(1));
