@@ -952,30 +952,6 @@ public abstract class Record {
         isStale = false;
     }
 
-//    public void populate(ResultSet resultSet, SymbolMap symbolMap) throws SQLException {
-//        isStale = false;
-//        try {
-//            for (int i = 0; i < symbolMap.symbols.length; i++) {
-//                put(symbolMap.symbols[i], resultSet.getObject(i + 1));
-//            }
-//
-//            purify();
-//
-//            Iterator<Symbol> i = fields.keySet().iterator();
-//            while (i.hasNext()) {
-//                Symbol symbol = i.next();
-//                if (!symbolMap.symbolSet.contains(symbol)) {
-//                    unset(symbol);
-//                }
-//            }
-//        } catch (SQLException sqlException) {
-//            open().getDialect().rethrow(sqlException);
-//        } finally {
-//            isStale = true; // lol exception
-//        }
-//        isStale = false;
-//    }
-
     public static class SymbolMap {
         private Symbol[] symbols;
         private Set<Symbol> symbolSet = new HashSet<Symbol>();
