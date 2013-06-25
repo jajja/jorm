@@ -100,8 +100,13 @@ public class Query {
             if (label == null) throw new IllegalArgumentException("Cannot append map without a label! (e.g. #1:map_key#)");
             param = ((Map)param).get(label);
         } else if (param instanceof Record) {
+            Record record = (Record)param;
             if (label == null) throw new IllegalArgumentException("Cannot append record field without a label! (e.g. #1:foo_column#)");
-            param = ((Record)param).get(label);
+            if ("@".equals(label)) {
+                param = record.get(record.table().getId());
+            } else {
+                param = record.get(label);
+            }
         } else if (param instanceof Class && Record.isRecordSubclass((Class)param)) {
             param = Table.get((Class<? extends Record>)param);
         }
