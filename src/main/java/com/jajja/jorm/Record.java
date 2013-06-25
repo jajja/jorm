@@ -942,7 +942,7 @@ public abstract class Record {
         try {
             SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
             symbolMap.populate(this, resultSet);
-            
+
             purify();
         } catch (SQLException sqlException) {
             open().getDialect().rethrow(sqlException);
@@ -1041,6 +1041,40 @@ public abstract class Record {
             preparedStatement.close();
         }
         put(table.getId(), null);
+    }
+
+
+    /**
+     * Deletes multiple records by exeuting a DELETE FROM table WHERE id IN (...)
+     *
+     * @param records List of records to delete (must be of the same class, and bound to the same Database)
+     * @throws SQLException
+     *             if a database access error occurs.
+     */
+    public static void delete(Collection<? extends Record> records) throws SQLException {
+        Record template = null;
+        String database = null;
+
+        for (Record record : records) {
+            if (template != null) {
+                if (!template.getClass().equals(record.getClass())) {
+                    throw new IllegalArgumentException("all records must be of the same class");
+                }
+                if (!database.equals(record.table.getDatabase())) {
+                    throw new IllegalArgumentException("all records must be bound to the same Database");
+                }
+            } else {
+                template = record;
+                database = record.table.getDatabase();
+            }
+            record.checkReadOnly();
+        }
+
+        if (template == null) {
+            return;
+        }
+
+        template.open().execute("DELETE FROM #1# WHERE #:2# IN (#3:@#)", template.getClass(), template.table.getId(), records);
     }
 
     /**
