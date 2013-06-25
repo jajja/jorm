@@ -1219,7 +1219,7 @@ public abstract class Record {
     /**
      * Executes a batch INSERT (INSERT INTO ... (columns...) VALUES (row1), (row2), (row3), ...) and repopulates the list with stored entities.
      *
-     * @param records List of records to insert (must be of the same class, and bound to the same DbConnection)
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -1236,7 +1236,7 @@ public abstract class Record {
      * Setting isFullRepopulate to true will re-populate the record fields with fresh values. This will generate
      * an additional SELECT query for every chunk of records for databases that do not support RETURNING.
      *
-     * @param records List of records to insert (must be of the same class, and bound to the same DbConnection)
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
      * @param isFullRepopulate Whether or not to fully re-populate the record fields, or just update their primary key value and markStale()
      * @throws SQLException
@@ -1266,7 +1266,7 @@ public abstract class Record {
                 throw new IllegalArgumentException("all records must be of the same class");
             }
             if (!template.table.getDatabase().equals(record.table.getDatabase())) {
-                throw new IllegalArgumentException("all records must be bound to the same DbConnection");
+                throw new IllegalArgumentException("all records must be bound to the same Database");
             }
 
             if (chunk == null || i >= chunkSize) {
