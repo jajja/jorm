@@ -134,7 +134,7 @@ public abstract class Record {
     private Table table;
     private boolean isStale = false;
     private boolean isReadOnly = false;
-    private static Map<Class<? extends Record>, Log> logs = new ConcurrentHashMap<Class<? extends Record>, Log>();
+    private static Map<Class<? extends Record>, Log> logs = new ConcurrentHashMap<Class<? extends Record>, Log>(16, 0.75f, 1);
 
     public static class Field {
         private Object value = null;
