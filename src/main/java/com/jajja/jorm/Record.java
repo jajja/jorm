@@ -188,8 +188,13 @@ public abstract class Record {
     public static Log log(Class<? extends Record> clazz) {
         Log log = logs.get(clazz);
         if (log == null) {
-            log = LogFactory.getLog(clazz);
-            logs.put(clazz, log);
+            synchronized (logs) {
+                log = logs.get(clazz);
+                if (log == null) {
+                    log = LogFactory.getLog(clazz);
+                    logs.put(clazz, log);
+                }
+            }
         }
         return log;
     }
