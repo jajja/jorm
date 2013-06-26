@@ -1,16 +1,16 @@
 /*
  * Copyright (C) 2013 Jajja Communications AB
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,13 +21,13 @@
  */
 package com.jajja.jorm;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 
+ *
  * @see Jorm
  * @see Record
  * @author Daniel Adolfsson <daniel.adolfsson@jajja.com>
@@ -36,18 +36,23 @@ import java.util.Set;
  * @since 1.0.0
  */
 public class Table {
-    private static Map<Class<?>, Table> map = new HashMap<Class<?>, Table>();
+    private static Map<Class<?>, Table> map = new ConcurrentHashMap<Class<?>, Table>(16, 0.75f, 1);
     private String database;
     private String schema;
     private String table;
     private Symbol id;
     private Set<Symbol> immutable;
 
-    public static synchronized Table get(Class<? extends Record> clazz) {
+    public static Table get(Class<? extends Record> clazz) {
         Table table = map.get(clazz);
         if (table == null) {
-            table = new Table(clazz);
-            map.put(clazz, table);
+            synchronized (map) {
+                table = map.get(clazz);
+                if (table == null) {
+                    table = new Table(clazz);
+                    map.put(clazz, table);
+                }
+            }
         }
         return table;
     }
