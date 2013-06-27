@@ -21,12 +21,16 @@
  */
 package com.jajja.jorm;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.ResourceBundle;
 import java.util.Set;
 
@@ -223,81 +227,128 @@ public class Database {
     }
     
     static {
-        try {
-            ResourceBundle resourceBundle = ResourceBundle.getBundle("jorm");
-            Map<String, String> properties = new HashMap<String, String>();
-            Enumeration<String> enumeration = resourceBundle.getKeys();
-            while (enumeration.hasMoreElements()) {
-                String key = enumeration.nextElement();
-                properties.put(key, resourceBundle.getString(key));
-            }
-            init(properties);            
-        } catch (Exception e) {
-//            e.printStackTrace(); // XXX: silently
-        }
+        configure();           
     }
     
     /*
      * jorm.properties
      * ---------------
-     * moria.dataSource=org.apache.tomcat.jdbc.pool.DataSource
-     * moria.dataSource.driverClassName=org.postgresql.Driver
-     * moria.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria
-     * moria.dataSource.username=gandalf
-     * moria.dataSource.password=mellon
-     * lothlorien.dataSource=org.apache.tomcat.jdbc.pool.DataSource
-     * lothlorien.dataSource.driverClassName=org.postgresql.Driver
-     * lothlorien.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/lothlorien
-     * lothlorien.dataSource.username=galadriel
-     * lothlorien.dataSource.password=galadrim
+     * database.moria.dataSource=org.apache.tomcat.jdbc.pool.DataSource
+     * database.moria.dataSource.driverClassName=org.postgresql.Driver
+     * database.moria.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria
+     * database.moria.dataSource.username=gandalf
+     * database.moria.dataSource.password=mellon
+     * database.lothlorien.dataSource=org.apache.tomcat.jdbc.pool.DataSource
+     * database.lothlorien.dataSource.driverClassName=org.postgresql.Driver
+     * database.lothlorien.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/lothlorien
+     * database.lothlorien.dataSource.username=galadriel
+     * database.lothlorien.dataSource.password=galadrim
      */
-    private static void init(Map<String, String> properties) {
+    private static List<Configuration> configure() {
+        ResourceBundle resourceBundle = ResourceBundle.getBundle("jorm");
+        Map<String, String> properties = new HashMap<String, String>();
+        Enumeration<String> enumeration = resourceBundle.getKeys();
+        while (enumeration.hasMoreElements()) {
+            String key = enumeration.nextElement();
+            properties.put(key, resourceBundle.getString(key));
+        }
+        String prefix = "database.";
         Set<String> databases = new HashSet<String>();
         for (String key : properties.keySet()) {
+            key = key.replace("database.", "");
             int index = key.indexOf('.');
             if (0 < index) {
                 databases.add(key.substring(0, index));
             }
         }
+        List<Configuration> configurations = new LinkedList<Database.Configuration>();
         for (String database : databases) {
-            database = database.trim();
-            if (!database.isEmpty()) {
-                try {
-                    String uri = database + ".dataSource";
-                    String className = properties.get(uri);
-                    Class<?> type = Class.forName(className);
-                    DataSource dataSource = (DataSource) type.newInstance();
-                    for (Method method: type.getMethods()) {
-                        String methodName = method.getName();
-                        Class<?>[] parameterTypes = method.getParameterTypes();
-                        boolean isAccessible = method.isAccessible();
-                        if (methodName.startsWith("set") && 3 < methodName.length() && parameterTypes.length == 1) {
-                            String parameterName = methodName.substring(3, 4).toLowerCase() + methodName.substring(4);
-                            String parameterValue = properties.get(uri + "." + parameterName);
-                            if (parameterValue != null) {
-                                method.setAccessible(true);
-                                Object parameter = null;
-                                if (parameterTypes[0].isAssignableFrom(String.class)) {
-                                    parameter = parameterValue;
-                                } else if (parameterTypes[0].isAssignableFrom(boolean.class) || parameterTypes[0].isAssignableFrom(Boolean.class)) {
-                                    parameter = Boolean.parseBoolean(parameterValue);
-                                } else if (parameterTypes[0].isAssignableFrom(int.class) || parameterTypes[0].isAssignableFrom(Integer.class)) {
-                                    parameter = Integer.parseInt(parameterValue);
-                                } else if (parameterTypes[0].isAssignableFrom(long.class) || parameterTypes[0].isAssignableFrom(Long.class)) {
-                                    parameter = Long.parseLong(parameterValue);
-                                }
-                                if (parameter != null) {
-                                    method.invoke(dataSource, parameter);
-                                }
-                                method.setAccessible(isAccessible);                                    
-                            }
-                        }
-                    }
-                    Database.configure(database, dataSource);
-                } catch (Exception e) {
-                    get().log.warn("Failed to autoload data source", e);
-                }                
+            prefix += database + ".dataSource";
+            String dataSourceClassName = properties.get(prefix);
+            prefix += ".";
+            Map<String, String> dataSourceProperties = new HashMap<String, String>();
+            for (Entry<String, String> entry : properties.entrySet()) {
+                if (entry.getKey().startsWith(prefix)) {
+                    dataSourceProperties.put(entry.getKey().replace(prefix, ""), entry.getValue());
+                }
+            }
+            Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties);
+            configuration.apply();
+            configurations.add(configuration);
+            Database.get().log.debug("Configured " + configuration);
+        }
+        return configurations;
+    }
+    
+    public static class Configuration {        
+        private String database;
+        private DataSource dataSource;
+        private Map<String, String> dataSourceProperties;
+        
+        @Override
+        public String toString() {
+            return "{ database => " + database + ", dataSourceClassName => " + dataSource.getClass().getName() + ", dataSourceProperties => " + dataSourceProperties + " }";
+        }
+        
+        public void apply() {
+            configure(database, dataSource);
+        }
+
+        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties) {
+            this.database = database;
+            this.dataSourceProperties = dataSourceProperties;
+            try {
+                @SuppressWarnings("unchecked")
+                Class<? extends DataSource> type = (Class<? extends DataSource>) Class.forName(dataSourceClassName);
+                dataSource = type.newInstance();
+                init();
+            } catch (InstantiationException e) {
+                throw new IllegalArgumentException("The implementation has no default constructor!", e);
+            } catch (IllegalAccessException e) {
+                throw new IllegalArgumentException("The implementation has no public constructor!", e);
+            } catch (ClassNotFoundException e) {
+                throw new IllegalArgumentException("The implementation is not a data source!", e);
             }
         }
+        
+        private void init() {
+            for (Method method: dataSource.getClass().getMethods()) {
+                String methodName = method.getName();
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                if (methodName.startsWith("set") && 3 < methodName.length() && parameterTypes.length == 1) {
+                    String name = method.getName().substring(3, 4).toLowerCase() + method.getName().substring(4); // setValue -> value
+                    String property = dataSourceProperties.get(name);
+                    if (property != null) {
+                        boolean isAccessible = method.isAccessible();
+                        method.setAccessible(true);
+                        try {
+                            method.invoke(dataSource, parse(method.getParameterTypes()[0], property));
+                        } catch (Exception e) {
+                            get().log.warn("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'", e);
+                        } finally {
+                            method.setAccessible(isAccessible);                                                            
+                        }
+                    }
+                }
+            }
+        }
+        
+        @SuppressWarnings("unchecked")
+        private <T extends Object> T parse(Class<T> type, String property) {
+            Object object = null;
+            if (type.isAssignableFrom(String.class)) {
+                object = property;
+            } else if (type.isAssignableFrom(boolean.class) || type.isAssignableFrom(Boolean.class)) {
+                object = Boolean.parseBoolean(property);
+            } else if (type.isAssignableFrom(int.class) || type.isAssignableFrom(Integer.class)) {
+                object = Integer.parseInt(property);
+            } else if (type.isAssignableFrom(long.class) || type.isAssignableFrom(Long.class)) {
+                object = Long.parseLong(property);
+            } else {
+                return null;
+            }
+            return (T) object;
+        }
     }
+
 }
