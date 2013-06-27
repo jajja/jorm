@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @since 1.0.0
  */
 public final class Symbol {
-    private static volatile Map<String, Symbol> symbols = new ConcurrentHashMap<String, Symbol>();
+    private static volatile Map<String, Symbol> symbols = new ConcurrentHashMap<String, Symbol>(512, 0.75f, 1);
     private final Integer identity;
     private final String name;
 
