@@ -227,7 +227,11 @@ public class Database {
     }
     
     static {
-        configure();           
+        try {
+            configure();
+        } catch (Exception e) {
+            // silent
+        }
     }
     
     /*
@@ -242,7 +246,7 @@ public class Database {
      * database.lothlorien.dataSource.driverClassName=org.postgresql.Driver
      * database.lothlorien.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/lothlorien
      * database.lothlorien.dataSource.username=galadriel
-     * database.lothlorien.dataSource.password=galadrim
+     * database.lothlorien.dataSource.password=nenya
      */
     private static List<Configuration> configure() {
         ResourceBundle resourceBundle = ResourceBundle.getBundle("jorm");
@@ -255,7 +259,7 @@ public class Database {
         String prefix = "database.";
         Set<String> databases = new HashSet<String>();
         for (String key : properties.keySet()) {
-            key = key.replace("database.", "");
+            key = defix(key, prefix);
             int index = key.indexOf('.');
             if (0 < index) {
                 databases.add(key.substring(0, index));
@@ -269,15 +273,23 @@ public class Database {
             Map<String, String> dataSourceProperties = new HashMap<String, String>();
             for (Entry<String, String> entry : properties.entrySet()) {
                 if (entry.getKey().startsWith(prefix)) {
-                    dataSourceProperties.put(entry.getKey().replace(prefix, ""), entry.getValue());
+                    dataSourceProperties.put(defix(entry.getKey(), prefix), entry.getValue());
                 }
             }
-            Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties);
-            configuration.apply();
-            configurations.add(configuration);
-            Database.get().log.debug("Configured " + configuration);
+            try {
+                Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties);
+                configuration.apply();
+                configurations.add(configuration);
+                Database.get().log.debug("Configured " + configuration);
+            } catch (Exception e) {
+                Database.get().log.warn("Failed to configure database for '" + database + "':", e);
+            }
         }
         return configurations;
+    }
+
+    private static final String defix(String string, String prefix) {
+        return string.startsWith(prefix) ? string.substring(prefix.length()) : string;
     }
     
     public static class Configuration {        
@@ -298,16 +310,17 @@ public class Database {
             this.database = database;
             this.dataSourceProperties = dataSourceProperties;
             try {
-                @SuppressWarnings("unchecked")
-                Class<? extends DataSource> type = (Class<? extends DataSource>) Class.forName(dataSourceClassName);
-                dataSource = type.newInstance();
+                Class<?> type = Class.forName(dataSourceClassName);
+                dataSource = (DataSource) type.newInstance();
                 init();
             } catch (InstantiationException e) {
-                throw new IllegalArgumentException("The implementation has no default constructor!", e);
+                throw new IllegalArgumentException("The data source implementation has no default constructor!", e);
             } catch (IllegalAccessException e) {
-                throw new IllegalArgumentException("The implementation has no public constructor!", e);
+                throw new IllegalArgumentException("The data source implementation has no public constructor!", e);
             } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException("The implementation is not a data source!", e);
+                throw new IllegalArgumentException("The data source implementation does not exist!", e);
+            } catch (ClassCastException e) {
+                throw new IllegalArgumentException("The data source implementation is not a data source!", e);
             }
         }
         
