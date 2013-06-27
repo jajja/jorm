@@ -1048,10 +1048,15 @@ public abstract class Record {
             query.append(")");
         }
 
-        markStale();
+        isStale = true;
         if (open().getDialect().isReturningSupported()) {
             query.append(" RETURNING *");
-            selectInto(query);
+            try {
+                selectInto(query);
+            } catch (SQLException e) {
+                isStale = false;
+                throw e;
+            }
         } else {
             PreparedStatement preparedStatement = open().prepare(query.getSql(), query.getParams(), true);
             ResultSet resultSet = null;
@@ -1063,6 +1068,7 @@ public abstract class Record {
                     id = resultSet.getObject(1);
                 }
             } catch (SQLException e) {
+                isStale = false;
                 throw open().getDialect().rethrow(e, query.getSql());
             } finally {
                 try {

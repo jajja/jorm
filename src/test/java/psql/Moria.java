@@ -1,6 +1,7 @@
 package psql;
 
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.util.List;
 
 import junit.framework.Assert;
@@ -17,6 +18,7 @@ import org.junit.Test;
 import com.jajja.jorm.Column;
 import com.jajja.jorm.Database;
 import com.jajja.jorm.Record;
+import com.jajja.jorm.Transaction;
 import com.jajja.jorm.exceptions.CheckViolationException;
 import com.jajja.jorm.exceptions.UniqueViolationException;
 
@@ -150,6 +152,35 @@ public class Moria {
             Database.close("moria");
         }
         Assert.assertTrue(e instanceof UniqueViolationException);
+    }
+    
+    @Test
+    public void t09_uniqueViolationSave() {
+        SQLException e = null;
+        try {
+            Goblin goblin = Record.findById(Goblin.class, 1);
+            goblin.taint();
+            goblin.setMindset("angry");
+            save(Database.open("moria"), goblin);
+            Assert.assertEquals("angry", goblin.getMindset());
+        } catch (SQLException e2) {
+            e2.printStackTrace();
+            e = e2;
+            Database.close("moria");
+        }
+        Assert.assertNull(e);
+    }
+    
+    private static <R extends Record> R save(Transaction t, R r) throws SQLException {
+        Savepoint savepoint = t.save();
+        try {
+            r.insert();
+            t.release(savepoint);
+        } catch (UniqueViolationException e) {
+            t.rollback(savepoint);
+            r.update();
+        }
+        return r;
     }
 
 }
