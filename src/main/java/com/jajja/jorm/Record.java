@@ -1330,12 +1330,22 @@ public abstract class Record {
 
         query.append(" WHERE #:1# = #2#", table.getId(), id);
 
-        markStale();
+        isStale = true;
         if (open().getDialect().isReturningSupported()) {
             query.append(" RETURNING *");
-            selectInto(query);
+            try {
+                selectInto(query);
+            } catch (SQLException e) {
+                isStale = false;
+                throw e;
+            }
         } else {
-            open().executeUpdate(query);
+            try {
+                open().executeUpdate(query);                
+            } catch (SQLException e) {
+                isStale = false;
+                throw open().getDialect().rethrow(e, query.getSql());
+            }
         }
     }
 
