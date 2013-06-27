@@ -24,12 +24,12 @@ public class Moria {
 
     @BeforeClass
     public static void open() {
-        DataSource dataSource = new DataSource();
-        dataSource.setDriverClassName("org.postgresql.Driver");
-        dataSource.setUrl("jdbc:postgresql://sjhdb05b.jajja.local:5432/moria");
-        dataSource.setUsername("gandalf");
-        dataSource.setPassword("mellon");
-        Database.configure("moria", dataSource);
+//        DataSource dataSource = new DataSource();
+//        dataSource.setDriverClassName("org.postgresql.Driver");
+//        dataSource.setUrl("jdbc:postgresql://sjhdb05b.jajja.local:5432/moria");
+//        dataSource.setUsername("gandalf");
+//        dataSource.setPassword("mellon");
+//        Database.configure("moria", dataSource);
         try {
             Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
             Database.commit("moria");

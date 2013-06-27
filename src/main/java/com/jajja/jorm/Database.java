@@ -21,9 +21,14 @@
  */
 package com.jajja.jorm;
 
+import java.lang.reflect.Method;
 import java.sql.SQLException;
+import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.ResourceBundle;
+import java.util.Set;
 
 import javax.sql.DataSource;
 
@@ -215,5 +220,84 @@ public class Database {
         }
         map.clear();
         instance.transactions.remove();
+    }
+    
+    static {
+        try {
+            ResourceBundle resourceBundle = ResourceBundle.getBundle("jorm");
+            Map<String, String> properties = new HashMap<String, String>();
+            Enumeration<String> enumeration = resourceBundle.getKeys();
+            while (enumeration.hasMoreElements()) {
+                String key = enumeration.nextElement();
+                properties.put(key, resourceBundle.getString(key));
+            }
+            init(properties);            
+        } catch (Exception e) {
+//            e.printStackTrace(); // XXX: silently
+        }
+    }
+    
+    /*
+     * jorm.properties
+     * ---------------
+     * moria.dataSource=org.apache.tomcat.jdbc.pool.DataSource
+     * moria.dataSource.driverClassName=org.postgresql.Driver
+     * moria.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria
+     * moria.dataSource.username=gandalf
+     * moria.dataSource.password=mellon
+     * lothlorien.dataSource=org.apache.tomcat.jdbc.pool.DataSource
+     * lothlorien.dataSource.driverClassName=org.postgresql.Driver
+     * lothlorien.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/lothlorien
+     * lothlorien.dataSource.username=galadriel
+     * lothlorien.dataSource.password=galadrim
+     */
+    private static void init(Map<String, String> properties) {
+        Set<String> databases = new HashSet<String>();
+        for (String key : properties.keySet()) {
+            int index = key.indexOf('.');
+            if (0 < index) {
+                databases.add(key.substring(0, index));
+            }
+        }
+        for (String database : databases) {
+            database = database.trim();
+            if (!database.isEmpty()) {
+                try {
+                    String uri = database + ".dataSource";
+                    String className = properties.get(uri);
+                    Class<?> type = Class.forName(className);
+                    DataSource dataSource = (DataSource) type.newInstance();
+                    for (Method method: type.getMethods()) {
+                        String methodName = method.getName();
+                        Class<?>[] parameterTypes = method.getParameterTypes();
+                        boolean isAccessible = method.isAccessible();
+                        if (methodName.startsWith("set") && 3 < methodName.length() && parameterTypes.length == 1) {
+                            String parameterName = methodName.substring(3, 4).toLowerCase() + methodName.substring(4);
+                            String parameterValue = properties.get(uri + "." + parameterName);
+                            if (parameterValue != null) {
+                                method.setAccessible(true);
+                                Object parameter = null;
+                                if (parameterTypes[0].isAssignableFrom(String.class)) {
+                                    parameter = parameterValue;
+                                } else if (parameterTypes[0].isAssignableFrom(boolean.class) || parameterTypes[0].isAssignableFrom(Boolean.class)) {
+                                    parameter = Boolean.parseBoolean(parameterValue);
+                                } else if (parameterTypes[0].isAssignableFrom(int.class) || parameterTypes[0].isAssignableFrom(Integer.class)) {
+                                    parameter = Integer.parseInt(parameterValue);
+                                } else if (parameterTypes[0].isAssignableFrom(long.class) || parameterTypes[0].isAssignableFrom(Long.class)) {
+                                    parameter = Long.parseLong(parameterValue);
+                                }
+                                if (parameter != null) {
+                                    method.invoke(dataSource, parameter);
+                                }
+                                method.setAccessible(isAccessible);                                    
+                            }
+                        }
+                    }
+                    Database.configure(database, dataSource);
+                } catch (Exception e) {
+                    get().log.warn("Failed to autoload data source", e);
+                }                
+            }
+        }
     }
 }
