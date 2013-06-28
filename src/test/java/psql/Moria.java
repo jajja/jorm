@@ -9,7 +9,6 @@ import moria.Goblin;
 import moria.Litter;
 import moria.Tribe;
 
-import org.apache.tomcat.jdbc.pool.DataSource;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -24,12 +23,6 @@ public class Moria {
 
     @BeforeClass
     public static void open() {
-//        DataSource dataSource = new DataSource();
-//        dataSource.setDriverClassName("org.postgresql.Driver");
-//        dataSource.setUrl("jdbc:postgresql://sjhdb05b.jajja.local:5432/moria");
-//        dataSource.setUsername("gandalf");
-//        dataSource.setPassword("mellon");
-//        Database.configure("moria", dataSource);
         try {
             Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
             Database.commit("moria");
