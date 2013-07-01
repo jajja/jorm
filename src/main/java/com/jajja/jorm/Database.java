@@ -21,7 +21,6 @@
  */
 package com.jajja.jorm;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.Enumeration;
@@ -225,7 +224,7 @@ public class Database {
         map.clear();
         instance.transactions.remove();
     }
-    
+
     static {
         try {
             configure();
@@ -233,7 +232,7 @@ public class Database {
             // silent
         }
     }
-    
+
     /*
      * jorm.properties
      * ---------------
@@ -267,7 +266,7 @@ public class Database {
         }
         List<Configuration> configurations = new LinkedList<Database.Configuration>();
         for (String database : databases) {
-            prefix += database + ".dataSource";
+            prefix = "database." + database + ".dataSource";
             String dataSourceClassName = properties.get(prefix);
             prefix += ".";
             Map<String, String> dataSourceProperties = new HashMap<String, String>();
@@ -291,17 +290,17 @@ public class Database {
     private static final String defix(String string, String prefix) {
         return string.startsWith(prefix) ? string.substring(prefix.length()) : string;
     }
-    
-    public static class Configuration {        
+
+    public static class Configuration {
         private String database;
         private DataSource dataSource;
         private Map<String, String> dataSourceProperties;
-        
+
         @Override
         public String toString() {
             return "{ database => " + database + ", dataSourceClassName => " + dataSource.getClass().getName() + ", dataSourceProperties => " + dataSourceProperties + " }";
         }
-        
+
         public void apply() {
             configure(database, dataSource);
         }
@@ -323,7 +322,7 @@ public class Database {
                 throw new IllegalArgumentException("The data source implementation is not a data source!", e);
             }
         }
-        
+
         private void init() {
             for (Method method: dataSource.getClass().getMethods()) {
                 String methodName = method.getName();
@@ -339,13 +338,13 @@ public class Database {
                         } catch (Exception e) {
                             get().log.warn("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'", e);
                         } finally {
-                            method.setAccessible(isAccessible);                                                            
+                            method.setAccessible(isAccessible);
                         }
                     }
                 }
             }
         }
-        
+
         @SuppressWarnings("unchecked")
         private <T extends Object> T parse(Class<T> type, String property) {
             Object object = null;
