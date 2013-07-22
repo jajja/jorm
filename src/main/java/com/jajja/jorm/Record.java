@@ -947,8 +947,6 @@ public abstract class Record {
         try {
             SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
             symbolMap.populate(this, resultSet);
-
-            purify();
         } catch (SQLException sqlException) {
             open().getDialect().rethrow(sqlException);
         } finally {
@@ -979,6 +977,7 @@ public abstract class Record {
                     record.unset(symbol);
                 }
             }
+            record.purify();
         }
         public boolean contains(Symbol symbol) {
             return symbolSet.contains(symbol);
@@ -997,6 +996,7 @@ public abstract class Record {
         checkReadOnly();
         Field field = fields.get(table.getId());
         if (field == null || field.getValue() == null || field.isChanged()) {
+            System.out.println("lol: " + field + " " + (field != null ? field.getValue() : null) + " " + (field != null ? field.isChanged() : false));
             insert();
         } else {
             update();
