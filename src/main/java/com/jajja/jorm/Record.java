@@ -996,7 +996,6 @@ public abstract class Record {
         checkReadOnly();
         Field field = fields.get(table.getId());
         if (field == null || field.getValue() == null || field.isChanged()) {
-            System.out.println("lol: " + field + " " + (field != null ? field.getValue() : null) + " " + (field != null ? field.isChanged() : false));
             insert();
         } else {
             update();
