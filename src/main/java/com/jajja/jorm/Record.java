@@ -1987,6 +1987,13 @@ public abstract class Record {
         if (table.getTable() != null) {
             stringBuilder.append(table.getTable());
         }
+        if (isStale) {
+            stringBuilder.append("stale");
+        }
+        if (isReadOnly) {
+            stringBuilder.append("read-only");
+        }
+
         stringBuilder.append(" { ");
 
         for (Entry<Symbol, Field> entry : fields.entrySet()) {
