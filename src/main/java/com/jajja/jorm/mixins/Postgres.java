@@ -21,6 +21,8 @@
  */
 package com.jajja.jorm.mixins;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -119,5 +121,43 @@ public final class Postgres {
             throw new RuntimeException(e);
         }
         return obj;
+    }
+
+    public static String get(PGobject o, String expectedType) {
+        if (o == null) {
+            return null;
+        }
+        if (!o.getType().equals(expectedType)) {
+            throw new IllegalStateException("expected type " + expectedType+ ", found " + o.getType());
+        }
+        return o.getValue();
+    }
+
+    public static InetAddress toInetAddress(PGobject o) {
+        String address = get(o, "inet");
+        if (address == null) {
+            return null;
+        }
+        try {
+            return InetAddress.getByName(address);
+        } catch (UnknownHostException e) {
+            // UNREACHABLE ?
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static PGobject toInet(InetAddress inetAddress) {
+        if (inetAddress == null) {
+            return null;
+        }
+        PGobject o = new PGobject();
+        o.setType("inet");
+        try {
+            o.setValue(inetAddress.toString());
+        } catch (SQLException e) {
+            // UNREACHABLE ?
+            throw new RuntimeException(e);
+        }
+        return o;
     }
 }
