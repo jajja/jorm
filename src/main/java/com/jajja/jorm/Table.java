@@ -111,7 +111,7 @@ public class Table {
     }
 
     public Set<Symbol> getImmutable() {
-        return Collections.unmodifiableSet(immutable);
+        return immutable != null ? Collections.unmodifiableSet(immutable) : null;
     }
 
     Query getSelectQuery(Dialect dialect) {

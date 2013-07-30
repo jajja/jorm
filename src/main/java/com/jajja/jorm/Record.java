@@ -944,16 +944,8 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void populate(ResultSet resultSet) throws SQLException {
-        isStale = false;
-        try {
-            SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
-            symbolMap.populate(this, resultSet);
-        } catch (SQLException sqlException) {
-            open().getDialect().rethrow(sqlException);
-        } finally {
-            isStale = true; // lol exception
-        }
-        isStale = false;
+        SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
+        symbolMap.populate(this, resultSet);
     }
 
     public static class SymbolMap {
@@ -969,7 +961,15 @@ public abstract class Record {
         }
         public void populate(Record record, ResultSet resultSet) throws SQLException {
             for (int i = 0; i < symbols.length; i++) {
-                record.put(symbols[i], resultSet.getObject(i + 1));
+                record.isStale = false;
+                try {
+                    record.put(symbols[i], resultSet.getObject(i + 1));
+                } catch (SQLException sqlException) {
+                    record.open().getDialect().rethrow(sqlException);
+                } finally {
+                    record.isStale = true; // lol exception
+                }
+                record.isStale = false;
             }
             Iterator<Symbol> i = record.fields.keySet().iterator();
             while (i.hasNext()) {
@@ -1001,6 +1001,43 @@ public abstract class Record {
         } else {
             update();
         }
+    }
+
+    /**
+     * Batch saves the records. This is done by a call to {@link #insert()} if the id
+     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static void save(Collection<? extends Record> records, int batchSize, boolean isFullRepopulate) throws SQLException {
+        List<Record> insertRecords = new LinkedList<Record>();
+        List<Record> updateRecords = new LinkedList<Record>();
+
+        for (Record record : records) {
+            Field field = record.fields.get(record.table.getId());
+            if (field == null || field.getValue() == null || field.isChanged()) {
+                insertRecords.add(record);
+            } else {
+                updateRecords.add(record);
+            }
+        }
+
+        insert(insertRecords, batchSize, isFullRepopulate);
+        update(updateRecords, batchSize, isFullRepopulate);
+    }
+
+    /**
+     * Batch saves the records. This is done by a call to {@link #insert()} if the id
+     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static void save(Collection<? extends Record> records) throws SQLException {
+        save(records, 0, true);
     }
 
     /**
@@ -1159,7 +1196,9 @@ public abstract class Record {
             batchInfo.columns.addAll( record.fields.keySet() );
         }
 
-        batchInfo.columns.removeAll(batchInfo.template.table.getImmutable());
+        if (batchInfo.template != null && batchInfo.template.table.getImmutable() != null) {
+            batchInfo.columns.removeAll(batchInfo.template.table.getImmutable());
+        }
 
         return batchInfo;
     }
@@ -1479,6 +1518,19 @@ public abstract class Record {
         } else {
             open().executeUpdate(query);
         }
+    }
+
+    /**
+     * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
+     *
+     * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
+     *
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
+     * @throws SQLException
+     *             if a database access error occurs
+     */
+    public static void update(Collection<? extends Record> records) throws SQLException {
+        update(records, 0, true);
     }
 
     /**
