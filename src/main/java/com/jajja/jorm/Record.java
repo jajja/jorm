@@ -25,6 +25,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -1115,6 +1116,143 @@ public abstract class Record {
         return isStale;
     }
 
+    private static List<? extends Record> batchChunk(Iterator<? extends Record> iterator, int size) {
+        List<Record> records = null;
+
+        if (iterator.hasNext()) {
+            records = new ArrayList<Record>(size);
+
+            do {
+                Record record = iterator.next();
+                if (record.isChanged()) {
+                    records.add(record);
+                    size--;
+                }
+            } while (size > 0 && iterator.hasNext());
+        }
+
+        return records;
+    }
+
+    private static class BatchInfo {
+        private Set<Symbol> columns = new HashSet<Symbol>();
+        private Record template = null;
+    }
+
+    private static BatchInfo batchInfo(Collection<? extends Record> records) {
+        BatchInfo batchInfo = new BatchInfo();
+        for (Record record : records) {
+            record.checkReadOnly();
+
+            if (batchInfo.template == null) {
+                batchInfo.template = record;
+            }
+
+            if (!batchInfo.template.getClass().equals(record.getClass())) {
+                throw new IllegalArgumentException("all records must be of the same class");
+            }
+            if (!batchInfo.template.table.getDatabase().equals(record.table.getDatabase())) {
+                throw new IllegalArgumentException("all records must be bound to the same Database");
+            }
+
+            batchInfo.columns.addAll( record.fields.keySet() );
+        }
+        return batchInfo;
+    }
+
+    private static void batchExecute(Query query, Collection<? extends Record> records, boolean isFullRepopulate) throws SQLException {
+        PreparedStatement preparedStatement = null;
+        ResultSet resultSet = null;
+        Record template = records.iterator().next();
+        Transaction transaction = template.open();
+        Table table = template.table();
+        Dialect dialect = transaction.getDialect();
+
+        try {
+            boolean usingReturning = isFullRepopulate && dialect.isReturningSupported();
+            Map<Object, Record> map = null;
+
+            if (usingReturning) {
+                query.append(" RETURNING *");
+                preparedStatement = transaction.prepare(query.getSql(), query.getParams());
+                resultSet = preparedStatement.executeQuery();
+            } else {
+                preparedStatement = transaction.prepare(query.getSql(), query.getParams(), true);
+                preparedStatement.execute();
+                resultSet = preparedStatement.getGeneratedKeys();
+                if (isFullRepopulate) {
+                    map = new HashMap<Object, Record>();
+                }
+            }
+
+            SymbolMap symbolMap = null;
+
+            for (Record record : records) {
+                if (!resultSet.next()) {
+                    throw new IllegalStateException("too few rows returned?");
+                }
+                if (usingReturning) {
+                    // RETURNING rocks!
+                    if (symbolMap == null) {
+                        symbolMap = new SymbolMap(resultSet.getMetaData());
+                    }
+                    symbolMap.populate(record, resultSet);
+                } else {
+                    Field field = record.getOrCreateField(table.getId());
+                    field.setValue(resultSet.getObject(1));
+                    field.setChanged(false);
+                    if (isFullRepopulate) {
+                        if (map == null) throw new IllegalStateException("bug");
+                        map.put(field.getValue(), record);
+                        record.isStale = false; // actually still stale
+                    }
+                }
+            }
+
+            if (!usingReturning && isFullRepopulate) {
+                if (map == null) throw new IllegalStateException("bug");
+
+                resultSet.close();
+                resultSet = null;
+                preparedStatement.close();
+                preparedStatement = null;
+
+                // records must not be stale, or Query will generate SELECTs
+                Query q = table.getSelectQuery(dialect).append("WHERE #1# IN (#2:id#)", table.getId(), records);
+
+                preparedStatement = transaction.prepare(q);
+                resultSet = preparedStatement.executeQuery();
+
+                int idColumn = resultSet.findColumn(table.getId().getName());
+                if (Dialect.DatabaseProduct.MYSQL.equals(dialect.getDatabaseProduct())) {
+                    while (resultSet.next()) {
+                        map.get(resultSet.getLong(idColumn)).populate(resultSet);
+                    }
+                } else {
+                    while (resultSet.next()) {
+                        map.get(resultSet.getObject(idColumn)).populate(resultSet);
+                    }
+                }
+            }
+        } catch (SQLException sqlException) {
+            // records are in an unknown state, mark them stale
+            for (Record record : records) {
+                record.markStale();
+            }
+            dialect.rethrow(sqlException);
+        } finally {
+            try {
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+            } finally {
+                if (preparedStatement != null) {
+                    preparedStatement.close();
+                }
+            }
+        }
+    }
+
     /**
      * Inserts the record's changed values into the database by executing an SQL INSERT query.
      * The record's primary key value is set to the primary key generated by the database.
@@ -1455,6 +1593,90 @@ public abstract class Record {
         } else {
             open().executeUpdate(query);
         }
+    }
+
+    /**
+     * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
+     *
+     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
+     *
+     * Setting isFullRepopulate to true will re-populate the record fields with fresh values.
+     *
+     * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
+     *
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
+     * @param chunkSize Splits the records into chunks, <= 0 disables
+     * @param isFullRepopulate Whether or not to fully re-populate the record fields, or just update their primary key value and markStale()
+     * @throws SQLException
+     *             if a database access error occurs
+     */
+    public static void update(Collection<? extends Record> records, int chunkSize, boolean isFullRepopulate) throws SQLException {
+        BatchInfo batchInfo = batchInfo(records);
+
+        if (records.isEmpty()) {
+            return;
+        }
+
+        Dialect dialect = records.iterator().next().open().getDialect();
+        if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
+            for (Record record : records) {
+                record.update();
+            }
+            return;
+        }
+
+        if (chunkSize <= 0) {
+            batchUpdate(batchInfo, records, isFullRepopulate);
+        } else {
+            Iterator<? extends Record> iterator = records.iterator();
+            List<? extends Record> batch;
+            while ((batch = batchChunk(iterator, chunkSize)) != null) {
+                batchUpdate(batchInfo, batch, isFullRepopulate);
+            }
+        }
+    }
+
+    private static void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, boolean isFullRepopulate) throws SQLException {
+        Table table = batchInfo.template.table();
+        Transaction transaction = batchInfo.template.open();
+        Query query = new Query(transaction);
+        String vTable = table.getTable().equals("v") ? "v2" : "v";
+
+        query.append("UPDATE #1# SET ", table);
+        boolean isFirstColumn = true;
+        for (Symbol column : batchInfo.columns) {
+            query.append(isFirstColumn ? "#1# = #!2#.#1#" : ", #1# = #!2#.#1#", column, vTable);
+            isFirstColumn = false;
+        }
+
+        query.append(" FROM (VALUES ");
+
+        boolean isFirstValue = true;
+        for (Record record : records) {
+            isFirstColumn = true;
+            query.append(isFirstValue ? "(" : ", (");
+            for (Symbol column : batchInfo.columns) {
+                Object value = record.get(column);
+                if (value instanceof Query) {
+                    query.append(isFirstColumn ? "#1#" : ", #1#", value);
+                } else {
+                    query.append(isFirstColumn ? "#?1#" : ", #?1#", value);
+                }
+                isFirstColumn = false;
+            }
+            query.append(")");
+            isFirstValue = false;
+        }
+
+        query.append(") #!1# (", vTable);
+        isFirstColumn = true;
+        for (Symbol column : batchInfo.columns) {
+            query.append(isFirstColumn ? "#1#" : ", #1#", column);
+            isFirstColumn = false;
+        }
+        query.append(") WHERE #1#.#2# = #:3#.#2#", table, table.getId(), vTable);
+
+        batchExecute(query, records, isFullRepopulate);
     }
 
     /**
