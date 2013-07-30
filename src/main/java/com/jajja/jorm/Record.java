@@ -1503,6 +1503,10 @@ public abstract class Record {
             return;
         }
 
+        if (batchInfo.columns.isEmpty()) {
+            throw new IllegalArgumentException("No columns to update");
+        }
+
         Dialect dialect = records.iterator().next().open().getDialect();
         if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
             for (Record record : records) {
