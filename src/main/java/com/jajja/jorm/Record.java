@@ -1595,6 +1595,9 @@ public abstract class Record {
 
         boolean isFirstValue = true;
         for (Record record : records) {
+            if (!record.isSet(record.table.getId())) {
+                throw new IllegalArgumentException("Record does not have ID column set: " + record);
+            }
             isFirstColumn = true;
             query.append(isFirstValue ? "(" : ", (");
             for (Symbol column : batchInfo.columns) {
