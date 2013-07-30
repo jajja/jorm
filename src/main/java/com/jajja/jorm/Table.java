@@ -21,6 +21,7 @@
  */
 package com.jajja.jorm;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -107,6 +108,10 @@ public class Table {
 
     public boolean isImmutable(Symbol symbol) {
         return immutable != null && immutable.contains(symbol);
+    }
+
+    public Set<Symbol> getImmutable() {
+        return Collections.unmodifiableSet(immutable);
     }
 
     Query getSelectQuery(Dialect dialect) {
