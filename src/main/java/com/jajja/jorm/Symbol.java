@@ -105,4 +105,9 @@ public final class Symbol {
         }
         return false;
     }
+
+    @Override
+    public String toString() {
+        return "Symbol " + identity + ":" + name;
+    }
 }
