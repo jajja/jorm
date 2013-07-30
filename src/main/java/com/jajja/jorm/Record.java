@@ -1158,6 +1158,9 @@ public abstract class Record {
 
             batchInfo.columns.addAll( record.fields.keySet() );
         }
+
+        batchInfo.columns.removeAll(batchInfo.template.table.getImmutable());
+
         return batchInfo;
     }
 
@@ -1394,10 +1397,8 @@ public abstract class Record {
 
         boolean isFirst = true;
         for (Symbol column : batchInfo.columns) {
-            if (!table.isImmutable(column)) {
-                query.append(isFirst ? "#:1#" : ", #:1#", column);
-                isFirst = false;
-            }
+            query.append(isFirst ? "#:1#" : ", #:1#", column);
+            isFirst = false;
         }
         if (isFirst) {
             throw new RuntimeException("zero columns to insert!");
@@ -1411,19 +1412,17 @@ public abstract class Record {
 
             boolean isColumnFirst = true;
             for (Symbol column : batchInfo.columns) {
-                if (!table.isImmutable(column)) {
-                    if (record.isFieldChanged(column)) {
-                        Object value = record.get(column);
-                        if (value instanceof Query) {
-                            query.append(isColumnFirst ? "#1#" : ", #1#", value);
-                        } else {
-                            query.append(isColumnFirst ? "#?1#" : ", #?1#", value);
-                        }
+                if (record.isFieldChanged(column)) {
+                    Object value = record.get(column);
+                    if (value instanceof Query) {
+                        query.append(isColumnFirst ? "#1#" : ", #1#", value);
                     } else {
-                        query.append(isColumnFirst ? "DEFAULT" : ", DEFAULT");
+                        query.append(isColumnFirst ? "#?1#" : ", #?1#", value);
                     }
-                    isColumnFirst = false;
+                } else {
+                    query.append(isColumnFirst ? "DEFAULT" : ", DEFAULT");
                 }
+                isColumnFirst = false;
             }
             query.append(")");
             record.markStale();
