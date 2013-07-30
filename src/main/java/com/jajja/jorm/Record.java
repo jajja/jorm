@@ -1120,11 +1120,12 @@ public abstract class Record {
         List<Record> records = null;
 
         if (iterator.hasNext()) {
-            records = new ArrayList<Record>(size);
-
             do {
                 Record record = iterator.next();
                 if (record.isChanged()) {
+                    if (records == null) {
+                        records = new ArrayList<Record>(size);
+                    }
                     records.add(record);
                     size--;
                 }
@@ -1362,66 +1363,37 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void insert(Collection<? extends Record> records, int chunkSize, boolean isFullRepopulate) throws SQLException {
-        Set<Symbol> columns = new HashSet<Symbol>();
-        List<Record[]> chunks = new LinkedList<Record[]>();
-        Record[] chunk = null;
-        Record template = null;
-        int size = records.size();
-        int i = 0;
+        BatchInfo batchInfo = batchInfo(records);
 
-        if (chunkSize <= 0) {
-            chunkSize = size;
-        }
-
-        for (Record record : records) {
-            record.checkReadOnly();
-
-            if (template == null) {
-                template = record;
-            }
-
-            if (!template.getClass().equals(record.getClass())) {
-                throw new IllegalArgumentException("all records must be of the same class");
-            }
-            if (!template.table.getDatabase().equals(record.table.getDatabase())) {
-                throw new IllegalArgumentException("all records must be bound to the same Database");
-            }
-
-            if (chunk == null || i >= chunkSize) {
-                chunk = new Record[Math.min(size, chunkSize)];
-                chunks.add(chunk);
-                size -= chunk.length;
-                i = 0;
-            }
-
-            columns.addAll( record.fields.keySet() );
-
-            chunk[i++] = record;
-        }
-
-        if (template == null) {
+        if (records.isEmpty()) {
             return;
         }
 
-        for (Record[] recordArray : chunks) {
-            batchInsert(template, columns, recordArray, isFullRepopulate);
+        if (chunkSize <= 0) {
+            batchInsert(batchInfo, records, isFullRepopulate);
+        } else {
+            Iterator<? extends Record> iterator = records.iterator();
+            List<? extends Record> batch;
+            while ((batch = batchChunk(iterator, chunkSize)) != null) {
+                batchInsert(batchInfo, batch, isFullRepopulate);
+            }
         }
     }
 
-    private static void batchInsert(final Record template, Set<Symbol> columns, Record[] records, final boolean isFullRepopulate) throws SQLException {
-        Table table = template.table;
-        Transaction transaction = template.open();
+    private static void batchInsert(BatchInfo batchInfo, Collection<? extends Record> records, final boolean isFullRepopulate) throws SQLException {
+        Table table = batchInfo.template.table;
+        Transaction transaction = batchInfo.template.open();
         Dialect dialect = transaction.getDialect();
         Query query = new Query(dialect);
 
         if (table.getId() != null) {
-            columns.add(table.getId());
+            batchInfo.columns.add(table.getId());
         }
 
         query.append("INSERT INTO #1# (", table);
 
         boolean isFirst = true;
-        for (Symbol column : columns) {
+        for (Symbol column : batchInfo.columns) {
             if (!table.isImmutable(column)) {
                 query.append(isFirst ? "#:1#" : ", #:1#", column);
                 isFirst = false;
@@ -1438,7 +1410,7 @@ public abstract class Record {
             isFirst = false;
 
             boolean isColumnFirst = true;
-            for (Symbol column : columns) {
+            for (Symbol column : batchInfo.columns) {
                 if (!table.isImmutable(column)) {
                     if (record.isFieldChanged(column)) {
                         Object value = record.get(column);
@@ -1457,92 +1429,7 @@ public abstract class Record {
             record.markStale();
         }
 
-        PreparedStatement preparedStatement = null;
-        ResultSet resultSet = null;
-
-        try {
-            boolean usingReturning = isFullRepopulate && dialect.isReturningSupported();
-            Map<Object, Record> map = null;
-
-            if (usingReturning) {
-                query.append(" RETURNING *");
-                preparedStatement = transaction.prepare(query.getSql(), query.getParams());
-                resultSet = preparedStatement.executeQuery();
-            } else {
-                preparedStatement = transaction.prepare(query.getSql(), query.getParams(), true);
-                preparedStatement.execute();
-                resultSet = preparedStatement.getGeneratedKeys();
-                if (isFullRepopulate) {
-                    map = new HashMap<Object, Record>();
-                }
-            }
-
-            SymbolMap symbolMap = null;
-
-            for (Record record : records) {
-                if (!resultSet.next()) {
-                    throw new IllegalStateException("too few rows returned?");
-                }
-                if (usingReturning) {
-                    // RETURNING rocks!
-                    if (symbolMap == null) {
-                        symbolMap = new SymbolMap(resultSet.getMetaData());
-                    }
-                    symbolMap.populate(record, resultSet);
-                } else {
-                    Field field = record.getOrCreateField(table.getId());
-                    field.setValue(resultSet.getObject(1));
-                    field.setChanged(false);
-                    if (isFullRepopulate) {
-                        if (map == null) throw new IllegalStateException("bug");
-                        map.put(field.getValue(), record);
-                        record.isStale = false; // actually still stale
-                    }
-                }
-            }
-
-            if (!usingReturning && isFullRepopulate) {
-                if (map == null) throw new IllegalStateException("bug");
-
-                resultSet.close();
-                resultSet = null;
-                preparedStatement.close();
-                preparedStatement = null;
-
-                // records must not be stale, or Query will generate SELECTs
-                Query q = table.getSelectQuery(dialect).append("WHERE #1# IN (#2:id#)", table.getId(), records);
-
-                preparedStatement = transaction.prepare(q);
-                resultSet = preparedStatement.executeQuery();
-
-                int idColumn = resultSet.findColumn(table.getId().getName());
-                if (Dialect.DatabaseProduct.MYSQL.equals(dialect.getDatabaseProduct())) {
-                    while (resultSet.next()) {
-                        map.get(resultSet.getLong(idColumn)).populate(resultSet);
-                    }
-                } else {
-                    while (resultSet.next()) {
-                        map.get(resultSet.getObject(idColumn)).populate(resultSet);
-                    }
-                }
-            }
-        } catch (SQLException sqlException) {
-            // records are in an unknown state, mark them stale
-            for (Record record : records) {
-                record.markStale();
-            }
-            transaction.getDialect().rethrow(sqlException);
-        } finally {
-            try {
-                if (resultSet != null) {
-                    resultSet.close();
-                }
-            } finally {
-                if (preparedStatement != null) {
-                    preparedStatement.close();
-                }
-            }
-        }
+        batchExecute(query, records, isFullRepopulate);
     }
 
     /**
