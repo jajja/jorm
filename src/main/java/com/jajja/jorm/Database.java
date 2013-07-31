@@ -346,7 +346,7 @@ public class Database {
         }
 
         @SuppressWarnings("unchecked")
-        private <T extends Object> T parse(Class<T> type, String property) {
+        private static <T extends Object> T parse(Class<T> type, String property) {
             Object object = null;
             if (type.isAssignableFrom(String.class)) {
                 object = property;
