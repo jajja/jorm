@@ -14,46 +14,47 @@ public class ImportCollection {
 
     public ImportCollection(String packageName) {
         this.packageName = packageName;
-        add("java.lang", "Object");
-        add("java.lang", "Boolean");
-        add("java.lang", "Byte");
-        add("java.lang", "Short");
-        add("java.lang", "Integer");
-        add("java.lang", "Long");
-        add("java.lang", "Float");
-        add("java.lang", "Double");
-        add("java.lang", "String");
-        add("java.lang", "Long");
-    }
-
-    public void add(String packageName, String className) {
-        String fullClassName = packageName + "." + className;
-        if (imports.containsKey(fullClassName)) {
-            return;
-        }
-        Import i = new Import(packageName, className);
-        imports.put(fullClassName, i);
+        add("java.lang.Object");
+        add("java.lang.Boolean");
+        add("java.lang.Byte");
+        add("java.lang.Short");
+        add("java.lang.Integer");
+        add("java.lang.Long");
+        add("java.lang.Float");
+        add("java.lang.Double");
+        add("java.lang.String");
+        add("java.lang.Long");
     }
 
     public void add(String importName) {
-        int i = importName.lastIndexOf('.');
-        if (i <= 0) {
-            throw new IllegalArgumentException("illegal importName: " + importName);
+        Import i = new Import(importName);
+        if (imports.containsKey(i.getFullClassName())) {
+            return;
         }
-        add(importName.substring(0, i), importName.substring(i + 1));
+        imports.put(i.getFullClassName(), i);
+    }
+
+    private static boolean isPrimitive(String name) {
+        String[] types = new String[] { "byte", "short", "int", "long", "float", "double", "boolean", "char" };
+        for (String type : types) {
+            if (type.equals(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void complete() {
         Set<String> shortImports = new HashSet<String>();
         // Classes in the same package
         for (Import i : imports.values()) {
-            if (i.getPackageName().equals(packageName)) {
+            if (packageName.equals(i.getPackageName())) {
                 shortImports.add(i.getClassName());
             }
         }
         // The rest
         for (Import i : imports.values()) {
-            if (i.getPackageName().equals(packageName)) {
+            if (packageName.equals(i.getPackageName())) {
                 continue;       // already processed
             }
             if (!shortImports.contains(i.getClassName())) {
@@ -63,12 +64,20 @@ public class ImportCollection {
         }
     }
 
-    public String getShortestClassName(String fullClassName) {
-        Import i = imports.get(fullClassName);
-        if (i == null) {
-            throw new IllegalArgumentException("No such class name " + fullClassName);
+    public String getShortestClassName(String importName) {
+        Import i = new Import(importName);
+        if (i.isPrimitive()) {
+            return importName;
         }
-        return i.isImported() ? i.getClassName() : fullClassName;
+        Import i2 = imports.get(i.getFullClassName());
+        if (i2 == null) {
+            throw new IllegalArgumentException("No such class name " + i.getFullClassName());
+        }
+        importName = i2.isImported() ? i2.getClassName() : i2.getFullClassName();
+        if (i2.isArray()) {
+            importName += "[]";
+        }
+        return importName;
     }
 
     @Override
@@ -90,6 +99,23 @@ public class ImportCollection {
         private String packageName;
         private String className;
         private boolean imported;
+        private boolean isPrimitive = false;
+        private boolean isArray = false;
+
+        public Import(String importName) {
+            if (importName.endsWith("[]")) {
+                importName = importName.substring(0, importName.length() - 2);
+                this.isArray = true;
+            }
+            isPrimitive = ImportCollection.isPrimitive(importName);
+            int i = importName.lastIndexOf('.');
+            if (i <= 0) {
+                this.className = importName;
+            } else {
+                this.packageName = importName.substring(0, i);
+                this.className = importName.substring(i + 1);
+            }
+        }
 
         public Import(String packageName, String className) {
             this.packageName = packageName;
@@ -120,9 +146,25 @@ public class ImportCollection {
             return imported;
         }
 
+        public boolean isPrimitive() {
+            return isPrimitive;
+        }
+
+        public boolean isArray() {
+            return isArray;
+        }
+
+        public String getFullClassName() {
+            if (packageName == null) {
+                return className;
+            } else {
+                return packageName + "." + className;
+            }
+        }
+
         @Override
         public String toString() {
-            if (getPackageName().equals("java.lang")) {
+            if (packageName == null || packageName.equals("java.lang")) {
                 return "";
             }
             return String.format("import %s.%s;\n", getPackageName(), getClassName());
@@ -130,7 +172,14 @@ public class ImportCollection {
 
         @Override
         public int compareTo(Import i) {
-            int cmp = packageName.compareTo(i.getPackageName());
+            int cmp = 0;
+            if (i.getPackageName() == packageName) {
+                cmp = 0;
+            } else if (packageName == null) {
+                cmp = -1;
+            } else {
+                cmp = packageName.compareTo(i.getPackageName());
+            }
             if (cmp == 0) {
                 cmp = className.compareTo(i.getClassName());
             }

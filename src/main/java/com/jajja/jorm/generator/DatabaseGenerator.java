@@ -23,6 +23,9 @@ package com.jajja.jorm.generator;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -32,6 +35,7 @@ import java.util.Map;
 import com.jajja.jorm.Dialect;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
+import com.jajja.jorm.Transaction;
 
 
 /**
@@ -77,6 +81,28 @@ public class DatabaseGenerator implements Lookupable {
         return this;
     }
 
+//    public DatabaseGenerator addAllSchemas(String defaultSchemaName) throws SQLException {
+//        Transaction transaction = com.jajja.jorm.Database.open(name);
+//        Connection connection = transaction.getConnection();
+//        DatabaseMetaData metadata = connection.getMetaData();
+//
+//        ResultSet rs = null;
+//        try {
+//            rs = metadata.getSchemas();
+//            while (rs.next()) {
+//                String schemaName = rs.getString("TABLE_SCHEM");
+//                if (defaultSchemaName == null || !defaultSchemaName.equals(schemaName)) {
+//                    addSchema(schemaName);
+//                }
+//            }
+//        } finally {
+//            if (rs != null) {
+//                rs.close();
+//            }
+//        }
+//        return this;
+//    }
+
     public SchemaGenerator getSchema(String schemaName) {
         SchemaGenerator schema = schemas.get(schemaName);
         if (schema == null) {
@@ -102,6 +128,11 @@ public class DatabaseGenerator implements Lookupable {
         }
     }
 
+    // Add tables from default schema
+    public void addAllTables() throws SQLException {
+        getDefaultSchema().addAllTables();
+    }
+
     // Get table from default schema
 //    public TableGenerator getTable(String name) {
 //        return schemas.get(null).getTable(name);
@@ -117,7 +148,7 @@ public class DatabaseGenerator implements Lookupable {
     }
 
     public void fetchMetadata() throws SQLException {
-        com.jajja.jorm.Transaction transaction = com.jajja.jorm.Database.open(name);
+        Transaction transaction = com.jajja.jorm.Database.open(name);
 
         try {
             if (transaction.getDialect().getDatabaseProduct().equals(Dialect.DatabaseProduct.MYSQL)) {

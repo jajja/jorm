@@ -23,6 +23,9 @@ package com.jajja.jorm.generator;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -99,6 +102,25 @@ public class SchemaGenerator implements Lookupable {
     public void addTables(String ... tableNames) {
         for (String tableName : tableNames) {
             addTable(tableName);
+        }
+    }
+
+    public void addAllTables() throws SQLException {
+        Transaction transaction = com.jajja.jorm.Database.open(getDatabase().getName());
+        Connection connection = transaction.getConnection();
+        DatabaseMetaData metadata = connection.getMetaData();
+
+        ResultSet rs = null;
+        try {
+            String[] types = new String[] {"TABLE", "VIEW"};
+            rs = metadata.getTables(null, name, null, types);
+            while (rs.next()) {
+                addTable(rs.getString("TABLE_NAME"));
+            }
+        } finally {
+            if (rs != null) {
+                rs.close();
+            }
         }
     }
 
