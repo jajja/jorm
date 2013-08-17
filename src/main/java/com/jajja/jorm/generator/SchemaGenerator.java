@@ -144,7 +144,7 @@ public class SchemaGenerator implements Lookupable {
     public void writeFiles(String rootPath) throws IOException {
         new File(rootPath).mkdirs();
         for (TableGenerator table : tables.values()) {
-            table.writeFile(rootPath + File.separator + table.getName() + ".java");
+            table.writeFile(rootPath + File.separator + table.getClassName() + ".java");
         }
     }
 
