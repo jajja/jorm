@@ -50,6 +50,7 @@ public class ImportCollection {
         for (Import i : imports.values()) {
             if (packageName.equals(i.getPackageName())) {
                 shortImports.add(i.getClassName());
+                i.setImported(true);
             }
         }
         // The rest
