@@ -225,11 +225,18 @@ public class Database {
         instance.transactions.remove();
     }
 
+    private static List<Configuration> configuration;
     static {
         try {
-            configure();
+            configuration = configure();
         } catch (Exception e) {
             // silent
+        }
+    }
+
+    public static void destroy() {
+        for (Configuration conf : configuration) {
+            conf.destroy();
         }
     }
 
@@ -266,6 +273,7 @@ public class Database {
         }
         List<Configuration> configurations = new LinkedList<Database.Configuration>();
         for (String database : databases) {
+            String destroyMethodName = properties.get("database." + database + ".destroyMethod");
             prefix = "database." + database + ".dataSource";
             String dataSourceClassName = properties.get(prefix);
             prefix += ".";
@@ -276,7 +284,7 @@ public class Database {
                 }
             }
             try {
-                Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties);
+                Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
                 configuration.apply();
                 configurations.add(configuration);
                 Database.get().log.debug("Configured " + configuration);
@@ -295,6 +303,7 @@ public class Database {
         private String database;
         private DataSource dataSource;
         private Map<String, String> dataSourceProperties;
+        private Method destroyMethod;
 
         @Override
         public String toString() {
@@ -305,11 +314,20 @@ public class Database {
             configure(database, dataSource);
         }
 
-        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties) {
+        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties, String destroyMethodName) {
             this.database = database;
             this.dataSourceProperties = dataSourceProperties;
             try {
                 Class<?> type = Class.forName(dataSourceClassName);
+                if (destroyMethodName != null) {
+                    try {
+                        destroyMethod = type.getMethod(destroyMethodName);
+                    } catch (NoSuchMethodException e) {
+                        throw new IllegalArgumentException("The destroy method does not exist!", e);
+                    } catch (SecurityException e) {
+                        throw new IllegalArgumentException("The destroy method is not accessible!", e);
+                    }
+                }
                 dataSource = (DataSource) type.newInstance();
                 init();
             } catch (InstantiationException e) {
@@ -341,6 +359,16 @@ public class Database {
                             method.setAccessible(isAccessible);
                         }
                     }
+                }
+            }
+        }
+
+        public void destroy() {
+            if (destroyMethod != null) {
+                try {
+                    destroyMethod.invoke(dataSource);
+                } catch (Exception e) {
+                    get().log.error("Failed to invoke destroy method for " + dataSource.getClass(), e);
                 }
             }
         }
