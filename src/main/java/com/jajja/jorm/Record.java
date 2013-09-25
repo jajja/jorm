@@ -1291,7 +1291,7 @@ public abstract class Record {
                 preparedStatement = null;
 
                 // records must not be stale, or Query will generate SELECTs
-                Query q = table.getSelectQuery(dialect).append("WHERE #1# IN (#2:id#)", table.getId(), records);
+                Query q = table.getSelectQuery(dialect).append("WHERE #1# IN (#2:@#)", table.getId(), records);
 
                 preparedStatement = transaction.prepare(q);
                 resultSet = preparedStatement.executeQuery();
