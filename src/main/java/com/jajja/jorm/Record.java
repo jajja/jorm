@@ -1121,24 +1121,8 @@ public abstract class Record {
      * Determines whether the record has been changed or not.
      *
      * @return true if at least one field has been changed, otherwise false.
-     * @deprecated Use changed() instead
      */
-    @Deprecated
     public boolean isChanged() {
-        for (Field field : fields.values()) {
-            if (field.isChanged()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Determines whether the record has been changed or not.
-     *
-     * @return true if at least one field has been changed, otherwise false.
-     */
-    public boolean changed() {
         for (Field field : fields.values()) {
             if (field.isChanged()) {
                 return true;
@@ -1164,22 +1148,8 @@ public abstract class Record {
      * or {@link #refresh()}, whichever comes first.
      *
      * @return true if the record is stale otherwise false.
-     * @deprecated Use stale() instead
      */
-    @Deprecated
     public boolean isStale() {
-        return isStale;
-    }
-
-    /**
-     * Determines whether the record is stale or not, i.e. needs to be
-     * re-populated in any upcoming call to {@link #set(String, Object)},
-     * {@link #set(Symbol, Object)}, {@link #get(String)}, {@link #get(Symbol)}
-     * or {@link #refresh()}, whichever comes first.
-     *
-     * @return true if the record is stale otherwise false.
-     */
-    public boolean stale() {
         return isStale;
     }
 
