@@ -103,7 +103,10 @@ public class Query {
             Record record = (Record)param;
             if (label == null) throw new IllegalArgumentException("Cannot append record field without a label! (e.g. #1:foo_column#)");
             if ("@".equals(label)) {
-                param = record.get(record.table().getId());
+                if (!record.table().getPrimaryKey().isSingle()) {
+                    throw new UnsupportedOperationException("@ is not supported on Composite columns");
+                }
+                param = record.id().getValue();
             } else {
                 param = record.get(label);
             }
@@ -184,6 +187,12 @@ public class Query {
             return;
         }
 
+        if (param instanceof Composite) {
+            param = ((Composite)param).getSymbols();
+        } else if (param instanceof Composite.Value) {
+            param = ((Composite.Value)param).getValues();
+        }
+
         if (param != null && param.getClass().isArray() && !param.getClass().getComponentType().isPrimitive()) {
             param = Arrays.asList((Object[])param);
         }
@@ -255,4 +264,11 @@ public class Query {
         return params;
     }
 
+    public boolean isEmpty() {
+        return sql.length() == 0;
+    }
+
+    public int length() {
+        return sql.length();
+    }
 }

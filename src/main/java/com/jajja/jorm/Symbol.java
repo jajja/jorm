@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class Symbol {
     private static volatile ConcurrentHashMap<String, Symbol> symbols = new ConcurrentHashMap<String, Symbol>(512, 0.75f, 1);
-    private final Integer identity;
+    private final int identity;
     private final String name;
 
     /**
@@ -43,7 +43,7 @@ public final class Symbol {
      *
      * @return the identity.
      */
-    public Integer getIdentity() {
+    public int getIdentity() {
         return identity;
     }
 
@@ -81,8 +81,8 @@ public final class Symbol {
     }
 
     private Symbol(Integer identity, String string) {
-        if (string == null) {
-            throw new IllegalArgumentException("Symbols cannot have null content!");
+        if (string == null || string.isEmpty()) {
+            throw new IllegalArgumentException("Symbols cannot have empty content!");
         }
         if (identity < 1) {
             throw new RuntimeException("Something has maliciously created more than " + Integer.MAX_VALUE + " symbols!");
@@ -93,7 +93,7 @@ public final class Symbol {
 
     @Override
     public int hashCode() {
-        return identity.hashCode();
+        return identity;
     }
 
     @Override
@@ -101,7 +101,7 @@ public final class Symbol {
         if (object instanceof Symbol) {
             return ((Symbol)object).identity == identity;
         } else if (object instanceof String) {
-            return ((String) object).equals(name);
+            return ((String)object).equals(name);
         }
         return false;
     }

@@ -2,11 +2,11 @@ package moria;
 
 import java.sql.SQLException;
 
-import com.jajja.jorm.Column;
+import com.jajja.jorm.Composite;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 
-@Jorm(database="moria", table="goblins", id="id")
+@Jorm(database="moria", table="goblins", primaryKey="id")
 public class Goblin extends Record {
     public Integer getId() {
         return get("id", Integer.class);
@@ -41,7 +41,8 @@ public class Goblin extends Record {
 
     // part 2
     public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
-        return find(Goblin.class, new Column("tribe_id", tribe), new Column("name", name));
+        Composite composite = new Composite("tribe_id", "name");
+        return find(Goblin.class, composite, composite.value(tribe, name));
     }
 
     // part 3

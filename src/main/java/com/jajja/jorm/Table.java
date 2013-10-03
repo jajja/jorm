@@ -41,7 +41,7 @@ public class Table {
     private String database;
     private String schema;
     private String table;
-    private Symbol id;
+    private Composite primaryKey;
     private Set<Symbol> immutable;
 
     public static Table get(Class<? extends Record> clazz) {
@@ -67,14 +67,14 @@ public class Table {
         if (jorm == null) {
             throw new RuntimeException("Jorm annotation missing in " + Jorm.class);
         }
-        if (jorm.table().equals("") ^ jorm.id().equals("")) {
+        if (jorm.table().equals("") ^ jorm.primaryKey().length == 0) {
             throw new RuntimeException("Tables cannot be mapped without primary keys. Either define both table and primary key or none in the Jorm annotation.");
         }
         database = jorm.database();
         schema = nullify(jorm.schema());
         table = nullify(jorm.table());
         if (table != null) {
-            id = Symbol.get(jorm.id());
+            primaryKey = new Composite(jorm.primaryKey());
         }
         if (jorm.immutable().length > 0) {
             immutable = new HashSet<Symbol>();
@@ -102,8 +102,8 @@ public class Table {
         return table;
     }
 
-    public Symbol getId() {
-        return id;
+    public Composite getPrimaryKey() {
+        return primaryKey;
     }
 
     public boolean isImmutable(Symbol symbol) {

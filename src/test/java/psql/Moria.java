@@ -13,7 +13,6 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.jajja.jorm.Column;
 import com.jajja.jorm.Database;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.exceptions.CheckViolationException;
@@ -41,7 +40,7 @@ public class Moria {
     @Test
     public void t01_find() {
         try {
-            Goblin goblin = Record.find(Goblin.class);
+            Goblin goblin = Record.select(Goblin.class, "SELECT * FROM #1# LIMIT 1", Goblin.class);
             Assert.assertNotNull(goblin);
         } catch (SQLException e) {
             e.printStackTrace();
@@ -65,7 +64,7 @@ public class Moria {
     @Test
     public void t03_columns() {
         try {
-            Goblin goblin = Record.find(Goblin.class, new Column("name", "Bolg"));
+            Goblin goblin = Record.select(Goblin.class, "SELECT * FROM #1# WHERE name = 'Bolg'", Goblin.class);
             Assert.assertNotNull(goblin);
         } catch (SQLException e) {
             e.printStackTrace();
@@ -77,7 +76,7 @@ public class Moria {
     @Test
     public void t04_oneToOne() {
         try {
-            Goblin goblin = Record.find(Goblin.class, new Column("name", "Bolg"));
+            Goblin goblin = Record.select(Goblin.class, "SELECT * FROM #1# WHERE name = 'Bolg'", Goblin.class);
             Tribe tribe = goblin.getTribe();
             Assert.assertNotNull(tribe);
         } catch (SQLException e) {
@@ -87,11 +86,10 @@ public class Moria {
         }
     }
 
-
     @Test
     public void t05_oneToMany() {
         try {
-            Tribe tribe = Record.find(Tribe.class);
+            Tribe tribe = Record.select(Tribe.class, "SELECT * FROM #1# LIMIT 1", Tribe.class);
             List<Goblin> goblins = tribe.getGoblins();
             Assert.assertFalse(goblins.isEmpty());
         } catch (SQLException e) {
@@ -122,7 +120,7 @@ public class Moria {
     public void t07_checkViolation() {
         SQLException e = null;
         try {
-            Litter litter = Record.find(Litter.class);
+            Litter litter = Record.select(Litter.class, "SELECT * FROM #1# LIMIT 1", Litter.class);
             litter.setStench(2.);
             litter.save();
             Database.commit("moria");

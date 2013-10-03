@@ -1,16 +1,16 @@
 /*
  * Copyright (C) 2013 Jajja Communications AB
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,12 +21,6 @@
  */
 package com.jajja.jorm;
 
-import com.jajja.jorm.exceptions.CheckViolationException;
-import com.jajja.jorm.exceptions.DeadlockDetectedException;
-import com.jajja.jorm.exceptions.ForeignKeyViolationException;
-import com.jajja.jorm.exceptions.JormSqlException;
-import com.jajja.jorm.exceptions.LockTimeoutException;
-import com.jajja.jorm.exceptions.UniqueViolationException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -34,9 +28,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.jajja.jorm.Composite.Value;
+import com.jajja.jorm.exceptions.CheckViolationException;
+import com.jajja.jorm.exceptions.DeadlockDetectedException;
+import com.jajja.jorm.exceptions.ForeignKeyViolationException;
+import com.jajja.jorm.exceptions.JormSqlException;
+import com.jajja.jorm.exceptions.LockTimeoutException;
+import com.jajja.jorm.exceptions.UniqueViolationException;
+
 /**
  * The implementation of dialect specific logic for SQL.
- * 
+ *
  * @see Transaction
  * @author Martin Korinth <martin.korinth@jajja.com>
  * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
@@ -45,7 +47,8 @@ import java.util.regex.Pattern;
 public class Dialect {
     private static final HashMap<DatabaseProduct, Info> infos = new HashMap<DatabaseProduct, Info>();
     private Info info;
-    private boolean returningSupported;
+    private boolean returningSupported; // TODO EnumSet?
+    private boolean rowWiseComparison;
     private DatabaseProduct databaseProduct;
     private String extraNameChars;
     private String identifierQuoteString;
@@ -121,7 +124,7 @@ public class Dialect {
     /**
      * Constructs dialect specific configuration according a given database and
      * corresponding connection.
-     * 
+     *
      * @param database
      *            the name of the database, used for enhancing SQL exceptions.
      * @param connection
@@ -145,23 +148,29 @@ public class Dialect {
             int major = metaData.getDatabaseMajorVersion();
             int minor = metaData.getDatabaseMinorVersion();
             returningSupported = major > 8 || (major == 8 && minor > 1);
-        } else {
-            returningSupported = false;
+            rowWiseComparison = true;
         }
     }
 
     /**
      * Determines if the SQL dialect has support for returning result set for
      * inserts and updates.
-     * 
+     *
      * @return true if the SQL the <tt>RETURNING</tt> clause for <tt>INSERT</tt>
      *         and <tt>UPDATE</tt> queries is supported by the database, false
      *         otherwise.
-     * @throws RuntimeException
-     *             if the database product name cannot be identified.
      */
     public boolean isReturningSupported() {
         return returningSupported;
+    }
+
+    /**
+     * Determines if the SQL dialect has support for row-wise comparison, i.e. WHERE (id, name, ...) = (1, 'foo', ...)
+     *
+     * @return true if the SQL dialect supports row-wise comparison, false otherwise.
+     */
+    public boolean isRowWiseComparisonSupported() {
+        return rowWiseComparison;
     }
 
     /**
@@ -173,7 +182,7 @@ public class Dialect {
      * <p>
      * <strong>Note:</strong> that SQL keywords are not checked.
      * </p>
-     * 
+     *
      * @param string
      *            the identifier.
      * @return true if the identifier contains characters that needs to be
@@ -192,7 +201,7 @@ public class Dialect {
 
     /**
      * Quotes an identifier such as a schema name, table name or column name.
-     * 
+     *
      * @param string
      *            the identifier.
      * @return the quoted identifier.
@@ -233,7 +242,7 @@ public class Dialect {
 
     /**
      * SQL exception predicate for foreign key violation.
-     * 
+     *
      * @param sqlException
      *            the SQL exception to evaluate.
      * @return true if the SQL exception can be identified as a foreign key
@@ -245,7 +254,7 @@ public class Dialect {
 
     /**
      * SQL exception predicate for unique violation.
-     * 
+     *
      * @param sqlException
      *            the SQL exception to evaluate.
      * @return true if the SQL exception can be identified as a unique
@@ -257,7 +266,7 @@ public class Dialect {
 
     /**
      * SQL exception predicate for check violation.
-     * 
+     *
      * @param sqlException
      *            the SQL exception to evaluate.
      * @return true if the SQL exception can be identified as a check violation,
@@ -269,7 +278,7 @@ public class Dialect {
 
     /**
      * SQL exception predicate for foreign key detected deadlock.
-     * 
+     *
      * @param sqlException
      *            the SQL exception to evaluate.
      * @return true if the SQL exception can be identified as a detected
@@ -281,7 +290,7 @@ public class Dialect {
 
     /**
      * SQL exception predicate for lock timeout.
-     * 
+     *
      * @param sqlException
      *            the SQL exception to evaluate.
      * @return true if the SQL exception can be identified as a lock timeout,
@@ -296,9 +305,9 @@ public class Dialect {
      * configuration, PostgreSQL, MySQL and SQL Server exceptions can be classified.
      *
      * See {@link ExceptionType} for a list of exception types.
-     * 
+     *
      * If the type of exception is not known, UNKNOWN is returned.
-     * 
+     *
      * @param sqlException
      *            the exception to classify.
      * @return the exception type.
@@ -326,7 +335,7 @@ public class Dialect {
      * Re-throws an SQLException as a {@link JormSqlException}. If the exception can be classified, it is
      * augmented further as either a {@link DeadlockDetectedException}, {@link ForeignKeyViolationException},
      * {@link LockTimeoutException} or {@link UniqueViolationException}.
-     * 
+     *
      * @param sqlException
      *            an original sqlException generated by a JDBC-implementation.
      * @param sql
@@ -356,7 +365,7 @@ public class Dialect {
      * Re-throws an SQLException as a {@link JormSqlException}. If the exception can be classified, it is
      * augmented further as either a {@link DeadlockDetectedException}, {@link ForeignKeyViolationException},
      * {@link LockTimeoutException} or {@link UniqueViolationException}.
-     * 
+     *
      * @param sqlException
      *            an original sqlException generated by a JDBC-implementation.
      * @throws SQLException
@@ -369,7 +378,7 @@ public class Dialect {
     /**
      * Gets the dialect specific function call that returns the transaction start time,
      * eg. <tt>now()</tt>.
-     * 
+     *
      * @return the dialect specific function call for getting the transaction start time.
      */
     public String getNowFunction() {
@@ -379,7 +388,7 @@ public class Dialect {
     /**
      * Gets the dialect specific query that selects the transaction start time,
      * eg. <tt>SELECT now()</tt>.
-     * 
+     *
      * @return the dialect specific query for selecting transaction start time.
      */
     public String getNowQuery() {
@@ -388,7 +397,7 @@ public class Dialect {
 
     /**
      * Provides the database product for the SQL dialect.
-     * 
+     *
      * @return the database product.
      */
     public DatabaseProduct getDatabaseProduct() {
@@ -438,5 +447,21 @@ public class Dialect {
             return nameMap.get(databaseProductName);
         }
 
+    }
+
+    public Query toSqlExpression(Composite composite, Value value) {
+        Query query = new Query(this);
+        Symbol[] columns = composite.getSymbols();
+        Object[] values = value.getValues();
+        boolean isFirst = true;
+        for (int i = 0; i < columns.length; i++) {
+            if (isFirst) {
+                isFirst = false;
+                query.append("#:1# = #2#", columns[i], values[i]);
+            } else {
+                query.append(" AND #:1# = #2#", columns[i], values[i]);
+            }
+        }
+        return query;
     }
 }

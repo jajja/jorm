@@ -27,6 +27,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+
+import com.jajja.jorm.Composite.Value;
 
 /**
  * A record cache implementation, using LRU.
@@ -38,10 +41,10 @@ import java.util.Map;
 public class Cache<C extends Record> {
     private Lru<Object> map;
     private Class<C> clazz;
-    private HashSet<String> additionalColumns = new HashSet<String>();
-    private String id;
-    // <columnValue, primaryKeyValue>
-    private Map<String, Map<Object, Object>> additionalMap = new HashMap<String, Map<Object, Object>>();
+    private Set<Composite> additionalComposites = new HashSet<Composite>();
+    private Composite primaryKey;
+    // <additionalComposite, <additionalValue, primaryKeyValue>>
+    private Map<Composite, Map<Composite.Value, Composite.Value>> additionalMap = new HashMap<Composite, Map<Composite.Value, Composite.Value>>();
 
     private class Lru<K> extends LinkedHashMap<K,C> {
         private static final long serialVersionUID = 1L;
@@ -61,25 +64,24 @@ public class Cache<C extends Record> {
     }
 
     public Cache(int capacity, Class<C> clazz) {
+        this.clazz = clazz;
         map = new Lru<Object>(capacity);
-
-        this.clazz = clazz;  // C.class!
-        id = Table.get(clazz).getId().getName();
+        primaryKey = Table.get(clazz).getPrimaryKey();
     }
 
-    public void indexAdditionalColumn(String column) {
+    public void indexAdditionalKey(Composite composite) {
         synchronized (map) {
             if (!map.isEmpty()) {
-                throw new RuntimeException("cache must be empty");
+                throw new IllegalStateException("Cache must be empty!");
             }
 
-            additionalColumns.add(column);
-            additionalMap.put(column, new HashMap<Object, Object>());
+            additionalComposites.add(composite);
+            additionalMap.put(composite, new HashMap<Composite.Value, Composite.Value>());
         }
     }
 
-    protected boolean fetchInto(String column, Object value, C record) throws SQLException {
-        return record.populateByColumn(column, value);
+    protected boolean fetchInto(Composite composite, Composite.Value value, C record) throws SQLException {
+        return record.populateByComposite(composite, value);
     }
 
     public void put(Collection<C> records) {
@@ -99,38 +101,38 @@ public class Cache<C extends Record> {
             return;
         }
         map.put(record.id(), record);
-        for (String column : additionalColumns) {
-            Map<Object, Object> amap = additionalMap.get(column);
-            Object value = record.get(column);
+        for (Composite composite : additionalComposites) {
+            Map<Composite.Value, Composite.Value> amap = additionalMap.get(composite);
+            Value value = record.get(composite);
             if (amap.containsKey(value)) {
-                throw new RuntimeException("collision! column '" + column + "' already contains value '" + value + "' (while indexing record " + record + ")");
+                throw new IllegalStateException("Collision! Cache already contains composite key '" + composite + "' value '" + value + "' (occurred while indexing record " + record + ")");
             }
             amap.put(value, record.id());
         }
     }
 
     private void deindex(C record) {
-        for (String column : additionalColumns) {
-            Map<Object, Object> amap = additionalMap.get(column);
-            Object value = record.get(column);
+        for (Composite composite : additionalComposites) {
+            Map<Composite.Value, Composite.Value> amap = additionalMap.get(composite);
+            Value value = record.get(composite);
             if (!amap.containsKey(value)) {
-                throw new RuntimeException("index corruption! column '" + column + "' no longer contains value '" + value + "'");
+                throw new RuntimeException("Index corruption! Cache no longer contains composite key '" + composite + "' value '" + value + "'");
             }
             amap.remove(value);
         }
     }
 
-    public C get(String column, Object value) {
+    public C get(Composite compositeKey, Value value) {
         synchronized (map) {
             C record;
 
-            if (id.equals(column)) {
+            if (primaryKey.equals(compositeKey)) {
                 record = map.get(value);
             } else {
-                if (!additionalColumns.contains(column)) {
-                    throw new IllegalArgumentException("column '" + column + "' is not indexed");
+                if (!additionalComposites.contains(compositeKey)) {
+                    throw new IllegalArgumentException("Composite key '" + compositeKey + "' is not indexed");
                 }
-                Map<Object, Object> amap = additionalMap.get(column);
+                Map<Composite.Value, Composite.Value> amap = additionalMap.get(compositeKey);
                 record = map.get( amap.get(value) );
             }
 
@@ -141,7 +143,7 @@ public class Cache<C extends Record> {
                     throw new RuntimeException("failed to create new instance", e);
                 }
                 try {
-                    if (!fetchInto(column, value, record)) {
+                    if (!fetchInto(compositeKey, value, record)) {
                         //  TODO negative cache?
                         record = null;
                     }
@@ -158,8 +160,8 @@ public class Cache<C extends Record> {
         }
     }
 
-    public C get(Object value) {
-        return get(id, value);
+    public C get(Value value) {
+        return get(primaryKey, value);
     }
 
     public void put(C record) {
@@ -187,8 +189,8 @@ public class Cache<C extends Record> {
     public void clear() {
         synchronized (map) {
             map.clear();
-            for (String column : additionalColumns) {
-                Map<Object, Object> map = additionalMap.get(column);
+            for (Composite composite : additionalComposites) {
+                Map<Composite.Value, Composite.Value> map = additionalMap.get(composite);
                 map.clear();
             }
         }

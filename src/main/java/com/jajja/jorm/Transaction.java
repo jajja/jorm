@@ -32,14 +32,17 @@ import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Record.SymbolMap;
 
 /**
@@ -388,6 +391,88 @@ public class Transaction {
     }
 
     /**
+     * Provides a list of selected anonymous read-only records, populated with
+     * the results from the given query.
+     *
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public Map<Composite.Value, Record> selectAsMap(Composite composite, boolean allowDuplicates, Query query) throws SQLException {
+        ResultSet resultSet = null;
+        try {
+            Map<Composite.Value, Record> records = new HashMap<Composite.Value, Record>();
+            resultSet = prepare(query).executeQuery();
+            SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
+            while (resultSet.next()) {
+                Select record = new Select(table);
+                symbolMap.populate(record, resultSet);
+                Value value = composite.valueFrom(record);
+                if (records.put(value, record) != null && !allowDuplicates) {
+                    throw new java.lang.RuntimeException("Duplicate key " + value);
+                }
+                ;
+            }
+            return records;
+        } catch (SQLException sqlException) {
+            throw getDialect().rethrow(sqlException, query.getSql());
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
+        }
+    }
+
+    public Map<Composite.Value, Record> selectAsMap(Composite composite, boolean allowDuplicates, String sql, Object ... params) throws SQLException {
+        return selectAsMap(composite, allowDuplicates, new Query(this, sql, params));
+    }
+
+    /**
+     * Provides a list of selected anonymous read-only records, populated with
+     * the results from the given query.
+     *
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public Map<Composite.Value, List<Record>> selectAllAsMap(Composite composite, Query query) throws SQLException {
+        ResultSet resultSet = null;
+        try {
+            Map<Composite.Value, List<Record>> map = new HashMap<Composite.Value, List<Record>>();
+            resultSet = prepare(query).executeQuery();
+            SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
+            while (resultSet.next()) {
+                Select record = new Select(table);
+                symbolMap.populate(record, resultSet);
+                Value key = composite.valueFrom(record);
+                List<Record> records = map.get(key);
+                if (records == null) {
+                    records = new LinkedList<Record>();
+                    map.put(key, records);
+                }
+                records.add(record);
+            }
+            return map;
+        } catch (SQLException sqlException) {
+            throw getDialect().rethrow(sqlException, query.getSql());
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
+        }
+    }
+
+    public Map<Composite.Value, List<Record>> selectAllAsMap(Composite composite, String sql, Object ... params) throws SQLException {
+        return selectAllAsMap(composite, new Query(this, sql, params));
+    }
+
+    /**
      * Provides an anonymous read-only record, populated with the first result
      * from the query given by a Jorm SQL statement and applicable parameters.
      *
@@ -400,7 +485,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public Record select(String sql, Object... params) throws SQLException {
+    public Record select(String sql, Object ... params) throws SQLException {
         return select(new Query(getDialect(), sql, params));
     }
 

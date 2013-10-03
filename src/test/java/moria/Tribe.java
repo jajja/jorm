@@ -6,7 +6,7 @@ import java.util.List;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 
-@Jorm(database="moria", table="tribes", id="id")
+@Jorm(database="moria", table="tribes", primaryKey="id")
 public class Tribe extends Record {
     public Integer getId() {
         return get("id", Integer.class);
