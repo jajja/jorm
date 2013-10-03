@@ -255,4 +255,11 @@ public class Query {
         return params;
     }
 
+    public boolean isEmpty() {
+        return sql.length() == 0;
+    }
+
+    public int length() {
+        return sql.length();
+    }
 }
