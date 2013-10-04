@@ -3,60 +3,32 @@ package generator;
 import java.io.IOException;
 import java.sql.SQLException;
 
-import org.apache.tomcat.jdbc.pool.DataSource;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
 import com.jajja.jorm.Database;
-import com.jajja.jorm.Generator;
+import com.jajja.jorm.generator.Generator;
 
 public class GeneratorTest {
 
-    @BeforeClass
-    public static void open() {
-        DataSource dataSource = new DataSource();
-        dataSource.setDriverClassName("org.postgresql.Driver");
-        dataSource.setUrl("jdbc:postgresql://sjhdb05b.jajja.local:5432/moria");
-        dataSource.setUsername("gandalf");
-        dataSource.setPassword("mellon");
-        Database.configure("moria", dataSource);
-        try {
-            Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+    public static void main(String[] args) throws IOException, SQLException {
+        Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
 
-    @AfterClass
-    public static void close() {
-        Database.close("moria");
-    }
+        Generator generator = new Generator();
 
-    @Test
-    public static void test() {
-        try {
-            Generator generator = new Generator("moria").file("src/test/java");
-            generator.write("goblins");
-            generator.write("litters");
-            generator.write("tribes");
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-            Assert.fail();
-        } catch (SQLException e) {
-            e.printStackTrace();
-            Assert.fail();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Assert.fail();
-        }
-    }
+        generator.addDatabase("moria", "org.goblins.test.records")
+            //.getDefaultSchema()
+            .addTables("tribes", "goblins", "litters");
 
-    public static void main(String[] args) {
-        open();
-        test();
-        close();
-    }
+        generator.fetchMetadata();
 
+        generator.getColumn("moria.@.goblins.tribe_id").addReference("tribes.id");
+        generator.getColumn("moria.@.litters.goblin_id").addReference("goblins.id");
+
+        generator.getTable("moria.@.tribes").addUnqiue("name");
+        generator.getTable("moria.@.goblins").addUnqiue("tribe_id", "name");
+
+        generator.writeFiles("/tmp/jorm-generator-test");
+
+        System.out.println(generator);
+
+        com.jajja.jorm.Database.close("moria");
+    }
 }
