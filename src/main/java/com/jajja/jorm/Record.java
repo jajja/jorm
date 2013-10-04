@@ -42,6 +42,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.jajja.jorm.Composite.Value;
+import com.jajja.jorm.generator.Generator;
 
 /**
  * <p>
@@ -271,7 +272,7 @@ public abstract class Record {
     }
 
     public Composite primaryKey() {
-        return primaryKey();
+        return table.getPrimaryKey();
     }
 
     public static Composite primaryKey(Class<? extends Record> clazz) {
