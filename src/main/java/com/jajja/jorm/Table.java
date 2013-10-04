@@ -21,10 +21,7 @@
  */
 package com.jajja.jorm;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -42,7 +39,7 @@ public class Table {
     private String schema;
     private String table;
     private Composite primaryKey;
-    private Set<Symbol> immutable;
+    private String immutablePrefix;
 
     public static Table get(Class<? extends Record> clazz) {
         Table table = map.get(clazz);
@@ -76,13 +73,10 @@ public class Table {
         if (table != null) {
             primaryKey = new Composite(jorm.primaryKey());
         }
-        if (jorm.immutable().length > 0) {
-            immutable = new HashSet<Symbol>();
-            for (String column : jorm.immutable()) {
-                immutable.add(Symbol.get(column));
-            }
+        if (jorm.immutablePrefix().length() > 0) {
+            this.immutablePrefix = jorm.immutablePrefix();
         } else {
-            immutable = null;
+            immutablePrefix = null;
         }
     }
 
@@ -107,15 +101,15 @@ public class Table {
     }
 
     public boolean isImmutable(Symbol symbol) {
-        return immutable != null && immutable.contains(symbol);
+        return immutablePrefix != null && symbol.getName().startsWith(immutablePrefix);
     }
 
-    public Set<Symbol> getImmutable() {
-        return immutable != null ? Collections.unmodifiableSet(immutable) : null;
+    public String getImmutablePrefix() {
+        return immutablePrefix;
     }
 
     Query getSelectQuery(Dialect dialect) {
-        if (table != null) { // XXX: fit in timeline to extend mapping to generic SQL
+        if (table != null) {
             return new Query(dialect, "SELECT * FROM #1# ", this);
         } else {
             throw new RuntimeException("Cannot construct select query without either table or sql definition!");

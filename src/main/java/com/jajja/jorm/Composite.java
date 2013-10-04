@@ -56,7 +56,7 @@ public class Composite {
 
     public Symbol getSymbol() {
         if (!isSingle()) {
-            throw new RuntimeException("isSingle() == false");  // XXX
+            throw new RuntimeException("isSingle() == false");
         }
         return symbols[0];
     }
@@ -78,7 +78,7 @@ public class Composite {
 
         public Object getValue() {
             if (!isSingle()) {
-                throw new RuntimeException("isSingle() == false");  // XXX
+                throw new RuntimeException("isSingle() == false");
             }
             return values[0];
         }

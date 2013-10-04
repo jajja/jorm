@@ -188,7 +188,7 @@ public class Dialect {
      * @return true if the identifier contains characters that needs to be
      *         escaped, false otherwise
      */
-    public boolean isIdentifierQuotingRequired(String string) { //XXX: rename?
+    public boolean isIdentifierQuotingRequired(String string) {
         for (int i = 0; i < string.length(); i++) {
             char ch = string.charAt(i);
             if ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_".indexOf(ch) == -1 && extraNameChars.indexOf(ch) == -1) {
@@ -218,7 +218,7 @@ public class Dialect {
         }
 
         if (string.contains(identifierQuoteString)) {
-            // XXX: getIdentifierQuoteString() does not specify how identifierQuoteString is supposed to be escaped ("\"", """", etc)
+            // getIdentifierQuoteString() does not specify how identifierQuoteString is supposed to be escaped ("\"", """", etc)
             throw new RuntimeException("Invalid SQL identifier: " + string);
         }
 

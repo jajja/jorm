@@ -58,8 +58,7 @@ public @interface Jorm {
      *
      * @return the table name
      */
-    public String table() default ""; // XXX: fit in the timeline to extend mapping to generic SQL
-
+    public String table() default "";
     /**
      * Name of the columns that make up the primary key. Use the default value "" for generic SQL.
      *
@@ -73,5 +72,5 @@ public @interface Jorm {
      *
      * @return the column names of the immutable fields.
      */
-    public String[] immutable() default {};
+    public String immutablePrefix() default "__";
 }

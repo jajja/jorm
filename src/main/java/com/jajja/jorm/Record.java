@@ -107,7 +107,7 @@ import com.jajja.jorm.Composite.Value;
  *     }
  *
  *     public Locale getLocale() {
- *         return get(&quot;locale_id&quot;, Locale.class); // XXX: caches referenced record
+ *         return get(&quot;locale_id&quot;, Locale.class);
  *     }
  *
  *     public void setLocale(Locale Locale) {
@@ -150,7 +150,6 @@ public abstract class Record {
 
     public static class Field {
         private Object value = null;
-        // XXX NEVER SET THIS TO TRUE (taint(), insert(), update(), etc) FOR ID-COLUMNS UNLESS SET EXPLICITLY AND EXTERNALLY BY set() (i.e. user forced an ID change)
         private boolean isChanged = false;
         private Record reference = null;
 
@@ -272,7 +271,7 @@ public abstract class Record {
     }
 
     public Composite primaryKey() {
-        return table.getPrimaryKey();
+        return primaryKey();
     }
 
     public static Composite primaryKey(Class<? extends Record> clazz) {
@@ -455,7 +454,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean populateById(Value id) throws SQLException {
-        return populateByComposite(table.getPrimaryKey(), id);
+        return populateByComposite(primaryKey(), id);
     }
 
     private static <T extends Record> Query getSelectQuery(Class<T> clazz) {
@@ -467,7 +466,7 @@ public abstract class Record {
         if (value instanceof Value) {
             v = (Value)value;
         } else {
-            v = Table.get(clazz).getPrimaryKey().value(value);
+            v = primaryKey(clazz).value(value);
         }
         composite.assertCompatible(v);
         Dialect dialect = open(clazz).getDialect();
@@ -626,7 +625,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
-        return find(clazz, Table.get(clazz).getPrimaryKey(), id);
+        return find(clazz, primaryKey(clazz), id);
     }
 
     /**
@@ -1046,7 +1045,7 @@ public abstract class Record {
     }
 
     private boolean isPrimaryKeyNullOrChanged() {
-        for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
+        for (Symbol symbol : primaryKey().getSymbols()) {
             Field field = fields.get(symbol);
             if (field == null || field.getValue() == null || field.isChanged()) {
                 return true;
@@ -1056,7 +1055,7 @@ public abstract class Record {
     }
 
     private boolean isPrimaryKeyNull() {
-        for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
+        for (Symbol symbol : primaryKey().getSymbols()) {
             Field field = fields.get(symbol);
             if (field == null || field.getValue() == null) {
                 return true;
@@ -1139,7 +1138,7 @@ public abstract class Record {
     public void delete() throws SQLException {
         checkReadOnly();
         Dialect dialect = open().getDialect();
-        Composite primaryKey = table.getPrimaryKey();
+        Composite primaryKey = primaryKey();
         Query query = new Query(dialect, "DELETE FROM #1# WHERE #2#", table, dialect.toSqlExpression(primaryKey, id()));
 
         PreparedStatement preparedStatement = open().prepare(query);
@@ -1184,7 +1183,7 @@ public abstract class Record {
         }
 
         Query query = new Query(template.open(), "DELETE FROM #1# WHERE", template.getClass());
-        Composite primaryKey = template.table.getPrimaryKey();
+        Composite primaryKey = template.primaryKey();
         Dialect dialect = template.open().getDialect();
         if (primaryKey.isSingle()) {
             query.append("#:1# IN (#2:@#)", primaryKey, records);
@@ -1215,7 +1214,7 @@ public abstract class Record {
         for (Entry<Symbol, Field> entry : fields.entrySet()) {
             Symbol symbol = entry.getKey();
             Field field = entry.getValue();
-            if (!table.isImmutable(symbol) && !table.getPrimaryKey().contains(symbol)) {
+            if (!table.isImmutable(symbol) && !primaryKey().contains(symbol)) {
                 field.setChanged(true);
             }
         }
@@ -1309,8 +1308,13 @@ public abstract class Record {
             batchInfo.columns.addAll( record.fields.keySet() );
         }
 
-        if (batchInfo.template != null && batchInfo.template.table.getImmutable() != null) {
-            batchInfo.columns.removeAll(batchInfo.template.table.getImmutable());
+        String immutablePrefix = batchInfo.template.table.getImmutablePrefix();
+        if (batchInfo.template != null && immutablePrefix != null) {
+            for (Symbol symbol : batchInfo.columns) {
+                if (symbol.getName().startsWith(immutablePrefix)) {
+                    batchInfo.columns.remove(symbol);
+                }
+            }
         }
 
         return batchInfo;
@@ -1322,13 +1326,12 @@ public abstract class Record {
         Record template = records.iterator().next();
         Transaction transaction = template.open();
         Table table = template.table();
-        Composite primaryKey = table.getPrimaryKey();
+        Composite primaryKey = template.primaryKey();
         Dialect dialect = transaction.getDialect();
 
-        // XXX move into method?
+        // XXX UPDATE + REPOPULATE?
         if (mode != ResultMode.NO_RESULT && !primaryKey.isSingle() && !dialect.isReturningSupported()) {
-            throw new UnsupportedOperationException("Batch operations on composite primary key records not supported due to JDBC limitations, and possibly not your database " +
-                            "(getGeneratedKeys() only reliable single columns and your database server does not support RETURNING!) -- consider using BatchMode.NO_RESULT");
+            throw new UnsupportedOperationException("Batch operations on composite primary keys not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
         }
 
         try {
@@ -1431,10 +1434,8 @@ public abstract class Record {
             return;
         }
 
-        // XXX move into method?
-        if (mode != ResultMode.NO_RESULT && !table.getPrimaryKey().isSingle() && !open().getDialect().isReturningSupported()) {
-            throw new UnsupportedOperationException("INSERT with composite primary key not supported by JDBC, and possibly not your database " +
-                            "(getGeneratedKeys() only works on single column primary keys and your database server most likely does not support RETURNING!)");
+        if (mode != ResultMode.NO_RESULT && !primaryKey().isSingle() && !open().getDialect().isReturningSupported()) {
+            throw new UnsupportedOperationException("INSERT with composite primary key not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
         }
 
         Query query = new Query(open().getDialect());
@@ -1451,15 +1452,9 @@ public abstract class Record {
 
         if (isFirst) {
             // No fields are marked as changed, but we need to insert something... INSERT INTO foo DEFAULT VALUES is not supported on all databases
-            // XXX rewrite
-            for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
-                query.append(isFirst ? "#:1#" : ", #:2#", symbol);
-                isFirst = false;
-            }
-            isFirst = true;
-            for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
-                query.append(isFirst ? ") VALUES (DEFAULT" : ", DEFAULT", symbol);
-                isFirst = false;
+            query.append("#1#", primaryKey());
+            for (int i = 0; i < primaryKey().getSymbols().length; i++) {
+                query.append(i == 0 ? ") VALUES (DEFAULT" : ", DEFAULT");
             }
         } else {
             query.append(") VALUES (");
@@ -1506,7 +1501,7 @@ public abstract class Record {
             if (id == null) {
                 throw new RuntimeException("INSERT to " + table.toString() + " did not generate a key (AKA insert id): " + query.getSql());
             }
-            Field field = getOrCreateField(table.getPrimaryKey().getSymbol());
+            Field field = getOrCreateField(primaryKey().getSymbol());
             field.setValue(id);
             field.setChanged(false);
         }
@@ -1650,7 +1645,7 @@ public abstract class Record {
 
         assertPrimaryKeyNotNull();
 
-        query.append(" WHERE #1#", open().getDialect().toSqlExpression(table.getPrimaryKey(), id()));
+        query.append(" WHERE #1#", open().getDialect().toSqlExpression(primaryKey(), id()));
 
         markStale();
         if (open().getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
@@ -1815,7 +1810,7 @@ public abstract class Record {
     public void refresh() {
         if (isStale) {
             try {
-                Value value = table.getPrimaryKey().valueFrom(this, false);
+                Value value = primaryKey().valueFrom(this, false);
                 boolean allNull = true;
                 for (Object v : value.getValues()) {
                     if (v != null) {
@@ -1825,7 +1820,7 @@ public abstract class Record {
                 if (allNull) {
                     throw new NullPointerException("Attempted to refresh record with null primary key value");
                 }
-                populateById(table.getPrimaryKey().valueFrom(this, false));
+                populateById(primaryKey().valueFrom(this, false));
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to refresh stale record", e);
             }
@@ -1848,7 +1843,7 @@ public abstract class Record {
      *             {@link Transaction#selectAll(String, Object...)}.
      */
     public void readOnly(boolean isReadOnly) {
-        if (table.getPrimaryKey() == null && isReadOnly) {
+        if (primaryKey() == null && isReadOnly) {
             throw new RuntimeException("Cannot mark anonymous records as read only!");
         }
         this.isReadOnly = isReadOnly;
@@ -1896,7 +1891,7 @@ public abstract class Record {
 
         if (value != null && isRecordSubclass(value.getClass())) {
             Record record = (Record)value;
-            if (!record.table.getPrimaryKey().isSingle()) {
+            if (!record.primaryKey().isSingle()) {
                 throw new UnsupportedOperationException("Composite foreign key references are not supported");
             }
             Object id = record.id().getValue();

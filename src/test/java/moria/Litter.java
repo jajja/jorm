@@ -3,7 +3,7 @@ package moria;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 
-@Jorm(database="moria", table="litters", primaryKey="id", immutable={"left_at"})
+@Jorm(database="moria", table="litters", primaryKey="id", immutablePrefix="__")
 public class Litter extends Record {
     public Integer getId() {
         return get("id", Integer.class);
@@ -30,6 +30,6 @@ public class Litter extends Record {
         set("stench", stench);
     }
     public java.sql.Timestamp getLeftAt() {
-        return get("left_at", java.sql.Timestamp.class);
+        return get("__left_at", java.sql.Timestamp.class);
     }
 }

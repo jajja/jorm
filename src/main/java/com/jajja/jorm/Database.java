@@ -133,7 +133,7 @@ public class Database {
      *            the named database.
      * @return true if the named database has been configured, false otherwise.
      */
-    public static boolean isConfigured(String database) {  // XXX: read/write lock on data sources?
+    public static boolean isConfigured(String database) {
         return instance.dataSources.containsKey(database);
     }
 
