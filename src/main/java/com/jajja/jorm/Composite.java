@@ -99,7 +99,7 @@ public class Composite {
         }
 
         @SuppressWarnings("unchecked")
-        public <T> T get(Symbol symbol, Class<T> clazz) {
+        public <T> T get(Symbol symbol, @SuppressWarnings("unused") Class<T> clazz) {
             int offset = getOffset(symbol);
             if (offset < 0) {
                 throw new IllegalArgumentException("No such column " + symbol);
