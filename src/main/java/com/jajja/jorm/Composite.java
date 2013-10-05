@@ -25,7 +25,7 @@ public class Composite {
         for (int i = 0; i < symbols.length; i++) {
             values[i] = record.get(symbols[i]);
         }
-        return new Value(values);
+        return new Value(this, values);
     }
 
     public Value valueFrom(Record record, boolean noRefresh) {
@@ -40,14 +40,14 @@ public class Composite {
             }
             values[i] = field.getValue();
         }
-        return new Value(values);
+        return new Value(this, values);
     }
 
     public Value value(Object ... values) {
         if (this.symbols.length != values.length) {
             throw new IllegalArgumentException("Argument count must equal the number of columns (" + symbols.length + ")");
         }
-        return new Value(values);
+        return new Value(this, values);
     }
 
     public Symbol[] getSymbols() {
@@ -66,9 +66,11 @@ public class Composite {
     }
 
     public static class Value {
+        private Composite composite;
         private Object[] values;
 
-        private Value(Object ... values) {
+        private Value(Composite composite, Object ... values) {
+            this.composite = composite;
             this.values = values;
         }
 
@@ -81,6 +83,32 @@ public class Composite {
                 throw new RuntimeException("isSingle() == false");
             }
             return values[0];
+        }
+
+        private int getOffset(Symbol symbol) {
+            for (int i = 0; i < composite.symbols.length; i++) {
+                if (composite.symbols[i].equals(symbol)) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        public <T> T get(String column, Class<T> clazz) {
+            return get(Symbol.get(column), clazz);
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> T get(Symbol symbol, Class<T> clazz) {
+            int offset = getOffset(symbol);
+            if (offset < 0) {
+                throw new IllegalArgumentException("No such column " + symbol);
+            }
+            Object value = values[offset];
+            if (value == null) {
+                return null;
+            }
+            return (T)value;
         }
 
         public boolean isSingle() {
