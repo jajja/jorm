@@ -4,9 +4,9 @@ import java.sql.SQLException;
 import java.util.List;
 
 import junit.framework.Assert;
-
 import moria.Goblin;
 import moria.Litter;
+import moria.Locale;
 import moria.Tribe;
 
 import org.junit.AfterClass;
@@ -147,4 +147,18 @@ public class Moria {
         Assert.assertTrue(e instanceof UniqueViolationException);
     }
 
+    @Test
+    public void t09_compositeKey() {
+        try {
+            Locale locale = Locale.findById(Locale.class, Record.primaryKey(Locale.class).value("sv", "SE"));
+            locale.setName("Swedish");
+            locale.save();
+            locale = new Locale();
+            locale.setLanguage("de");
+            locale.setCountry("DE");
+            locale.save(Record.ResultMode.NO_RESULT);
+        } catch (SQLException e) {
+        }
+        Database.close("moria");
+    }
 }

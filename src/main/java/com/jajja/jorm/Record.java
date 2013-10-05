@@ -23,7 +23,6 @@ package com.jajja.jorm;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -136,7 +135,7 @@ import com.jajja.jorm.generator.Generator;
 public abstract class Record {
     Map<Symbol, Field> fields = new HashMap<Symbol, Field>();
     private Table table;
-    private boolean isStale = false;
+    protected boolean isStale = false;
     private boolean isReadOnly = false;
     private static Map<Class<? extends Record>, Log> logs = new ConcurrentHashMap<Class<? extends Record>, Log>(16, 0.75f, 1);
 
@@ -736,27 +735,15 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, Query query) throws SQLException {
-        PreparedStatement preparedStatement = open(clazz).prepare(query.getSql(), query.getParams());
-        ResultSet resultSet = null;
-        LinkedList<T> records = new LinkedList<T>();
+        List<T> records = new LinkedList<T>();
+        RecordIterator iter = null;
         try {
-            resultSet = preparedStatement.executeQuery();
-            SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
-            while (resultSet.next()) {
-                T record = construct(clazz);
-                symbolMap.populate(record, resultSet);
-                records.add(record);
+            iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+            while (iter.next()) {
+                records.add(iter.record(clazz));
             }
-        } catch (SQLException sqlException) {
-            open(clazz).getDialect().rethrow(sqlException, query.getSql());
         } finally {
-            try {
-                if (resultSet != null) {
-                    resultSet.close();
-                }
-            } finally {
-                preparedStatement.close();
-            }
+            if (iter != null) iter.close();
         }
         return records;
     }
@@ -777,24 +764,19 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
-        PreparedStatement preparedStatement = open(clazz).prepare(query.getSql(), query.getParams());
-        ResultSet resultSet = null;
         HashMap<Composite.Value, T> records = new HashMap<Composite.Value, T>();
+        RecordIterator iter = null;
         try {
-            resultSet = preparedStatement.executeQuery();
-            while (resultSet.next()) {
-                T record = construct(clazz);
-                record.populate(resultSet);
-                Value value = compositeKey.valueFrom(record);
+            iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+            while (iter.next()) {
+                T record = iter.record(clazz);
+                Composite.Value value = compositeKey.valueFrom(record);
                 if (records.put(value, record) != null && !allowDuplicates) {
                     throw new IllegalStateException("Duplicate key " + value);
                 }
             }
-        } catch (SQLException sqlException) {
-            open(clazz).getDialect().rethrow(sqlException, query.getSql());
         } finally {
-            if (resultSet != null) resultSet.close();
-            preparedStatement.close();
+            if (iter != null) iter.close();
         }
         return records;
     }
@@ -819,15 +801,13 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
-        PreparedStatement preparedStatement = open(clazz).prepare(query.getSql(), query.getParams());
-        ResultSet resultSet = null;
         HashMap<Composite.Value, List<T>> records = new HashMap<Composite.Value, List<T>>();
+        RecordIterator iter = null;
         try {
-            resultSet = preparedStatement.executeQuery();
-            while (resultSet.next()) {
-                T record = construct(clazz);
-                record.populate(resultSet);
-                Value value = compositeKey.valueFrom(record);
+            iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+            while (iter.next()) {
+                T record = iter.record(clazz);
+                Composite.Value value = compositeKey.valueFrom(record);
                 List<T> list = records.get(value);
                 if (list == null) {
                     list = new LinkedList<T>();
@@ -835,11 +815,8 @@ public abstract class Record {
                 }
                 list.add(record);
             }
-        } catch (SQLException sqlException) {
-            open(clazz).getDialect().rethrow(sqlException, query.getSql());
         } finally {
-            if (resultSet != null) resultSet.close();
-            preparedStatement.close();
+            if (iter != null) iter.close();
         }
         return records;
     }
@@ -897,24 +874,15 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(Query query) throws SQLException {
-        PreparedStatement preparedStatement = open().prepare(query.getSql(), query.getParams());
-        ResultSet resultSet = null;
+        RecordIterator iter = null;
         try {
-            resultSet = preparedStatement.executeQuery();
-            if (resultSet.next()) {
-                populate(resultSet);
+            iter = new RecordIterator(open().prepare(query.getSql(), query.getParams()));
+            if (iter.next()) {
+                iter.record(this);
                 return true;
             }
-        } catch (SQLException sqlException) {
-            open().getDialect().rethrow(sqlException, query.getSql());
         } finally {
-            try {
-                if (resultSet != null) {
-                    resultSet.close();
-                }
-            } finally {
-                preparedStatement.close();
-            }
+             if (iter != null) iter.close();
         }
         return false;
     }
@@ -997,52 +965,26 @@ public abstract class Record {
 
     /**
      * Populates the record with the first row of the result. Any values in the
-     * record object are cleared if the record was previously populated.
+     * record object are cleared if the record was previously populated. Returns
+     * true if the record was populated, false otherwise (no rows in resultSet).
      *
+     * @return true if populated, false otherwise.
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public void populate(ResultSet resultSet) throws SQLException {
-        SymbolMap symbolMap = new SymbolMap(resultSet.getMetaData());
-        symbolMap.populate(this, resultSet);
-    }
-
-    public static class SymbolMap {
-        private Symbol[] symbols;
-        private Set<Symbol> symbolSet = new HashSet<Symbol>();
-        public SymbolMap(ResultSetMetaData resultSetMetaData) throws SQLException {
-            symbols = new Symbol[resultSetMetaData.getColumnCount()];
-            symbolSet = new HashSet<Symbol>(symbols.length + 1, 1.0f);    // + 1 to prevent resize
-            for (int i = 0; i < symbols.length; i++) {
-                symbols[i] = Symbol.get(resultSetMetaData.getColumnLabel(i + 1));
-                symbolSet.add(symbols[i]);
+    public boolean populate(ResultSet resultSet) throws SQLException {
+        RecordIterator iter = null;
+        try {
+            iter = new RecordIterator(resultSet);
+            if (iter.next()) {
+                iter.record(this);
+                return true;
             }
+        } finally {
+             if (iter != null) iter.close();
         }
-        public void populate(Record record, ResultSet resultSet) throws SQLException {
-            for (int i = 0; i < symbols.length; i++) {
-                record.isStale = false;
-                try {
-                    record.put(symbols[i], resultSet.getObject(i + 1));
-                } catch (SQLException sqlException) {
-                    record.open().getDialect().rethrow(sqlException);
-                } finally {
-                    record.isStale = true; // lol exception
-                }
-                record.isStale = false;
-            }
-            Iterator<Symbol> i = record.fields.keySet().iterator();
-            while (i.hasNext()) {
-                Symbol symbol = i.next();
-                if (!contains(symbol)) {
-                    record.unset(symbol);
-                }
-            }
-            record.purify();
-        }
-        public boolean contains(Symbol symbol) {
-            return symbolSet.contains(symbol);
-        }
+        return false;
     }
 
     private boolean isPrimaryKeyNullOrChanged() {
@@ -1352,7 +1294,7 @@ public abstract class Record {
                 }
             }
 
-            SymbolMap symbolMap = null;
+            RecordIterator iter = null;
 
             for (Record record : records) {
                 if (!resultSet.next()) {
@@ -1360,10 +1302,11 @@ public abstract class Record {
                 }
                 if (useReturning) {
                     // RETURNING rocks!
-                    if (symbolMap == null) {
-                        symbolMap = new SymbolMap(resultSet.getMetaData());
+                    if (iter == null) {
+                        iter = new RecordIterator(resultSet);
+                        iter.setAutoClose(false);
                     }
-                    symbolMap.populate(record, resultSet);
+                    iter.record(record);
                 } else {
                     Field field = record.getOrCreateField(primaryKey.getSymbol());
                     field.setValue(resultSet.getObject(1));
@@ -1474,6 +1417,12 @@ public abstract class Record {
         }
 
         markStale();
+
+        if (mode == ResultMode.NO_RESULT) {
+            selectInto(query);
+            return;
+        }
+
         if (open().getDialect().isReturningSupported()) {
             query.append(" RETURNING *");       // XXX ID_ONLY support
             selectInto(query);
@@ -1811,17 +1760,8 @@ public abstract class Record {
     public void refresh() {
         if (isStale) {
             try {
-                Value value = primaryKey().valueFrom(this, false);
-                boolean allNull = true;
-                for (Object v : value.getValues()) {
-                    if (v != null) {
-                        allNull = false;
-                    }
-                }
-                if (allNull) {
-                    throw new NullPointerException("Attempted to refresh record with null primary key value");
-                }
-                populateById(primaryKey().valueFrom(this, false));
+                assertPrimaryKeyNotNull();
+                populateById(primaryKey().valueFrom(this, true));
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to refresh stale record", e);
             }
@@ -1881,7 +1821,7 @@ public abstract class Record {
         }
     }
 
-    private void put(Symbol symbol, Object value) {
+    void put(Symbol symbol, Object value) {
         refresh();
 
         boolean isChanged;
@@ -2149,15 +2089,16 @@ public abstract class Record {
         }
         if (table.getTable() != null) {
             stringBuilder.append(table.getTable());
+            stringBuilder.append(' ');
         }
         if (isStale) {
-            stringBuilder.append("stale");
+            stringBuilder.append("stale ");
         }
         if (isReadOnly) {
-            stringBuilder.append("read-only");
+            stringBuilder.append("read-only ");
         }
 
-        stringBuilder.append(" { ");
+        stringBuilder.append("{ ");
 
         for (Entry<Symbol, Field> entry : fields.entrySet()) {
             if (isFirst) {

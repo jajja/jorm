@@ -1,3 +1,12 @@
+CREATE TEMPORARY TABLE locales (
+    id          serial    NOT NULL,
+    language    varchar   NOT NULL,
+    country     varchar   NOT NULL,
+    name        varchar,
+    PRIMARY KEY (id),
+    UNIQUE (language, country)
+);
+
 CREATE TEMPORARY TABLE tribes (
     id          serial    NOT NULL,
     name        varchar   NOT NULL    DEFAULT 'Greens', 
@@ -21,6 +30,13 @@ CREATE TEMPORARY TABLE litters (
     left_at     timestamp NOT NULL    DEFAULT now(),
     PRIMARY KEY (id)
 );
+
+INSERT INTO locales (language, country) values
+('sv', 'SE'),
+('en', 'US'),
+('da', 'DK'),
+('no', 'NO'),
+('fi', 'FI');
 
 INSERT INTO tribes (name) values
 ('Snaga'),
