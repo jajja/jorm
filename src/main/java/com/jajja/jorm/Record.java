@@ -906,7 +906,7 @@ public abstract class Record {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> List<T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
         Set<Object> values = new HashSet<Object>();
 
         for (Record record : records) {
@@ -917,19 +917,16 @@ public abstract class Record {
         }
 
         if (values.isEmpty()) {
-            return new LinkedList<T>();
+            return new HashMap<Composite.Value, T>();
         }
 
-        List<T> referenceRecords = selectAll(clazz, "SELECT * FROM #1# WHERE #2# IN (#3#)", Table.get(clazz), referredSymbol, values);
-        Map<Object, Record> map = new HashMap<Object, Record>();
-        for (Record referenceRecord : referenceRecords) {
-            map.put(referenceRecord.get(referredSymbol), referenceRecord);
-        }
+        Composite key = new Composite(referredSymbol);
+        Map<Composite.Value, T> map = selectAsMap(clazz, key, false, "SELECT * FROM #1# WHERE #2# IN (#3#)", Table.get(clazz), referredSymbol, values);
 
         for (Record record : records) {
             Field field = record.fields.get(foreignKeySymbol);
             if (field != null && field.getValue() != null && field.getReference() == null) {
-                Record referenceRecord = map.get(field.getValue());
+                Record referenceRecord = map.get(key.value(field.getValue()));
                 if (referenceRecord == null) {
                     throw new IllegalStateException(field.getValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
                 }
@@ -937,7 +934,7 @@ public abstract class Record {
             }
         }
 
-        return referenceRecords;
+        return map;
     }
 
     /**
@@ -959,7 +956,7 @@ public abstract class Record {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> List<T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
         return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol));
     }
 
