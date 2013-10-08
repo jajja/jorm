@@ -495,7 +495,9 @@ public class Transaction {
         try {
             iter = new RecordIterator(prepare(query.getSql(), query.getParams()));
             while (iter.next()) {
-                records.add(iter.record(AnonymousRecord.class));
+                Record record = new AnonymousRecord(table);
+                iter.record(record);
+                records.add(record);
             }
         } finally {
             if (iter != null) iter.close();
