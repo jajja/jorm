@@ -182,7 +182,7 @@ public class TableGenerator implements Lookupable {
         }
         stringBuilder.append("table=\"").append(name).append("\", ");
         if (primaryColumn != null) {
-            stringBuilder.append("id=\"").append(primaryColumn.getName()).append("\"");
+            stringBuilder.append("primaryKey=\"").append(primaryColumn.getName()).append("\"");
         }
         stringBuilder.append(")\n");
 
