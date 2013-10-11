@@ -343,7 +343,7 @@ public class Transaction {
         try {
             preparedStatement.execute();
         } catch (SQLException sqlException) {
-            getDialect().rethrow(sqlException, query.getSql());
+            throw getDialect().rethrow(sqlException, query.getSql());
         } finally {
             preparedStatement.close();
         }
@@ -491,16 +491,20 @@ public class Transaction {
      */
     public List<Record> selectAll(Query query) throws SQLException {
         List<Record> records = new LinkedList<Record>();
-        RecordIterator iter = null;
         try {
-            iter = new RecordIterator(prepare(query.getSql(), query.getParams()));
-            while (iter.next()) {
-                Record record = new AnonymousRecord(table);
-                iter.record(record);
-                records.add(record);
+            RecordIterator iter = null;
+            try {
+                iter = new RecordIterator(prepare(query.getSql(), query.getParams()));
+                while (iter.next()) {
+                    Record record = new AnonymousRecord(table);
+                    iter.record(record);
+                    records.add(record);
+                }
+            } finally {
+                if (iter != null) iter.close();
             }
-        } finally {
-            if (iter != null) iter.close();
+        } catch (SQLException e) {
+            throw getDialect().rethrow(e, query.getSql());
         }
         return records;
     }

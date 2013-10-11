@@ -736,14 +736,18 @@ public abstract class Record {
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, Query query) throws SQLException {
         List<T> records = new LinkedList<T>();
-        RecordIterator iter = null;
         try {
-            iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
-            while (iter.next()) {
-                records.add(iter.record(clazz));
+            RecordIterator iter = null;
+            try {
+                iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+                while (iter.next()) {
+                    records.add(iter.record(clazz));
+                }
+            } finally {
+                if (iter != null) iter.close();
             }
-        } finally {
-            if (iter != null) iter.close();
+        } catch (SQLException e) {
+            throw open(clazz).getDialect().rethrow(e, query.getSql());
         }
         return records;
     }
@@ -765,18 +769,22 @@ public abstract class Record {
      */
     public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
         HashMap<Composite.Value, T> records = new HashMap<Composite.Value, T>();
-        RecordIterator iter = null;
         try {
-            iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
-            while (iter.next()) {
-                T record = iter.record(clazz);
-                Composite.Value value = compositeKey.valueFrom(record);
-                if (records.put(value, record) != null && !allowDuplicates) {
-                    throw new IllegalStateException("Duplicate key " + value);
+            RecordIterator iter = null;
+            try {
+                iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+                while (iter.next()) {
+                    T record = iter.record(clazz);
+                    Composite.Value value = compositeKey.valueFrom(record);
+                    if (records.put(value, record) != null && !allowDuplicates) {
+                        throw new IllegalStateException("Duplicate key " + value);
+                    }
                 }
+            } finally {
+                if (iter != null) iter.close();
             }
-        } finally {
-            if (iter != null) iter.close();
+        } catch (SQLException e) {
+            throw open(clazz).getDialect().rethrow(e, query.getSql());
         }
         return records;
     }
@@ -802,21 +810,25 @@ public abstract class Record {
      */
     public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
         HashMap<Composite.Value, List<T>> records = new HashMap<Composite.Value, List<T>>();
-        RecordIterator iter = null;
         try {
-            iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
-            while (iter.next()) {
-                T record = iter.record(clazz);
-                Composite.Value value = compositeKey.valueFrom(record);
-                List<T> list = records.get(value);
-                if (list == null) {
-                    list = new LinkedList<T>();
-                    records.put(value, list);
+            RecordIterator iter = null;
+            try {
+                iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+                while (iter.next()) {
+                    T record = iter.record(clazz);
+                    Composite.Value value = compositeKey.valueFrom(record);
+                    List<T> list = records.get(value);
+                    if (list == null) {
+                        list = new LinkedList<T>();
+                        records.put(value, list);
+                    }
+                    list.add(record);
                 }
-                list.add(record);
+            } finally {
+                if (iter != null) iter.close();
             }
-        } finally {
-            if (iter != null) iter.close();
+        } catch (SQLException e) {
+            throw open(clazz).getDialect().rethrow(e, query.getSql());
         }
         return records;
     }
@@ -874,15 +886,19 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(Query query) throws SQLException {
-        RecordIterator iter = null;
         try {
-            iter = new RecordIterator(open().prepare(query.getSql(), query.getParams()));
-            if (iter.next()) {
-                iter.record(this);
-                return true;
+            RecordIterator iter = null;
+            try {
+                iter = new RecordIterator(open().prepare(query.getSql(), query.getParams()));
+                if (iter.next()) {
+                    iter.record(this);
+                    return true;
+                }
+            } finally {
+                 if (iter != null) iter.close();
             }
-        } finally {
-             if (iter != null) iter.close();
+        } catch (SQLException e) {
+            throw open().getDialect().rethrow(e, query.getSql());
         }
         return false;
     }
@@ -971,15 +987,19 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean populate(ResultSet resultSet) throws SQLException {
-        RecordIterator iter = null;
         try {
-            iter = new RecordIterator(resultSet);
-            if (iter.next()) {
-                iter.record(this);
-                return true;
+            RecordIterator iter = null;
+            try {
+                iter = new RecordIterator(resultSet);
+                if (iter.next()) {
+                    iter.record(this);
+                    return true;
+                }
+            } finally {
+                 if (iter != null) iter.close();
             }
-        } finally {
-             if (iter != null) iter.close();
+        } catch (SQLException e) {
+            throw open().getDialect().rethrow(e);
         }
         return false;
     }
@@ -1346,7 +1366,7 @@ public abstract class Record {
             for (Record record : records) {
                 record.markStale();
             }
-            dialect.rethrow(sqlException);
+            throw dialect.rethrow(sqlException);
         } finally {
             try {
                 if (resultSet != null) {
