@@ -1510,11 +1510,11 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void insert(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        BatchInfo batchInfo = batchInfo(records);
-
         if (records.isEmpty()) {
             return;
         }
+
+        BatchInfo batchInfo = batchInfo(records);
 
         if (chunkSize <= 0) {
             batchInsert(batchInfo, records, mode);
@@ -1656,11 +1656,11 @@ public abstract class Record {
      *             if a database access error occurs
      */
     public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        BatchInfo batchInfo = batchInfo(records);
-
         if (records.isEmpty()) {
             return;
         }
+
+        BatchInfo batchInfo = batchInfo(records);
 
         if (batchInfo.columns.isEmpty()) {
             throw new IllegalArgumentException("No columns to update");
