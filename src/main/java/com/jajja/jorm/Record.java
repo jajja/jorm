@@ -923,6 +923,10 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
+        return prefetch(records, foreignKeySymbol, clazz, referredSymbol, false);
+    }
+
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
         Set<Object> values = new HashSet<Object>();
 
         for (Record record : records) {
@@ -943,7 +947,7 @@ public abstract class Record {
             Field field = record.fields.get(foreignKeySymbol);
             if (field != null && field.getValue() != null && field.getReference() == null) {
                 Record referenceRecord = map.get(key.value(field.getValue()));
-                if (referenceRecord == null) {
+                if (referenceRecord == null && !ignoreInvalidReferences) {
                     throw new IllegalStateException(field.getValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
                 }
                 record.set(foreignKeySymbol, referenceRecord);
@@ -974,6 +978,10 @@ public abstract class Record {
      */
     public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
         return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol));
+    }
+
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+        return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol), ignoreInvalidReferences);
     }
 
     /**
