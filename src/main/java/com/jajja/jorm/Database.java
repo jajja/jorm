@@ -21,17 +21,27 @@
  */
 package com.jajja.jorm;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.sql.DataSource;
 
@@ -53,19 +63,21 @@ import org.apache.commons.logging.LogFactory;
  * @since 1.0.0
  */
 public class Database {
+
     private ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
     private Map<String, DataSource> dataSources = new HashMap<String, DataSource>();
     protected Log log = LogFactory.getLog(Database.class);
     private static volatile Database instance = new Database();
 
-    private Database() { }
+    private Database() {
+    }
 
     /**
      * Acts as singleton factory for bean configuration access. All other access
      * to databases should be static.
      *
      * @return the singleton database representation containing configured data
-     *         sources for databases.
+     * sources for databases.
      */
     public static synchronized Database get() {
         return instance;
@@ -88,9 +100,8 @@ public class Database {
      * Configures all databases accessible through {@link Database#open(String)}
      * and {@link Database#close(String)}. Overrides any previous configuration.
      *
-     * @param dataSources
-     *            the named databases, each represented by a string and a data
-     *            source.
+     * @param dataSources the named databases, each represented by a string and
+     * a data source.
      */
     public void setDataSources(Map<String, DataSource> dataSources) {
         this.dataSources = dataSources;
@@ -99,10 +110,8 @@ public class Database {
     /**
      * Configures the named database by means of a data source.
      *
-     * @param database
-     *            the named database.
-     * @param dataSource
-     *            the data source corresponding to the named data base.
+     * @param database the named database.
+     * @param dataSource the data source corresponding to the named data base.
      */
     public static void configure(String database, DataSource dataSource) {
         configure(database, dataSource, false);
@@ -111,13 +120,10 @@ public class Database {
     /**
      * Configures the named database by means of a data source.
      *
-     * @param database
-     *            the named database.
-     * @param dataSource
-     *            the data source corresponding to the named data base.
-     * @param isOverride
-     *            a flag defining configuration as override if a current
-     *            configuration for the named database already exists.
+     * @param database the named database.
+     * @param dataSource the data source corresponding to the named data base.
+     * @param isOverride a flag defining configuration as override if a current
+     * configuration for the named database already exists.
      */
     public static void configure(String database, DataSource dataSource, boolean isOverride) {
         if (!isOverride && isConfigured(database)) {
@@ -129,8 +135,7 @@ public class Database {
     /**
      * Determines whether a named database has been configured or not.
      *
-     * @param database
-     *            the named database.
+     * @param database the named database.
      * @return true if the named database has been configured, false otherwise.
      */
     public static boolean isConfigured(String database) {
@@ -141,13 +146,14 @@ public class Database {
      * Ensures that a named database is configured by throwing an illegal state
      * exception if it is not.
      *
-     * @param database
-     *            the named database.
-     * @throws IllegalStateException
-     *             when the named database has not been configured.
+     * @param database the named database.
+     * @throws IllegalStateException when the named database has not been
+     * configured.
      */
     public static void ensureConfigured(String database) {
-        if (!isConfigured(database)) throw new IllegalStateException("Named database '" + database + "' has no configured data source!");
+        if (!isConfigured(database)) {
+            throw new IllegalStateException("Named database '" + database + "' has no configured data source!");
+        }
     }
 
     /**
@@ -155,8 +161,7 @@ public class Database {
      * transaction already exists, it is reused. This method is idempotent when
      * called from the same thread.
      *
-     * @param database
-     *            the name of the database.
+     * @param database the name of the database.
      * @return the open transaction.
      */
     public static Transaction open(String database) {
@@ -177,11 +182,9 @@ public class Database {
      * Commits the thread local transaction for the given database name if it
      * has been opened.
      *
-     * @param database
-     *            the name of the database.
+     * @param database the name of the database.
      * @return the closed transaction or null for no active transaction.
-     * @throws SQLException
-     *             if a database access error occur
+     * @throws SQLException if a database access error occur
      */
     public static Transaction commit(String database) throws SQLException {
         HashMap<String, Transaction> transactions = instance.getTransactions();
@@ -198,8 +201,7 @@ public class Database {
      * Closes the thread local transaction for the given database name if it has
      * been opened. This method is idempotent when called from the same thread.
      *
-     * @param database
-     *            the name of the database.
+     * @param database the name of the database.
      * @return the closed transaction or null for no active transaction.
      */
     public static Transaction close(String database) {
@@ -224,12 +226,13 @@ public class Database {
         map.clear();
         instance.transactions.remove();
     }
-
     private static List<Configuration> configuration;
+
     static {
         try {
             configuration = configure();
         } catch (Exception e) {
+            e.printStackTrace();
             // silent
         }
     }
@@ -255,44 +258,82 @@ public class Database {
      * database.lothlorien.dataSource.password=nenya
      */
     private static List<Configuration> configure() {
-        ResourceBundle resourceBundle = ResourceBundle.getBundle("jorm");
-        Map<String, String> properties = new HashMap<String, String>();
-        Enumeration<String> enumeration = resourceBundle.getKeys();
-        while (enumeration.hasMoreElements()) {
-            String key = enumeration.nextElement();
-            properties.put(key, resourceBundle.getString(key));
-        }
-        String prefix = "database.";
-        Set<String> databases = new HashSet<String>();
-        for (String key : properties.keySet()) {
-            key = defix(key, prefix);
-            int index = key.indexOf('.');
-            if (0 < index) {
-                databases.add(key.substring(0, index));
-            }
-        }
-        List<Configuration> configurations = new LinkedList<Database.Configuration>();
-        for (String database : databases) {
-            String destroyMethodName = properties.get("database." + database + ".destroyMethod");
-            prefix = "database." + database + ".dataSource";
-            String dataSourceClassName = properties.get(prefix);
-            prefix += ".";
-            Map<String, String> dataSourceProperties = new HashMap<String, String>();
-            for (Entry<String, String> entry : properties.entrySet()) {
-                if (entry.getKey().startsWith(prefix)) {
-                    dataSourceProperties.put(defix(entry.getKey(), prefix), entry.getValue());
+        Map<String, Configuration> configurations = new HashMap<String, Configuration>();
+        try {
+            Enumeration<URL> resources = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
+            while (resources.hasMoreElements()) {
+                URL url = resources.nextElement();
+                Properties properties = new Properties();
+                InputStream is = url.openStream();
+                properties.load(is);
+                is.close();
+
+                String database = null;
+                String destroyMethodName = null;
+                String dataSourceClassName = null;
+                Map<String, String> dataSourceProperties = null;
+                
+                for (Entry<String, String> property : new TreeMap<String, String>((Map) properties).entrySet()) {
+                    String[] parts = property.getKey().split("\\.");
+                    if (parts.length < 3 || !parts[0].equals("database")) {
+                        continue;
+                    }
+                    if (!parts[1].equals(database)) {
+                        if (database != null) {
+                            if (configurations.containsKey(database)) {
+                                Database.get().log.warn("Database '" + database + "' has already been configured");
+                            } else {
+                                try {
+                                    Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
+                                    configuration.apply();
+                                    configurations.put(database, configuration);
+                                    Database.get().log.debug("Configured " + configuration);
+                                } catch (Exception ex) {
+                                    Database.get().log.warn("Failed to configure database: " + ex.getMessage());
+                                }
+                            }
+                        }
+                        database = parts[1];
+                        destroyMethodName = null;
+                        dataSourceClassName = null;
+                        dataSourceProperties = new HashMap<String, String>();
+                    }
+
+                    if (parts.length == 3 && parts[2].equals("destroyMethod")) {
+                        destroyMethodName = property.getValue();
+                    } else if (parts[2].equals("dataSource")) {
+                        if (parts.length == 3) {
+                            dataSourceClassName = property.getValue();
+                        } else if (parts.length == 4) {
+                            dataSourceProperties.put(parts[3], property.getValue());
+                        } else {
+                            Database.get().log.warn("Invalid DataSource property '" + property.getKey() + "'");
+                        }
+                    } else {
+                        Database.get().log.warn("Invalid property '" + property.getKey() + "'");
+                    }
+                }
+
+                if (database != null) {
+                    if (configurations.containsKey(database)) {
+                        Database.get().log.warn("Database '" + database + "' has already been configured");
+                    } else {
+                        try {
+                            Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
+                            configuration.apply();
+                            configurations.put(database, configuration);
+                            Database.get().log.debug("Configured " + configuration);
+                        } catch (Exception ex) {
+                            Database.get().log.warn("Failed to configure database: " + ex.getMessage());
+                        }
+                    }
                 }
             }
-            try {
-                Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
-                configuration.apply();
-                configurations.add(configuration);
-                Database.get().log.debug("Configured " + configuration);
-            } catch (Exception e) {
-                Database.get().log.warn("Failed to configure database for '" + database + "':", e);
-            }
+        } catch (IOException ex) {
+            Database.get().log.warn("Failed to configure database: " + ex.getMessage());            
         }
-        return configurations;
+
+        return new ArrayList(configurations.keySet());
     }
 
     private static final String defix(String string, String prefix) {
@@ -300,6 +341,7 @@ public class Database {
     }
 
     public static class Configuration {
+
         private String database;
         private DataSource dataSource;
         private Map<String, String> dataSourceProperties;
@@ -342,7 +384,7 @@ public class Database {
         }
 
         private void init() {
-            for (Method method: dataSource.getClass().getMethods()) {
+            for (Method method : dataSource.getClass().getMethods()) {
                 String methodName = method.getName();
                 Class<?>[] parameterTypes = method.getParameterTypes();
                 if (methodName.startsWith("set") && 3 < methodName.length() && parameterTypes.length == 1) {
@@ -390,5 +432,4 @@ public class Database {
             return (T) object;
         }
     }
-
 }
