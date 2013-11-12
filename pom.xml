@@ -124,6 +124,11 @@
             <name>Jajja Maven Repository</name>
             <url>http://maven.jajja.local/content/repositories/jajja/</url>
         </repository>
+        <repository>
+            <id>jajja-snapshots</id>
+            <name>Jajja Maven Repository (Snapshots)</name>
+            <url>http://maven.jajja.local/content/repositories/jajja-snapshots/</url>
+        </repository>
     </distributionManagement>
 
 </project>
