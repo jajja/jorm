@@ -232,7 +232,6 @@ public class Database {
         try {
             configuration = configure();
         } catch (Exception e) {
-            e.printStackTrace();
             // silent
         }
     }
@@ -261,8 +260,12 @@ public class Database {
         Map<String, Configuration> configurations = new HashMap<String, Configuration>();
         try {
             Enumeration<URL> resources = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
+            
             while (resources.hasMoreElements()) {
                 URL url = resources.nextElement();
+
+                Database.get().log.debug("Found jorm configuration @ " + url.toString());
+
                 Properties properties = new Properties();
                 InputStream is = url.openStream();
                 properties.load(is);
@@ -279,18 +282,14 @@ public class Database {
                         continue;
                     }
                     if (!parts[1].equals(database)) {
-                        if (database != null) {
-                            if (configurations.containsKey(database)) {
-                                Database.get().log.warn("Database '" + database + "' has already been configured");
-                            } else {
-                                try {
-                                    Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
-                                    configuration.apply();
-                                    configurations.put(database, configuration);
-                                    Database.get().log.debug("Configured " + configuration);
-                                } catch (Exception ex) {
-                                    Database.get().log.warn("Failed to configure database: " + ex.getMessage());
-                                }
+                        if (database != null && !configurations.containsKey(database)) {
+                            try {
+                                Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
+                                configuration.apply();
+                                configurations.put(database, configuration);
+                                Database.get().log.debug("Configured " + configuration);
+                            } catch (Exception ex) {
+                                Database.get().log.warn("Failed to configure database: " + ex.getMessage());
                             }
                         }
                         database = parts[1];
@@ -314,18 +313,14 @@ public class Database {
                     }
                 }
 
-                if (database != null) {
-                    if (configurations.containsKey(database)) {
-                        Database.get().log.warn("Database '" + database + "' has already been configured");
-                    } else {
-                        try {
-                            Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
-                            configuration.apply();
-                            configurations.put(database, configuration);
-                            Database.get().log.debug("Configured " + configuration);
-                        } catch (Exception ex) {
-                            Database.get().log.warn("Failed to configure database: " + ex.getMessage());
-                        }
+                if (database != null && !configurations.containsKey(database)) {
+                    try {
+                        Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
+                        configuration.apply();
+                        configurations.put(database, configuration);
+                        Database.get().log.debug("Configured " + configuration);
+                    } catch (Exception ex) {
+                        Database.get().log.warn("Failed to configure database: " + ex.getMessage());
                     }
                 }
             }
