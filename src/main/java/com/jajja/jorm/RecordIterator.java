@@ -73,7 +73,7 @@ public class RecordIterator implements Closeable {
         populate(record, resultSet);
     }
 
-    //@Override
+    @Override
     public void close() {
         if (!autoClose) {
             return;
