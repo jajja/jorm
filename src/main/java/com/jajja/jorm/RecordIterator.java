@@ -1,5 +1,6 @@
 package com.jajja.jorm;
 
+import java.io.Closeable;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -8,7 +9,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-public class RecordIterator /*implements AutoCloseable*/ {      // XXX how to support AutoCloseable in Java < 1.7?
+public class RecordIterator implements Closeable {
     private Symbol[] symbols;
     private Set<Symbol> symbolSet = new HashSet<Symbol>();
     private PreparedStatement preparedStatement;
