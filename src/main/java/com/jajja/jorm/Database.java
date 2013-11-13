@@ -275,6 +275,7 @@ public class Database {
                 String destroyMethodName = null;
                 String dataSourceClassName = null;
                 Map<String, String> dataSourceProperties = null;
+                int priority = 0;
                 
                 for (Entry<String, String> property : new TreeMap<String, String>((Map) properties).entrySet()) {
                     String[] parts = property.getKey().split("\\.");
@@ -282,12 +283,14 @@ public class Database {
                         continue;
                     }
                     if (!parts[1].equals(database)) {
-                        if (database != null && !configurations.containsKey(database)) {
+                        if (database != null) {
                             try {
-                                Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
-                                configuration.apply();
-                                configurations.put(database, configuration);
-                                Database.get().log.debug("Configured " + configuration);
+                                Configuration configuration = configurations.get(database);
+                                if (configuration == null || configuration.priority < priority) {
+                                    configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
+                                    configurations.put(database, configuration);
+                                    Database.get().log.debug("Configured " + configuration);
+                                }
                             } catch (Exception ex) {
                                 Database.get().log.warn("Failed to configure database: " + ex.getMessage());
                             }
@@ -296,10 +299,17 @@ public class Database {
                         destroyMethodName = null;
                         dataSourceClassName = null;
                         dataSourceProperties = new HashMap<String, String>();
+                        priority = 0;
                     }
 
                     if (parts.length == 3 && parts[2].equals("destroyMethod")) {
                         destroyMethodName = property.getValue();
+                    } else if (parts.length == 3 && parts[2].equals("priority")) {
+                        try {
+                            priority = Integer.parseInt(property.getValue().trim());
+                        } catch (Exception ex) {
+                            
+                        }
                     } else if (parts[2].equals("dataSource")) {
                         if (parts.length == 3) {
                             dataSourceClassName = property.getValue();
@@ -313,16 +323,23 @@ public class Database {
                     }
                 }
 
-                if (database != null && !configurations.containsKey(database)) {
+                if (database != null) {
                     try {
-                        Configuration configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
-                        configuration.apply();
-                        configurations.put(database, configuration);
-                        Database.get().log.debug("Configured " + configuration);
+                        Configuration configuration = configurations.get(database);
+                        if (configuration == null || configuration.priority < priority) {
+                            configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
+                            configurations.put(database, configuration);
+                            Database.get().log.debug("Configured " + configuration);
+                        }
                     } catch (Exception ex) {
                         Database.get().log.warn("Failed to configure database: " + ex.getMessage());
                     }
                 }
+            }
+
+            for (Entry<String, Configuration> entry : configurations.entrySet()) {
+                entry.getValue().apply();
+                Database.get().log.debug("Configured " + configuration);
             }
         } catch (IOException ex) {
             Database.get().log.warn("Failed to configure database: " + ex.getMessage());            
@@ -341,6 +358,7 @@ public class Database {
         private DataSource dataSource;
         private Map<String, String> dataSourceProperties;
         private Method destroyMethod;
+        private int priority;
 
         @Override
         public String toString() {
@@ -351,9 +369,10 @@ public class Database {
             configure(database, dataSource);
         }
 
-        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties, String destroyMethodName) {
+        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties, String destroyMethodName, int priority) {
             this.database = database;
             this.dataSourceProperties = dataSourceProperties;
+            this.priority = priority;
             try {
                 Class<?> type = Class.forName(dataSourceClassName);
                 if (destroyMethodName != null) {

@@ -535,7 +535,7 @@ public abstract class Record {
 
     /**
      * Provides a selected record from the mapped database table, populated with
-     * the first result for which the primary key matches.
+     * the first result for which the composite key matches.
      *
      * @param clazz
      *            the class defining the table mapping.
@@ -550,6 +550,26 @@ public abstract class Record {
      */
     public static <T extends Record> T find(Class<T> clazz, Composite composite, Object value) throws SQLException {
         return select(clazz, getSelectQuery(clazz, composite, value));
+    }
+    
+    /**
+     * Provides a selected record from the mapped database table, populated with
+     * the first result for which the simple key matches.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param composite
+     *            simple key
+     * @param value
+     *            the composite key value
+     * @return the matched record or null for no match.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> T find(Class<T> clazz, String column, Object value) throws SQLException {
+        Composite composite = new Composite(column);
+        return select(clazz, getSelectQuery(clazz, composite, composite.value(value)));
     }
 
     /**
@@ -570,6 +590,26 @@ public abstract class Record {
     public static <T extends Record> List<T> findAll(Class<T> clazz, Composite composite, Value value) throws SQLException {
         return selectAll(clazz, getSelectQuery(clazz, composite, value));
     }
+    
+    /**
+     * Provides a complete list of selected records from the mapped database
+     * table, populated with the results for which the simple key matches.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param composite
+     *            the composite key
+     * @param value
+     *            the composite key value
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> List<T> findAll(Class<T> clazz, String column, Object value) throws SQLException {
+        Composite composite = new Composite(column);
+        return selectAll(clazz, getSelectQuery(clazz, composite, composite.value(value)));
+    }    
 
     public static <T extends Record> List<T> findAll(Class<T> clazz) throws SQLException {
         return selectAll(clazz, getSelectQuery(clazz));

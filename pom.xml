@@ -119,11 +119,11 @@
     </build>
     
     <distributionManagement>
-        <repository>
+        <!--<repository>
             <id>jajja</id>
             <name>Jajja Maven Repository</name>
             <url>http://maven.jajja.local/content/repositories/jajja/</url>
-        </repository>
+        </repository>-->
         <repository>
             <id>jajja-snapshots</id>
             <name>Jajja Maven Repository (Snapshots)</name>
