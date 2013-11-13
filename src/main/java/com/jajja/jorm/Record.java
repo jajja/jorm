@@ -615,6 +615,14 @@ public abstract class Record {
         return selectAll(clazz, getSelectQuery(clazz));
     }
 
+    public static RecordIterator iterate(Class<? extends Record> clazz, Composite composite, Value value) throws SQLException {
+        return selectIterator(clazz, getSelectQuery(clazz, composite, value));
+    }
+
+    public static RecordIterator iterate(Class<? extends Record> clazz) throws SQLException {
+        return selectIterator(clazz, getSelectQuery(clazz));
+    }
+
     /**
      * Provides a complete list of selected reference records of a given class
      * referring to the mapped record through a given foreign key column.
@@ -762,8 +770,7 @@ public abstract class Record {
     }
 
     /**
-     * Provides a list of selected records, populated with the results from the
-     * given query.
+     * Provides a list of records populated with the results from the given query.
      *
      * @param clazz
      *            the class defining the table mapping.
@@ -790,6 +797,62 @@ public abstract class Record {
             throw open(clazz).getDialect().rethrow(e, query.getSql());
         }
         return records;
+    }
+
+    /**
+     * Provides a record iterator with the results from the query given by
+     * a plain SQL statement.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the plain SQL statement.
+     * @return the matched records
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql) throws SQLException {
+        return selectIterator(clazz, new Query(open(clazz).getDialect(), sql));
+    }
+
+    /**
+     * Provides a record iterator with the results from the query given by
+     * a Jorm SQL statement and applicable parameters.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the Jorm SQL statement.
+     * @param params
+     *            the applicable parameters.
+     * @return the matched records
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql, Object... params) throws SQLException {
+        return selectIterator(clazz, new Query(open(clazz).getDialect(), sql, params));
+    }
+
+    /**
+     * Provides a record iterator with the results from the given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static RecordIterator selectIterator(Class<? extends Record> clazz, Query query) throws SQLException {
+        try {
+            return new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+        } catch (SQLException e) {
+            throw open(clazz).getDialect().rethrow(e, query.getSql());
+        }
     }
 
     /**
