@@ -285,13 +285,15 @@ public class Database {
                         } catch (Exception ex) {
                             Database.get().log.warn("Failed to configure database: " + ex.getMessage());
                         }
-                        database = parts[1];
+                        database = null;
                         destroyMethodName = null;
                         dataSourceClassName = null;
                         dataSourceProperties = new HashMap<String, String>();
                         priority = 0;
                     }
-
+                    if (database == null) {
+                        database = parts[1];
+                    }
                     if (parts.length == 3 && parts[2].equals("destroyMethod")) {
                         destroyMethodName = property.getValue();
                     } else if (parts.length == 3 && parts[2].equals("priority")) {
