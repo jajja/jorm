@@ -27,21 +27,13 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
-import java.util.ResourceBundle;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.sql.DataSource;
 
@@ -274,7 +266,7 @@ public class Database {
                 String database = null;
                 String destroyMethodName = null;
                 String dataSourceClassName = null;
-                Map<String, String> dataSourceProperties = null;
+                Map<String, String> dataSourceProperties = new HashMap<String, String>();
                 int priority = 0;
                 
                 for (Entry<String, String> property : new TreeMap<String, String>((Map) properties).entrySet()) {
@@ -282,18 +274,16 @@ public class Database {
                     if (parts.length < 3 || !parts[0].equals("database")) {
                         continue;
                     }
-                    if (!parts[1].equals(database)) {
-                        if (database != null) {
-                            try {
-                                Configuration configuration = configurations.get(database);
-                                if (configuration == null || configuration.priority < priority) {
-                                    configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
-                                    configurations.put(database, configuration);
-                                    Database.get().log.debug("Configured " + configuration);
-                                }
-                            } catch (Exception ex) {
-                                Database.get().log.warn("Failed to configure database: " + ex.getMessage());
+                    if (database != null && !parts[1].equals(database)) {
+                        try {
+                            Configuration conf = configurations.get(database);
+                            if (conf == null || conf.priority < priority) {
+                                conf = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
+                                configurations.put(database, conf);
+                                Database.get().log.debug("Configured " + conf);
                             }
+                        } catch (Exception ex) {
+                            Database.get().log.warn("Failed to configure database: " + ex.getMessage());
                         }
                         database = parts[1];
                         destroyMethodName = null;
@@ -325,11 +315,11 @@ public class Database {
 
                 if (database != null) {
                     try {
-                        Configuration configuration = configurations.get(database);
-                        if (configuration == null || configuration.priority < priority) {
-                            configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
-                            configurations.put(database, configuration);
-                            Database.get().log.debug("Configured " + configuration);
+                        Configuration conf = configurations.get(database);
+                        if (conf == null || conf.priority < priority) {
+                            conf = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
+                            configurations.put(database, conf);
+                            Database.get().log.debug("Configured " + conf);
                         }
                     } catch (Exception ex) {
                         Database.get().log.warn("Failed to configure database: " + ex.getMessage());
@@ -345,11 +335,7 @@ public class Database {
             Database.get().log.warn("Failed to configure database: " + ex.getMessage());            
         }
 
-        return new ArrayList(configurations.keySet());
-    }
-
-    private static final String defix(String string, String prefix) {
-        return string.startsWith(prefix) ? string.substring(prefix.length()) : string;
+        return new ArrayList<Configuration>(configurations.values());
     }
 
     public static class Configuration {
@@ -431,7 +417,7 @@ public class Database {
 
         @SuppressWarnings("unchecked")
         private static <T extends Object> T parse(Class<T> type, String property) {
-            Object object = null;
+            Object object;
             if (type.isAssignableFrom(String.class)) {
                 object = property;
             } else if (type.isAssignableFrom(boolean.class) || type.isAssignableFrom(Boolean.class)) {
@@ -441,7 +427,7 @@ public class Database {
             } else if (type.isAssignableFrom(long.class) || type.isAssignableFrom(Long.class)) {
                 object = Long.parseLong(property);
             } else {
-                return null;
+                object = null;
             }
             return (T) object;
         }
