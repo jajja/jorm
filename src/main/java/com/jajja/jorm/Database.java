@@ -375,13 +375,13 @@ public class Database {
                 dataSource = (DataSource) type.newInstance();
                 init();
             } catch (InstantiationException e) {
-                throw new IllegalArgumentException("The data source implementation has no default constructor!", e);
+                throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " has no default constructor!", e);
             } catch (IllegalAccessException e) {
-                throw new IllegalArgumentException("The data source implementation has no public constructor!", e);
+                throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " has no public constructor!", e);
             } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException("The data source implementation does not exist!", e);
+                throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " does not exist!", e);
             } catch (ClassCastException e) {
-                throw new IllegalArgumentException("The data source implementation is not a data source!", e);
+                throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " is not a data source!", e);
             }
         }
 
