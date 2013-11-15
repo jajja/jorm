@@ -449,8 +449,7 @@ public class Transaction {
      *            the query.
      * @return the matched record or null for no match.
      * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
+     *             if a database access error occurs
      */
     public Record select(Query query) throws SQLException {
         Record select = new AnonymousRecord(table);
@@ -471,8 +470,7 @@ public class Transaction {
      *            the applicable parameters.
      * @return the matched records
      * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
+     *             if a database access error occurs
      */
     public List<Record> selectAll(String sql, Object... params) throws SQLException {
         return selectAll(new Query(getDialect(), sql, params));
@@ -486,8 +484,7 @@ public class Transaction {
      *            the query.
      * @return the matched records.
      * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
+     *             if a database access error occurs
      */
     public List<Record> selectAll(Query query) throws SQLException {
         List<Record> records = new LinkedList<Record>();
@@ -507,6 +504,34 @@ public class Transaction {
             throw getDialect().rethrow(e, query.getSql());
         }
         return records;
+    }
+
+    /**
+     * Provides an iterator of selected anonymous read-only records, populated with
+     * the results from the given query.
+     *
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs
+     */
+    public RecordIterator iterate(Query query) throws SQLException {
+        return new RecordIterator(prepare(query.getSql(), query.getParams()));
+    }
+
+    /**
+     * Provides an iterator of selected anonymous read-only records, populated with
+     * the results from the given query.
+     *
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs
+     */
+    public RecordIterator iterate(String sql, Object... params) throws SQLException {
+        return iterate(new Query(getDialect(), sql, params));
     }
 
     /**
