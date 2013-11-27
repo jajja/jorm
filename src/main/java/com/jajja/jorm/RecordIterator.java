@@ -43,7 +43,7 @@ public class RecordIterator implements Closeable {
             try {
                 record.put(symbols[i], resultSet.getObject(i + 1));
             } catch (SQLException sqlException) {
-                record.open().getDialect().rethrow(sqlException);
+                record.transaction().getDialect().rethrow(sqlException);
             } finally {
                 record.isStale = true; // lol exception
             }

@@ -206,8 +206,66 @@ public class Transaction {
 
     /**
      * Rolls back the current transaction and closes the database connection.
+     * This is the equivalent of calling {@link #rollback()}
      */
     public void close() {
+        rollback();
+    }
+
+    /**
+     * Destroys the transaction.
+     */
+    public void destroy() {
+        close();
+        isDestroyed = true;
+    }
+
+    /**
+     * Commits the current transaction and closes the database connection.
+     * This is the equivalent of calling {@link #commit(true)}.
+     *
+     * @throws SQLException
+     *             if a database access error occurs.
+     */
+    public void commit() throws SQLException {
+        commit(true);
+    }
+
+    /**
+     * Commits the current transaction and optionally closes the database connection.
+     *
+     * @param close
+     *            whether or not to close the database connection.
+     * @throws SQLException
+     *             if a database access error occurs.
+     */
+    public void commit(boolean close) throws SQLException {
+        if (connection != null) {
+            tracelog("COMMIT");
+            getConnection().commit();
+            if (close) {
+                close();
+            }
+        }
+    }
+
+    /**
+     * Rolls back the current transaction and closes the database connection.
+     * 
+     * @param close
+     *            whether or not to close the database connection.
+     */
+    public void rollback() {
+        rollback(true);
+    }
+
+    /**
+     * Rolls back the current transaction and optionally closes the database connection.
+     * 
+     * @param close
+     *            whether or not to close the database connection.
+     */
+    public void rollback(boolean close) {
         if (connection != null) {
             try {
                 tracelog("ROLLBACK");
@@ -223,28 +281,6 @@ public class Transaction {
             now = null;
             dialect = null;
             connection = null;
-        }
-    }
-
-    /**
-     * Destroys the transaction.
-     */
-    public void destroy() {
-        close();
-        isDestroyed = true;
-    }
-
-    /**
-     * Commits the current transaction and closes the database connection.
-     *
-     * @throws SQLException
-     *             if a database access error occurs.
-     */
-    public void commit() throws SQLException {
-        if (connection != null) {
-            tracelog("COMMIT");
-            getConnection().commit();
-            close();
         }
     }
 
@@ -638,5 +674,9 @@ public class Transaction {
         public AnonymousRecord(Table table) {
             super(table);
         }
+    }
+
+    public AnonymousRecord anonymousRecord() {
+        return new AnonymousRecord(table);
     }
 }

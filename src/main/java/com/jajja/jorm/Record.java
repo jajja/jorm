@@ -302,6 +302,8 @@ public abstract class Record {
 
     /**
      * <p>
+     * Deprecated: Use {@link #transaction(Class)}
+     * 
      * Opens a thread local transaction to the database mapped by the record
      * class. If an open transaction already exists for the record class, it is
      * reused. This method is idempotent when called from the same thread.
@@ -316,12 +318,35 @@ public abstract class Record {
      *            the mapped record class.
      * @return the open transaction.
      */
+    @Deprecated
     public static Transaction open(Class<? extends Record> clazz) {
+        return transaction(clazz);
+    }
+
+    /**
+     * <p>
+     * Opens a thread local transaction to the database mapped by the record
+     * class. If an open transaction already exists for the record class, it is
+     * reused. This method is idempotent when called from the same thread.
+     * </p>
+     * <p>
+     * This is corresponds to a call to {@link Database#open(String)} for the
+     * database named by the class mapping of the record. Requires the given
+     * class to be mapped by {@link Jorm}.
+     * </p>
+     *
+     * @param clazz
+     *            the mapped record class.
+     * @return the transaction.
+     */
+    public static Transaction transaction(Class<? extends Record> clazz) {
         return Database.open(Table.get(clazz).getDatabase());
     }
 
     /**
      * <p>
+     * Deprecated: Use transaction(Class).commit();
+     * 
      * Commits the thread local transaction to the named database mapped by the
      * record class, if it has been opened.
      * </p>
@@ -335,12 +360,15 @@ public abstract class Record {
      *            the mapped record class.
      * @return the committed transaction or null for no active transaction.
      */
+    @Deprecated
     public static Transaction commit(Class<? extends Record> clazz) throws SQLException {
         return Database.commit(Table.get(clazz).getDatabase());
     }
 
     /**
      * <p>
+     * Deprecated: Use transaction(Class).close();
+     * 
      * Closes the thread local transaction to the named database mapped by the
      * record class, if it has been opened. This method is idempotent when
      * called from the same thread.
@@ -355,8 +383,29 @@ public abstract class Record {
      *            the mapped record class.
      * @return the closed transaction or null for no active transaction.
      */
+    @Deprecated
     public static Transaction close(Class<? extends Record> clazz) {
         return Database.close(Table.get(clazz).getDatabase());
+    }
+
+    /**
+     * <p>
+     * Deprecated: Use {@link #transaction()}
+     * 
+     * Opens a thread local transaction to the named database mapped by the
+     * record. If an open transaction already exists for the record, it is
+     * reused. This method is idempotent when called from the same thread.
+     * </p>
+     * <p>
+     * This is corresponds to a call to {@link Database#open(String)} for the
+     * database named by the table mapping of the record.
+     * </p>
+     *
+     * @return the open transaction.
+     */
+    @Deprecated
+    public Transaction open() {
+        return Database.open(table.getDatabase());
     }
 
     /**
@@ -370,14 +419,16 @@ public abstract class Record {
      * database named by the table mapping of the record.
      * </p>
      *
-     * @return the open transaction.
+     * @return the transaction.
      */
-    public Transaction open() {
+    public Transaction transaction() {
         return Database.open(table.getDatabase());
     }
 
     /**
      * <p>
+     * Deprecated: Use transaction().commit()
+     * 
      * Commits the thread local transaction to the named database mapped by the
      * record, if it has been opened.
      * </p>
@@ -396,12 +447,15 @@ public abstract class Record {
      *             if a database access error occurs.
      * @return the committed transaction or null for no active transaction.
      */
+    @Deprecated
     public Transaction commit() throws SQLException {
         return Database.commit(table.getDatabase());
     }
 
     /**
      * <p>
+     * Deprecated: Use transaction().close()
+     * 
      * Closes the thread local transaction to the named database mapped by the
      * record, if it has been opened. This method is idempotent when called from
      * the same thread.
@@ -419,6 +473,7 @@ public abstract class Record {
      *
      * @return the closed transaction or null for no active transaction.
      */
+    @Deprecated
     public Transaction close() {
         return Database.close(table.getDatabase());
     }
@@ -1358,37 +1413,34 @@ public abstract class Record {
     private static class BatchInfo {
         private Set<Symbol> columns = new HashSet<Symbol>();
         private Record template = null;
-    }
 
-    private static BatchInfo batchInfo(Collection<? extends Record> records) {
-        BatchInfo batchInfo = new BatchInfo();
-        for (Record record : records) {
-            record.checkReadOnly();
+        private BatchInfo(Collection<? extends Record> records) {
+            for (Record record : records) {
+                record.checkReadOnly();
 
-            if (batchInfo.template == null) {
-                batchInfo.template = record;
+                if (template == null) {
+                    template = record;
+                }
+
+                if (!template.getClass().equals(record.getClass())) {
+                    throw new IllegalArgumentException("all records must be of the same class");
+                }
+                if (!template.table.getDatabase().equals(record.table.getDatabase())) {
+                    throw new IllegalArgumentException("all records must be bound to the same Database");
+                }
+
+                columns.addAll( record.fields.keySet() );
             }
 
-            if (!batchInfo.template.getClass().equals(record.getClass())) {
-                throw new IllegalArgumentException("all records must be of the same class");
-            }
-            if (!batchInfo.template.table.getDatabase().equals(record.table.getDatabase())) {
-                throw new IllegalArgumentException("all records must be bound to the same Database");
-            }
-
-            batchInfo.columns.addAll( record.fields.keySet() );
-        }
-
-        String immutablePrefix = batchInfo.template.table.getImmutablePrefix();
-        if (batchInfo.template != null && immutablePrefix != null) {
-            for (Symbol symbol : batchInfo.columns) {
-                if (symbol.getName().startsWith(immutablePrefix)) {
-                    batchInfo.columns.remove(symbol);
+            String immutablePrefix = template.table.getImmutablePrefix();
+            if (template != null && immutablePrefix != null) {
+                for (Symbol symbol : columns) {
+                    if (symbol.getName().startsWith(immutablePrefix)) {
+                        columns.remove(symbol);
+                    }
                 }
             }
         }
-
-        return batchInfo;
     }
 
     private static void batchExecute(Query query, Collection<? extends Record> records, ResultMode mode) throws SQLException {
@@ -1625,7 +1677,7 @@ public abstract class Record {
             return;
         }
 
-        BatchInfo batchInfo = batchInfo(records);
+        BatchInfo batchInfo = new BatchInfo(records);
 
         if (chunkSize <= 0) {
             batchInsert(batchInfo, records, mode);
@@ -1756,22 +1808,42 @@ public abstract class Record {
      *
      * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
      *
-     * Setting isFullRepopulate to true will re-populate the record fields with fresh values.
+     * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
+     *
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
+     * @param chunkSize Splits the records into chunks, <= 0 disables
+     * @param mode 
+     * @throws SQLException
+     *             if a database access error occurs
+     */
+    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
+        update(records, chunkSize, mode, null);
+    }
+
+    /**
+     * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
+     *
+     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
      *
      * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param isFullRepopulate Whether or not to fully re-populate the record fields, or just update their primary key value and markStale()
+     * @param mode 
+     * @param primaryKey 
      * @throws SQLException
      *             if a database access error occurs
      */
-    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
+    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
         if (records.isEmpty()) {
             return;
         }
 
-        BatchInfo batchInfo = batchInfo(records);
+        BatchInfo batchInfo = new BatchInfo(records);
+
+        if (primaryKey == null) {
+            primaryKey = batchInfo.template.primaryKey();
+        }
 
         if (batchInfo.columns.isEmpty()) {
             throw new IllegalArgumentException("No columns to update");
@@ -1786,17 +1858,17 @@ public abstract class Record {
         }
 
         if (chunkSize <= 0) {
-            batchUpdate(batchInfo, records, mode);
+            batchUpdate(batchInfo, records, mode, primaryKey);
         } else {
             Iterator<? extends Record> iterator = records.iterator();
             List<? extends Record> batch;
             while ((batch = batchChunk(iterator, chunkSize)) != null) {
-                batchUpdate(batchInfo, batch, mode);
+                batchUpdate(batchInfo, batch, mode, primaryKey);
             }
         }
     }
 
-    private static void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode) throws SQLException {
+    private static void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
         Table table = batchInfo.template.table();
         Transaction transaction = batchInfo.template.open();
         Query query = new Query(transaction);
@@ -1840,7 +1912,7 @@ public abstract class Record {
 
         query.append(") WHERE");
         boolean isFirst = true;
-        for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
+        for (Symbol symbol : primaryKey.getSymbols()) {
             if (isFirst) {
                 isFirst = false;
             } else {
