@@ -508,12 +508,15 @@ public abstract class Record {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public boolean populateById(Value id) throws SQLException {
-        return populateByComposite(primaryKey(), id);
+    public boolean populateById(Object id) throws SQLException {
+        if (id instanceof Value) {
+            return populateByComposite(primaryKey(), (Value)id);
+        }
+        return populateByComposite(primaryKey(), primaryKey().value(id));
     }
 
     private static <T extends Record> Query getSelectQuery(Class<T> clazz) {
-        return Table.get(clazz).getSelectQuery(open(clazz).getDialect());
+        return Table.get(clazz).getSelectQuery(transaction(clazz).getDialect());
     }
 
     private static <T extends Record> Query getSelectQuery(Class<T> clazz, Composite composite, Object value) {
@@ -524,7 +527,7 @@ public abstract class Record {
             v = primaryKey(clazz).value(value);
         }
         composite.assertCompatible(v);
-        Dialect dialect = open(clazz).getDialect();
+        Dialect dialect = transaction(clazz).getDialect();
         Query query = Table.get(clazz).getSelectQuery(dialect);
         query.append("WHERE ");
         query.append(dialect.toSqlExpression(composite, v));
@@ -539,7 +542,7 @@ public abstract class Record {
      * @return the built query.
      */
     public Query build(String sql) {
-        return new Query(open().getDialect(), sql);
+        return new Query(transaction().getDialect(), sql);
     }
 
     /**
@@ -554,7 +557,7 @@ public abstract class Record {
      * @return the built query.
      */
     public Query build(String sql, Object... params) {
-        return new Query(open().getDialect(), sql, params);
+        return new Query(transaction().getDialect(), sql, params);
     }
 
     /**
@@ -567,7 +570,7 @@ public abstract class Record {
      * @return the built query.
      */
     public static Query build(Class<? extends Record> clazz, String sql) {
-        return new Query(open(clazz).getDialect(), sql);
+        return new Query(transaction(clazz).getDialect(), sql);
     }
 
     /**
@@ -585,7 +588,7 @@ public abstract class Record {
      * @return the built query.
      */
     public static Query build(Class<? extends Record> clazz, String sql, Object... params) {
-        return new Query(open(clazz).getDialect(), sql, params);
+        return new Query(transaction(clazz).getDialect(), sql, params);
     }
 
     /**
@@ -745,7 +748,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T select(Class<T> clazz, String sql) throws SQLException {
-        return select(clazz, new Query(open(clazz).getDialect(), sql));
+        return select(clazz, new Query(transaction(clazz).getDialect(), sql));
     }
 
     /**
@@ -764,7 +767,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T select(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return select(clazz, new Query(open(clazz).getDialect(), sql, params));
+        return select(clazz, new Query(transaction(clazz).getDialect(), sql, params));
     }
 
     /**
@@ -802,7 +805,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql) throws SQLException {
-        return selectAll(clazz, new Query(open(clazz).getDialect(), sql));
+        return selectAll(clazz, new Query(transaction(clazz).getDialect(), sql));
     }
 
     /**
@@ -821,7 +824,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return selectAll(clazz, new Query(open(clazz).getDialect(), sql, params));
+        return selectAll(clazz, new Query(transaction(clazz).getDialect(), sql, params));
     }
 
     /**
@@ -841,7 +844,7 @@ public abstract class Record {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+                iter = new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
                 while (iter.next()) {
                     records.add(iter.record(clazz));
                 }
@@ -849,7 +852,7 @@ public abstract class Record {
                 if (iter != null) iter.close();
             }
         } catch (SQLException e) {
-            throw open(clazz).getDialect().rethrow(e, query.getSql());
+            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
         }
         return records;
     }
@@ -868,7 +871,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql) throws SQLException {
-        return selectIterator(clazz, new Query(open(clazz).getDialect(), sql));
+        return selectIterator(clazz, new Query(transaction(clazz).getDialect(), sql));
     }
 
     /**
@@ -887,7 +890,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql, Object... params) throws SQLException {
-        return selectIterator(clazz, new Query(open(clazz).getDialect(), sql, params));
+        return selectIterator(clazz, new Query(transaction(clazz).getDialect(), sql, params));
     }
 
     /**
@@ -904,9 +907,9 @@ public abstract class Record {
      */
     public static RecordIterator selectIterator(Class<? extends Record> clazz, Query query) throws SQLException {
         try {
-            return new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+            return new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
         } catch (SQLException e) {
-            throw open(clazz).getDialect().rethrow(e, query.getSql());
+            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
         }
     }
 
@@ -930,7 +933,7 @@ public abstract class Record {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+                iter = new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
                 while (iter.next()) {
                     T record = iter.record(clazz);
                     Composite.Value value = compositeKey.valueFrom(record);
@@ -942,13 +945,13 @@ public abstract class Record {
                 if (iter != null) iter.close();
             }
         } catch (SQLException e) {
-            throw open(clazz).getDialect().rethrow(e, query.getSql());
+            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
         }
         return records;
     }
 
     public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, String sql, Object... params) throws SQLException {
-        return selectAsMap(clazz, compositeKey, allowDuplicates, new Query(open(clazz).getDialect(), sql, params));
+        return selectAsMap(clazz, compositeKey, allowDuplicates, new Query(transaction(clazz).getDialect(), sql, params));
     }
 
     /**
@@ -971,7 +974,7 @@ public abstract class Record {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(open(clazz).prepare(query.getSql(), query.getParams()));
+                iter = new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
                 while (iter.next()) {
                     T record = iter.record(clazz);
                     Composite.Value value = compositeKey.valueFrom(record);
@@ -986,13 +989,13 @@ public abstract class Record {
                 if (iter != null) iter.close();
             }
         } catch (SQLException e) {
-            throw open(clazz).getDialect().rethrow(e, query.getSql());
+            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
         }
         return records;
     }
 
     public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, String sql, Object... params) throws SQLException {
-        return selectAllAsMap(clazz, compositeKey, new Query(open(clazz).getDialect(), sql, params));
+        return selectAllAsMap(clazz, compositeKey, new Query(transaction(clazz).getDialect(), sql, params));
     }
 
     /**
@@ -1009,7 +1012,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(String sql) throws SQLException {
-        return selectInto(new Query(open().getDialect(), sql));
+        return selectInto(new Query(transaction().getDialect(), sql));
     }
 
     /**
@@ -1028,7 +1031,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(String sql, Object... params) throws SQLException {
-        return selectInto(new Query(open().getDialect(), sql, params));
+        return selectInto(new Query(transaction().getDialect(), sql, params));
     }
 
     /**
@@ -1047,7 +1050,7 @@ public abstract class Record {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(open().prepare(query.getSql(), query.getParams()));
+                iter = new RecordIterator(transaction().prepare(query.getSql(), query.getParams()));
                 if (iter.next()) {
                     iter.record(this);
                     return true;
@@ -1056,7 +1059,7 @@ public abstract class Record {
                  if (iter != null) iter.close();
             }
         } catch (SQLException e) {
-            throw open().getDialect().rethrow(e, query.getSql());
+            throw transaction().getDialect().rethrow(e, query.getSql());
         }
         return false;
     }
@@ -1165,7 +1168,7 @@ public abstract class Record {
                  if (iter != null) iter.close();
             }
         } catch (SQLException e) {
-            throw open().getDialect().rethrow(e);
+            throw transaction().getDialect().rethrow(e);
         }
         return false;
     }
@@ -1263,11 +1266,11 @@ public abstract class Record {
      */
     public void delete() throws SQLException {
         checkReadOnly();
-        Dialect dialect = open().getDialect();
+        Dialect dialect = transaction().getDialect();
         Composite primaryKey = primaryKey();
         Query query = new Query(dialect, "DELETE FROM #1# WHERE #2#", table, dialect.toSqlExpression(primaryKey, id()));
 
-        PreparedStatement preparedStatement = open().prepare(query);
+        PreparedStatement preparedStatement = transaction().prepare(query);
         try {
             preparedStatement.execute();
         } finally {
@@ -1308,9 +1311,9 @@ public abstract class Record {
             return;
         }
 
-        Query query = new Query(template.open(), "DELETE FROM #1# WHERE", template.getClass());
+        Query query = new Query(template.transaction(), "DELETE FROM #1# WHERE", template.getClass());
         Composite primaryKey = template.primaryKey();
-        Dialect dialect = template.open().getDialect();
+        Dialect dialect = template.transaction().getDialect();
         if (primaryKey.isSingle()) {
             query.append("#:1# IN (#2:@#)", primaryKey, records);
         } else {
@@ -1330,7 +1333,7 @@ public abstract class Record {
                 }
             }
         }
-        template.open().execute(query);
+        template.transaction().execute(query);
     }
 
     /**
@@ -1447,7 +1450,7 @@ public abstract class Record {
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
         Record template = records.iterator().next();
-        Transaction transaction = template.open();
+        Transaction transaction = template.transaction();
         Table table = template.table();
         Composite primaryKey = template.primaryKey();
         Dialect dialect = transaction.getDialect();
@@ -1558,11 +1561,11 @@ public abstract class Record {
             return;
         }
 
-        if (mode != ResultMode.NO_RESULT && !primaryKey().isSingle() && !open().getDialect().isReturningSupported()) {
+        if (mode != ResultMode.NO_RESULT && !primaryKey().isSingle() && !transaction().getDialect().isReturningSupported()) {
             throw new UnsupportedOperationException("INSERT with composite primary key not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
         }
 
-        Query query = new Query(open().getDialect());
+        Query query = new Query(transaction().getDialect());
 
         query.append("INSERT INTO #1# (", table);
 
@@ -1603,11 +1606,11 @@ public abstract class Record {
             return;
         }
 
-        if (open().getDialect().isReturningSupported()) {
+        if (transaction().getDialect().isReturningSupported()) {
             query.append(" RETURNING *");       // XXX ID_ONLY support
             selectInto(query);
         } else {
-            PreparedStatement preparedStatement = open().prepare(query.getSql(), query.getParams(), true);
+            PreparedStatement preparedStatement = transaction().prepare(query.getSql(), query.getParams(), true);
             ResultSet resultSet = null;
             Object id = null;
             try {
@@ -1617,7 +1620,7 @@ public abstract class Record {
                     id = resultSet.getObject(1);
                 }
             } catch (SQLException e) {
-                throw open().getDialect().rethrow(e, query.getSql());
+                throw transaction().getDialect().rethrow(e, query.getSql());
             } finally {
                 try {
                     if (resultSet != null) {
@@ -1692,7 +1695,7 @@ public abstract class Record {
 
     private static void batchInsert(BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode) throws SQLException {
         Table table = batchInfo.template.table;
-        Transaction transaction = batchInfo.template.open();
+        Transaction transaction = batchInfo.template.transaction();
         Dialect dialect = transaction.getDialect();
         Query query = new Query(dialect);
 
@@ -1756,7 +1759,7 @@ public abstract class Record {
             return;
         }
 
-        Query query = new Query(open().getDialect());
+        Query query = new Query(transaction().getDialect());
 
         query.append("UPDATE #1# SET ", table);
 
@@ -1775,14 +1778,14 @@ public abstract class Record {
 
         assertPrimaryKeyNotNull();
 
-        query.append(" WHERE #1#", open().getDialect().toSqlExpression(primaryKey(), id()));
+        query.append(" WHERE #1#", transaction().getDialect().toSqlExpression(primaryKey(), id()));
 
         markStale();
-        if (open().getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
+        if (transaction().getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
             query.append(" RETURNING *");
             selectInto(query);
         } else {
-            open().executeUpdate(query);
+            transaction().executeUpdate(query);
         }
     }
 
@@ -1849,7 +1852,7 @@ public abstract class Record {
             throw new IllegalArgumentException("No columns to update");
         }
 
-        Dialect dialect = records.iterator().next().open().getDialect();
+        Dialect dialect = records.iterator().next().transaction().getDialect();
         if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
             for (Record record : records) {
                 record.update();
@@ -1870,7 +1873,7 @@ public abstract class Record {
 
     private static void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
         Table table = batchInfo.template.table();
-        Transaction transaction = batchInfo.template.open();
+        Transaction transaction = batchInfo.template.transaction();
         Query query = new Query(transaction);
         String vTable = table.getTable().equals("v") ? "v2" : "v";
 
