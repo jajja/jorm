@@ -64,7 +64,7 @@ public @interface Jorm {
      *
      * @return the primary key column names
      */
-    public String[] primaryKey() default "";
+    public String[] primaryKey() default {};
 
     /**
      * A list of names for columns mapped as immutable fields.
