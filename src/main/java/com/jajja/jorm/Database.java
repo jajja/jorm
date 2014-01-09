@@ -283,7 +283,7 @@ public class Database {
                                 Database.get().log.debug("Configured " + conf);
                             }
                         } catch (Exception ex) {
-                            Database.get().log.warn("Failed to configure database: " + ex.getMessage());
+                            Database.get().log.warn("Failed to configure database: " + ex.getMessage(), ex);
                         }
                         database = null;
                         destroyMethodName = null;
