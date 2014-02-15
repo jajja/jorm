@@ -276,7 +276,12 @@ public class Database {
             Map<String, String> dataSourceProperties = new HashMap<String, String>();
             int priority = 0;
 
-            for (Entry<String, String> property : new TreeMap<String, String>((Map) properties).entrySet()) {
+            TreeMap<String, String> propMap = new TreeMap<String, String>();
+            for (Entry<Object, Object> e : properties.entrySet()) {
+                propMap.put((String)e.getKey(), (String)e.getValue());
+            }
+
+            for (Entry<String, String> property : propMap.entrySet()) {
                 String[] parts = property.getKey().split("\\.");
                 if (parts.length < 3 || !parts[0].equals("database")) {
                     continue;
