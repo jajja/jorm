@@ -221,11 +221,7 @@ public class Database {
     private static List<Configuration> configuration;
 
     static {
-        try {
-            configuration = configure();
-        } catch (Exception e) {
-            // silent
-        }
+        configuration = configure();
     }
 
     public static void destroy() {
@@ -250,91 +246,91 @@ public class Database {
      */
     private static List<Configuration> configure() {
         Map<String, Configuration> configurations = new HashMap<String, Configuration>();
+        Enumeration<URL> resources;
+
         try {
-            Enumeration<URL> resources = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
-            
-            while (resources.hasMoreElements()) {
-                URL url = resources.nextElement();
+            resources = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
+        } catch (IOException ex) {
+            Database.get().log.warn("Failed to find resource 'jorm.properties': " + ex.getMessage(), ex);
+            return null;
+        }
 
-                Database.get().log.debug("Found jorm configuration @ " + url.toString());
+        while (resources.hasMoreElements()) {
+            URL url = resources.nextElement();
 
-                Properties properties = new Properties();
+            Database.get().log.debug("Found jorm configuration @ " + url.toString());
+
+            Properties properties = new Properties();
+            try {
                 InputStream is = url.openStream();
                 properties.load(is);
                 is.close();
+            } catch (IOException ex) {
+                Database.get().log.error("Failed to open jorm.properties: " + ex.getMessage(), ex);
+                continue;
+            }
 
-                String database = null;
-                String destroyMethodName = null;
-                String dataSourceClassName = null;
-                Map<String, String> dataSourceProperties = new HashMap<String, String>();
-                int priority = 0;
-                
-                for (Entry<String, String> property : new TreeMap<String, String>((Map) properties).entrySet()) {
-                    String[] parts = property.getKey().split("\\.");
-                    if (parts.length < 3 || !parts[0].equals("database")) {
-                        continue;
-                    }
-                    if (database != null && !parts[1].equals(database)) {
-                        try {
-                            Configuration conf = configurations.get(database);
-                            if (conf == null || conf.priority < priority) {
-                                conf = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
-                                configurations.put(database, conf);
-                                Database.get().log.debug("Configured " + conf);
-                            }
-                        } catch (Exception ex) {
-                            Database.get().log.warn("Failed to configure database: " + ex.getMessage(), ex);
-                        }
-                        database = null;
-                        destroyMethodName = null;
-                        dataSourceClassName = null;
-                        dataSourceProperties = new HashMap<String, String>();
-                        priority = 0;
-                    }
-                    if (database == null) {
-                        database = parts[1];
-                    }
-                    if (parts.length == 3 && parts[2].equals("destroyMethod")) {
-                        destroyMethodName = property.getValue();
-                    } else if (parts.length == 3 && parts[2].equals("priority")) {
-                        try {
-                            priority = Integer.parseInt(property.getValue().trim());
-                        } catch (Exception ex) {
-                            
-                        }
-                    } else if (parts[2].equals("dataSource")) {
-                        if (parts.length == 3) {
-                            dataSourceClassName = property.getValue();
-                        } else if (parts.length == 4) {
-                            dataSourceProperties.put(parts[3], property.getValue());
-                        } else {
-                            Database.get().log.warn("Invalid DataSource property '" + property.getKey() + "'");
-                        }
-                    } else {
-                        Database.get().log.warn("Invalid property '" + property.getKey() + "'");
-                    }
+            String database = null;
+            String destroyMethodName = null;
+            String dataSourceClassName = null;
+            Map<String, String> dataSourceProperties = new HashMap<String, String>();
+            int priority = 0;
+
+            for (Entry<String, String> property : new TreeMap<String, String>((Map) properties).entrySet()) {
+                String[] parts = property.getKey().split("\\.");
+                if (parts.length < 3 || !parts[0].equals("database")) {
+                    continue;
                 }
-
-                if (database != null) {
+                if (database != null && !parts[1].equals(database)) {
+                    Configuration conf = configurations.get(database);
+                    if (conf == null || conf.priority < priority) {
+                        conf = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
+                        configurations.put(database, conf);
+                        Database.get().log.debug("Configured " + conf);
+                    }
+                    database = null;
+                    destroyMethodName = null;
+                    dataSourceClassName = null;
+                    dataSourceProperties = new HashMap<String, String>();
+                    priority = 0;
+                }
+                if (database == null) {
+                    database = parts[1];
+                }
+                if (parts.length == 3 && parts[2].equals("destroyMethod")) {
+                    destroyMethodName = property.getValue();
+                } else if (parts.length == 3 && parts[2].equals("priority")) {
                     try {
-                        Configuration conf = configurations.get(database);
-                        if (conf == null || conf.priority < priority) {
-                            conf = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
-                            configurations.put(database, conf);
-                            Database.get().log.debug("Configured " + conf);
-                        }
+                        priority = Integer.parseInt(property.getValue().trim());
                     } catch (Exception ex) {
-                        Database.get().log.warn("Failed to configure database: " + ex.getMessage());
+
                     }
+                } else if (parts[2].equals("dataSource")) {
+                    if (parts.length == 3) {
+                        dataSourceClassName = property.getValue();
+                    } else if (parts.length == 4) {
+                        dataSourceProperties.put(parts[3], property.getValue());
+                    } else {
+                        Database.get().log.warn("Invalid DataSource property '" + property.getKey() + "'");
+                    }
+                } else {
+                    Database.get().log.warn("Invalid property '" + property.getKey() + "'");
                 }
             }
 
-            for (Entry<String, Configuration> entry : configurations.entrySet()) {
-                entry.getValue().apply();
-                Database.get().log.debug("Configured " + configuration);
+            if (database != null) {
+                Configuration conf = configurations.get(database);
+                if (conf == null || conf.priority < priority) {
+                    conf = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
+                    configurations.put(database, conf);
+                    Database.get().log.debug("Configured " + conf);
+                }
             }
-        } catch (IOException ex) {
-            Database.get().log.warn("Failed to configure database: " + ex.getMessage());            
+        }
+
+        for (Entry<String, Configuration> entry : configurations.entrySet()) {
+            entry.getValue().apply();
+            Database.get().log.debug("Configured " + configuration);
         }
 
         return new ArrayList<Configuration>(configurations.values());
