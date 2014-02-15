@@ -178,6 +178,8 @@ public class ImportCollection {
                 cmp = 0;
             } else if (packageName == null) {
                 cmp = -1;
+            } else if (i.getPackageName() == null) {
+                cmp = 1;
             } else {
                 cmp = packageName.compareTo(i.getPackageName());
             }
