@@ -303,7 +303,7 @@ public abstract class Record {
     /**
      * <p>
      * Deprecated: Use {@link #transaction(Class)}
-     * 
+     *
      * Opens a thread local transaction to the database mapped by the record
      * class. If an open transaction already exists for the record class, it is
      * reused. This method is idempotent when called from the same thread.
@@ -346,7 +346,7 @@ public abstract class Record {
     /**
      * <p>
      * Deprecated: Use transaction(Class).commit();
-     * 
+     *
      * Commits the thread local transaction to the named database mapped by the
      * record class, if it has been opened.
      * </p>
@@ -368,7 +368,7 @@ public abstract class Record {
     /**
      * <p>
      * Deprecated: Use transaction(Class).close();
-     * 
+     *
      * Closes the thread local transaction to the named database mapped by the
      * record class, if it has been opened. This method is idempotent when
      * called from the same thread.
@@ -391,7 +391,7 @@ public abstract class Record {
     /**
      * <p>
      * Deprecated: Use {@link #transaction()}
-     * 
+     *
      * Opens a thread local transaction to the named database mapped by the
      * record. If an open transaction already exists for the record, it is
      * reused. This method is idempotent when called from the same thread.
@@ -428,7 +428,7 @@ public abstract class Record {
     /**
      * <p>
      * Deprecated: Use transaction().commit()
-     * 
+     *
      * Commits the thread local transaction to the named database mapped by the
      * record, if it has been opened.
      * </p>
@@ -455,7 +455,7 @@ public abstract class Record {
     /**
      * <p>
      * Deprecated: Use transaction().close()
-     * 
+     *
      * Closes the thread local transaction to the named database mapped by the
      * record, if it has been opened. This method is idempotent when called from
      * the same thread.
@@ -609,7 +609,7 @@ public abstract class Record {
     public static <T extends Record> T find(Class<T> clazz, Composite composite, Object value) throws SQLException {
         return select(clazz, getSelectQuery(clazz, composite, value));
     }
-    
+
     /**
      * Provides a selected record from the mapped database table, populated with
      * the first result for which the simple key matches.
@@ -648,7 +648,7 @@ public abstract class Record {
     public static <T extends Record> List<T> findAll(Class<T> clazz, Composite composite, Value value) throws SQLException {
         return selectAll(clazz, getSelectQuery(clazz, composite, value));
     }
-    
+
     /**
      * Provides a complete list of selected records from the mapped database
      * table, populated with the results for which the simple key matches.
@@ -667,7 +667,7 @@ public abstract class Record {
     public static <T extends Record> List<T> findAll(Class<T> clazz, String column, Object value) throws SQLException {
         Composite composite = new Composite(column);
         return selectAll(clazz, getSelectQuery(clazz, composite, composite.value(value)));
-    }    
+    }
 
     public static <T extends Record> List<T> findAll(Class<T> clazz) throws SQLException {
         return selectAll(clazz, getSelectQuery(clazz));
@@ -1815,7 +1815,7 @@ public abstract class Record {
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param mode 
+     * @param mode
      * @throws SQLException
      *             if a database access error occurs
      */
@@ -1832,8 +1832,8 @@ public abstract class Record {
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param mode 
-     * @param primaryKey 
+     * @param mode
+     * @param primaryKey
      * @throws SQLException
      *             if a database access error occurs
      */
