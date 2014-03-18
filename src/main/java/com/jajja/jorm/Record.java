@@ -1602,7 +1602,7 @@ public abstract class Record {
         markStale();
 
         if (mode == ResultMode.NO_RESULT) {
-            selectInto(query);
+            transaction().execute(query);
             return;
         }
 
