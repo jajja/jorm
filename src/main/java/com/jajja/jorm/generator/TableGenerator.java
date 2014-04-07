@@ -26,7 +26,6 @@ import static com.jajja.jorm.generator.Generator.camelize;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.FileAlreadyExistsException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -246,7 +245,7 @@ public class TableGenerator implements Lookupable {
     public void writeFile(String pathname) throws IOException {
         File file = new File(pathname);
         if (!file.createNewFile()) {
-            throw new FileAlreadyExistsException(pathname);
+            throw new IOException("File " + pathname + " already exists!");
         }
         write(file);
     }
