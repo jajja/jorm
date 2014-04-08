@@ -65,5 +65,3 @@ INSERT INTO goblins (tribe_id, name) values
 (1, 'Ufthak'),
 (2, 'Uglúk');
 
-INSERT INTO litters (goblin_id, stench) values (1, 1);
-
