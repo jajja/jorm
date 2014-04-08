@@ -26,10 +26,8 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -83,6 +81,7 @@ public class Database {
     }
 
     private DataSource getDataSource(String database) {
+//        database = name(database);
         synchronized (dataSources) {
             return dataSources.get(database);
         }
@@ -157,6 +156,7 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
+//        database = name(database);
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction == null) {
@@ -179,6 +179,7 @@ public class Database {
      * @throws SQLException if a database access error occur
      */
     public static Transaction commit(String database) throws SQLException {
+//        database = name(database);
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
@@ -197,6 +198,7 @@ public class Database {
      * @return the closed transaction or null for no active transaction.
      */
     public static Transaction close(String database) {
+//        database = name(database);
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
@@ -218,15 +220,33 @@ public class Database {
         map.clear();
         instance.transactions.remove();
     }
-    private static List<Configuration> configuration;
+    private static Map<String, Configuration> configurations;
 
     static {
-        configuration = configure();
+        configure();
+    }
+    
+    public static void load() {
+        load("");
+    }
+    
+    public static void load(String environment) {
+        Database.environment = environment;
+    }
+    
+    private static String environment = "";
+    
+    public static String name(String database) {
+        if (environment.isEmpty() || database.matches(".*\\[.*\\]")) {
+            return database;
+        } else {
+            return database + "[" + environment + "]";
+        }
     }
 
     public static void destroy() {
-        for (Configuration conf : configuration) {
-            conf.destroy();
+        for (Configuration configuration : configurations.values()) {
+            configuration.destroy();
         }
     }
 
@@ -235,133 +255,168 @@ public class Database {
      * ---------------
      * database.moria.dataSource=org.apache.tomcat.jdbc.pool.DataSource
      * database.moria.dataSource.driverClassName=org.postgresql.Driver
-     * database.moria.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria
+     * database.moria.dataSource.url=jdbc:postgresql://localhost:5432/moria
      * database.moria.dataSource.username=gandalf
      * database.moria.dataSource.password=mellon
+     * 
      * database.lothlorien.dataSource=org.apache.tomcat.jdbc.pool.DataSource
      * database.lothlorien.dataSource.driverClassName=org.postgresql.Driver
-     * database.lothlorien.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/lothlorien
+     * database.lothlorien.dataSource.url=jdbc:postgresql://localhost:5432/lothlorien
      * database.lothlorien.dataSource.username=galadriel
      * database.lothlorien.dataSource.password=nenya
+     * 
+     * database.moria[development].dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_development
+     * database.moria[development].dataSource.username=dev
+     * database.moria[development].dataSource.password=$43CR37
+     * 
+     * database.moria[production].dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_production
+     * database.moria[production].dataSource.username=prod
+     * database.moria[production].dataSource.password=$43CR37:P455
      */
-    private static List<Configuration> configure() {
-        Map<String, Configuration> configurations = new HashMap<String, Configuration>();
-        Enumeration<URL> resources;
-
+    private static void configure() {
         try {
-            resources = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
+            Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
+            configurations = new HashMap<String, Configuration>();
+            URL local = null;
+            while (urls.hasMoreElements()) {
+                URL url = urls.nextElement();
+                if (url.getProtocol().equals("jar")) {
+                    configure(url);                
+                } else {
+                    local = url;
+                }
+            }
+            if (local != null) {
+                configure(local);
+            }
+            for (Entry<String, Configuration> entry : configurations.entrySet()) {
+                if (entry.getKey().matches(".*\\[.*\\]")) {
+                    Configuration base =  configurations.get(entry.getKey().replaceAll("\\[.*\\]", ""));
+                    if (base != null) {
+                        entry.getValue().inherit(base);
+                    }
+                }
+                entry.getValue().apply();
+                Database.get().log.debug("Configured " + entry.getValue());
+            }
         } catch (IOException ex) {
             Database.get().log.warn("Failed to find resource 'jorm.properties': " + ex.getMessage(), ex);
-            return null;
+            configurations = null;
+        }
+    }
+    
+    private static void configure(URL url) {
+        Database.get().log.debug("Found jorm configuration @ " + url.toString());
+
+        Properties properties = new Properties();
+        try {
+            InputStream is = url.openStream();
+            properties.load(is);
+            is.close();
+        } catch (IOException ex) {
+            Database.get().log.error("Failed to open jorm.properties: " + ex.getMessage(), ex);
+            return;
         }
 
-        while (resources.hasMoreElements()) {
-            URL url = resources.nextElement();
+        String database = null;
+        String destroyMethodName = null;
+        String dataSourceClassName = null;
+        Map<String, String> dataSourceProperties = new HashMap<String, String>();
 
-            Database.get().log.debug("Found jorm configuration @ " + url.toString());
+        TreeMap<String, String> propMap = new TreeMap<String, String>();
+        for (Entry<Object, Object> e : properties.entrySet()) {
+            propMap.put((String)e.getKey(), (String)e.getValue());
+        }
 
-            Properties properties = new Properties();
-            try {
-                InputStream is = url.openStream();
-                properties.load(is);
-                is.close();
-            } catch (IOException ex) {
-                Database.get().log.error("Failed to open jorm.properties: " + ex.getMessage(), ex);
+        for (Entry<String, String> property : propMap.entrySet()) {
+            String[] parts = property.getKey().split("\\.");
+            if (parts.length < 3 || !parts[0].equals("database")) {
                 continue;
             }
-
-            String database = null;
-            String destroyMethodName = null;
-            String dataSourceClassName = null;
-            Map<String, String> dataSourceProperties = new HashMap<String, String>();
-            int priority = 0;
-
-            TreeMap<String, String> propMap = new TreeMap<String, String>();
-            for (Entry<Object, Object> e : properties.entrySet()) {
-                propMap.put((String)e.getKey(), (String)e.getValue());
+            if (database != null && !parts[1].equals(database)) {
+                Configuration configuration = configurations.get(database);
+                if (configuration == null) {
+                    configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
+                    configurations.put(database, configuration);
+                    Database.get().log.debug("Configured " + configuration);
+                }
+                database = null;
+                destroyMethodName = null;
+                dataSourceClassName = null;
+                dataSourceProperties = new HashMap<String, String>();
             }
-
-            for (Entry<String, String> property : propMap.entrySet()) {
-                String[] parts = property.getKey().split("\\.");
-                if (parts.length < 3 || !parts[0].equals("database")) {
-                    continue;
-                }
-                if (database != null && !parts[1].equals(database)) {
-                    Configuration conf = configurations.get(database);
-                    if (conf == null || conf.priority < priority) {
-                        conf = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
-                        configurations.put(database, conf);
-                        Database.get().log.debug("Configured " + conf);
-                    }
-                    database = null;
-                    destroyMethodName = null;
-                    dataSourceClassName = null;
-                    dataSourceProperties = new HashMap<String, String>();
-                    priority = 0;
-                }
-                if (database == null) {
-                    database = parts[1];
-                }
-                if (parts.length == 3 && parts[2].equals("destroyMethod")) {
-                    destroyMethodName = property.getValue();
-                } else if (parts.length == 3 && parts[2].equals("priority")) {
-                    try {
-                        priority = Integer.parseInt(property.getValue().trim());
-                    } catch (Exception ex) {
-
-                    }
-                } else if (parts[2].equals("dataSource")) {
-                    if (parts.length == 3) {
-                        dataSourceClassName = property.getValue();
-                    } else if (parts.length == 4) {
-                        dataSourceProperties.put(parts[3], property.getValue());
-                    } else {
-                        Database.get().log.warn("Invalid DataSource property '" + property.getKey() + "'");
-                    }
+            if (database == null) {
+                database = parts[1];
+            }
+            if (parts.length == 3 && parts[2].equals("destroyMethod")) {
+                destroyMethodName = property.getValue();
+            } else if (parts[2].equals("dataSource")) {
+                if (parts.length == 3) {
+                    dataSourceClassName = property.getValue();
+                } else if (parts.length == 4) {
+                    dataSourceProperties.put(parts[3], property.getValue());
                 } else {
-                    Database.get().log.warn("Invalid property '" + property.getKey() + "'");
+                    Database.get().log.warn("Invalid DataSource property '" + property.getKey() + "'");
                 }
-            }
-
-            if (database != null) {
-                Configuration conf = configurations.get(database);
-                if (conf == null || conf.priority < priority) {
-                    conf = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName, priority);
-                    configurations.put(database, conf);
-                    Database.get().log.debug("Configured " + conf);
-                }
+            } else {
+                Database.get().log.warn("Invalid property '" + property.getKey() + "'");
             }
         }
 
-        for (Entry<String, Configuration> entry : configurations.entrySet()) {
-            entry.getValue().apply();
-            Database.get().log.debug("Configured " + configuration);
+        if (database != null) {
+            Configuration configuration = configurations.get(database);
+            if (configuration == null) {
+                configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
+                configurations.put(database, configuration);
+                Database.get().log.debug("Configured " + configuration);
+            }
         }
-
-        return new ArrayList<Configuration>(configurations.values());
     }
 
     public static class Configuration {
 
         private String database;
-        private DataSource dataSource;
+        private String dataSourceClassName;
+        private String destroyMethodName;
         private Map<String, String> dataSourceProperties;
+        
+        private DataSource dataSource;
         private Method destroyMethod;
-        private int priority;
+//        private int priority;
 
         @Override
         public String toString() {
-            return "{ database => " + database + ", dataSourceClassName => " + dataSource.getClass().getName() + ", dataSourceProperties => " + dataSourceProperties + " }";
+            return "{ database => " + database + ", dataSourceClassName => " + dataSourceClassName + ", dataSourceProperties => " + dataSourceProperties + " }";
+        }
+
+        public void inherit(Configuration base) {
+            if (dataSourceClassName == null) {
+                dataSourceClassName = base.dataSourceClassName;
+            }
+            if (destroyMethodName == null) {
+                destroyMethodName = base.destroyMethodName;
+            }
+            for (String key : base.dataSourceProperties.keySet()) {
+                if (!dataSourceProperties.containsKey(key)) {
+                    System.out.println(key + " => " + base.dataSourceProperties.get(key));
+                    dataSourceProperties.put(key, base.dataSourceProperties.get(key));
+                }
+            }
         }
 
         public void apply() {
+            init();
             configure(database, dataSource);
         }
 
-        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties, String destroyMethodName, int priority) {
+        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties, String destroyMethodName) {
             this.database = database;
+            this.dataSourceClassName = dataSourceClassName;
+            this.destroyMethodName = destroyMethodName;
             this.dataSourceProperties = dataSourceProperties;
-            this.priority = priority;
+        }
+
+        private void init() {
             try {
                 Class<?> type = Class.forName(dataSourceClassName);
                 if (destroyMethodName != null) {
@@ -374,7 +429,25 @@ public class Database {
                     }
                 }
                 dataSource = (DataSource) type.newInstance();
-                init();
+                for (Method method : dataSource.getClass().getMethods()) {
+                    String methodName = method.getName();
+                    Class<?>[] parameterTypes = method.getParameterTypes();
+                    if (methodName.startsWith("set") && 3 < methodName.length() && parameterTypes.length == 1) {
+                        String name = method.getName().substring(3, 4).toLowerCase() + method.getName().substring(4); // setValue -> value
+                        String property = dataSourceProperties.get(name);
+                        if (property != null) {
+                            boolean isAccessible = method.isAccessible();
+                            method.setAccessible(true);
+                            try {
+                                method.invoke(dataSource, parse(method.getParameterTypes()[0], property));
+                            } catch (Exception e) {
+                                get().log.warn("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'", e);
+                            } finally {
+                                method.setAccessible(isAccessible);
+                            }
+                        }
+                    }
+                }
             } catch (InstantiationException e) {
                 throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " has no default constructor!", e);
             } catch (IllegalAccessException e) {
@@ -383,28 +456,6 @@ public class Database {
                 throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " does not exist!", e);
             } catch (ClassCastException e) {
                 throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " is not a data source!", e);
-            }
-        }
-
-        private void init() {
-            for (Method method : dataSource.getClass().getMethods()) {
-                String methodName = method.getName();
-                Class<?>[] parameterTypes = method.getParameterTypes();
-                if (methodName.startsWith("set") && 3 < methodName.length() && parameterTypes.length == 1) {
-                    String name = method.getName().substring(3, 4).toLowerCase() + method.getName().substring(4); // setValue -> value
-                    String property = dataSourceProperties.get(name);
-                    if (property != null) {
-                        boolean isAccessible = method.isAccessible();
-                        method.setAccessible(true);
-                        try {
-                            method.invoke(dataSource, parse(method.getParameterTypes()[0], property));
-                        } catch (Exception e) {
-                            get().log.warn("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'", e);
-                        } finally {
-                            method.setAccessible(isAccessible);
-                        }
-                    }
-                }
             }
         }
 
