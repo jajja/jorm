@@ -122,17 +122,17 @@ public class Cache<C extends Record> {
         }
     }
 
-    public C get(Composite compositeKey, Value value) {
+    public C get(Value value) {
         synchronized (map) {
             C record;
 
-            if (primaryKey.equals(compositeKey)) {
+            if (primaryKey.equals(value.getComposite())) {
                 record = map.get(value);
             } else {
-                if (!additionalComposites.contains(compositeKey)) {
-                    throw new IllegalArgumentException("Composite key '" + compositeKey + "' is not indexed");
+                if (!additionalComposites.contains(value.getComposite())) {
+                    throw new IllegalArgumentException("Composite key '" + value.getComposite() + "' is not indexed");
                 }
-                Map<Composite.Value, Composite.Value> amap = additionalMap.get(compositeKey);
+                Map<Composite.Value, Composite.Value> amap = additionalMap.get(value.getComposite());
                 record = map.get( amap.get(value) );
             }
 
@@ -143,7 +143,7 @@ public class Cache<C extends Record> {
                     throw new RuntimeException("failed to create new instance", e);
                 }
                 try {
-                    if (!fetchInto(compositeKey, value, record)) {
+                    if (!fetchInto(value.getComposite(), value, record)) {
                         //  TODO negative cache?
                         record = null;
                     }
@@ -160,8 +160,8 @@ public class Cache<C extends Record> {
         }
     }
 
-    public C get(Value value) {
-        return get(primaryKey, value);
+    public C get(Object value) {
+        return get(primaryKey.value(value));
     }
 
     public void put(C record) {

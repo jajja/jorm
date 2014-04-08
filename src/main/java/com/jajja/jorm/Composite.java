@@ -74,6 +74,10 @@ public class Composite {
             this.values = values;
         }
 
+        public Composite getComposite() {
+            return composite;
+        }
+
         public Object[] getValues() {
             return values;
         }
