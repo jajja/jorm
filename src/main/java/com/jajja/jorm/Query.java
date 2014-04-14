@@ -93,6 +93,11 @@ public class Query {
         this(transaction.getDialect(), sql, params);
     }
 
+    public Query(Query query) {
+        this(query.dialect);
+        append(query);
+    }
+
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private void append(char modifier, Object param, String label) {
         // TODO: refactor
