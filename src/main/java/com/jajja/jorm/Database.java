@@ -225,19 +225,19 @@ public class Database {
     static {
         configure();
     }
-    
+
     public static void load() {
         load("");
     }
-    
+
     public static void load(String environment) {
         Database.environment = environment;
     }
-    
+
     private static String environment = "";
-    
+
     public static String name(String database) {
-        if (environment.isEmpty() || database.matches(".*\\[.*\\]")) {
+        if (environment.isEmpty() || 0 < database.indexOf('[')) {
             return database;
         } else {
             return database + "[" + environment + "]";
@@ -258,17 +258,17 @@ public class Database {
      * database.moria.dataSource.url=jdbc:postgresql://localhost:5432/moria
      * database.moria.dataSource.username=gandalf
      * database.moria.dataSource.password=mellon
-     * 
+     *
      * database.lothlorien.dataSource=org.apache.tomcat.jdbc.pool.DataSource
      * database.lothlorien.dataSource.driverClassName=org.postgresql.Driver
      * database.lothlorien.dataSource.url=jdbc:postgresql://localhost:5432/lothlorien
      * database.lothlorien.dataSource.username=galadriel
      * database.lothlorien.dataSource.password=nenya
-     * 
+     *
      * database.moria[development].dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_development
      * database.moria[development].dataSource.username=dev
      * database.moria[development].dataSource.password=$43CR37
-     * 
+     *
      * database.moria[production].dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_production
      * database.moria[production].dataSource.username=prod
      * database.moria[production].dataSource.password=$43CR37:P455
@@ -281,7 +281,7 @@ public class Database {
             while (urls.hasMoreElements()) {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
-                    configure(url);                
+                    configure(url);
                 } else {
                     local = url;
                 }
@@ -304,7 +304,7 @@ public class Database {
             configurations = null;
         }
     }
-    
+
     private static void configure(URL url) {
         Database.get().log.debug("Found jorm configuration @ " + url.toString());
 
@@ -379,7 +379,7 @@ public class Database {
         private String dataSourceClassName;
         private String destroyMethodName;
         private Map<String, String> dataSourceProperties;
-        
+
         private DataSource dataSource;
         private Method destroyMethod;
 //        private int priority;
