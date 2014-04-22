@@ -81,7 +81,7 @@ public class Database {
     }
 
     private DataSource getDataSource(String database) {
-//        database = name(database);
+        database = name(database);
         synchronized (dataSources) {
             return dataSources.get(database);
         }
@@ -156,7 +156,7 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
-//        database = name(database);
+        database = name(database);
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction == null) {
@@ -179,7 +179,7 @@ public class Database {
      * @throws SQLException if a database access error occur
      */
     public static Transaction commit(String database) throws SQLException {
-//        database = name(database);
+        database = name(database);
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
@@ -198,7 +198,7 @@ public class Database {
      * @return the closed transaction or null for no active transaction.
      */
     public static Transaction close(String database) {
-//        database = name(database);
+        database = name(database);
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
@@ -303,6 +303,7 @@ public class Database {
             Database.get().log.warn("Failed to find resource 'jorm.properties': " + ex.getMessage(), ex);
             configurations = null;
         }
+        System.out.println(configurations);
     }
 
     private static void configure(URL url) {

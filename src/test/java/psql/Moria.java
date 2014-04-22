@@ -1,5 +1,6 @@
 package psql;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -161,17 +162,21 @@ public class Moria {
         }
         Database.close("moria");
     }
-    
+
     @Test
     public void t10_environment() {
         Database.load("test");
         try {
+            Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql")); // per transaction!
             Goblin goblin = Record.select(Goblin.class, "SELECT * FROM #1# LIMIT 1", Goblin.class);
             Assert.assertNotNull(goblin);
         } catch (SQLException e) {
             e.printStackTrace();
             Assert.fail();
             Database.close("moria");
+        } catch (IOException e) {
+            e.printStackTrace();
+            Assert.fail();
         }
         Database.load("");
     }
