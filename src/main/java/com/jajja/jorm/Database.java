@@ -230,17 +230,18 @@ public class Database {
         load("");
     }
 
-    public static void load(String environment) {
-        Database.environment = environment;
+    public static void load(String context) {
+        Database.context = context;
     }
 
-    private static String environment = "";
+    private static String context = "";
+    private static final char CTX = '@';
 
     public static String name(String database) {
-        if (environment.isEmpty() || 0 < database.indexOf('[')) {
+        if (context.isEmpty() || 0 < database.indexOf(CTX)) {
             return database;
         } else {
-            return database + "[" + environment + "]";
+            return database + CTX + context;
         }
     }
 
@@ -265,13 +266,13 @@ public class Database {
      * database.lothlorien.dataSource.username=galadriel
      * database.lothlorien.dataSource.password=nenya
      *
-     * database.moria[development].dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_development
-     * database.moria[development].dataSource.username=dev
-     * database.moria[development].dataSource.password=$43CR37
+     * database.moria@development.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_development
+     * database.moria@development.dataSource.username=dev
+     * database.moria@development.dataSource.password=$43CR37
      *
-     * database.moria[production].dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_production
-     * database.moria[production].dataSource.username=prod
-     * database.moria[production].dataSource.password=$43CR37:P455
+     * database.moria@production.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_production
+     * database.moria@production.dataSource.username=prod
+     * database.moria@production.dataSource.password=$43CR37:P455
      */
     private static void configure() {
         try {
@@ -290,8 +291,9 @@ public class Database {
                 configure(local);
             }
             for (Entry<String, Configuration> entry : configurations.entrySet()) {
-                if (entry.getKey().matches(".*\\[.*\\]")) {
-                    Configuration base =  configurations.get(entry.getKey().replaceAll("\\[.*\\]", ""));
+                int context = entry.getKey().indexOf(CTX);
+                if (0 < context) {
+                    Configuration base =  configurations.get(entry.getKey().substring(0, context));
                     if (base != null) {
                         entry.getValue().inherit(base);
                     }
@@ -300,10 +302,10 @@ public class Database {
                 Database.get().log.debug("Configured " + entry.getValue());
             }
         } catch (IOException ex) {
+            ex.printStackTrace();
             Database.get().log.warn("Failed to find resource 'jorm.properties': " + ex.getMessage(), ex);
             configurations = null;
         }
-        System.out.println(configurations);
     }
 
     private static void configure(URL url) {
@@ -324,12 +326,12 @@ public class Database {
         String dataSourceClassName = null;
         Map<String, String> dataSourceProperties = new HashMap<String, String>();
 
-        TreeMap<String, String> propMap = new TreeMap<String, String>();
+        TreeMap<String, String> treeMap = new TreeMap<String, String>();
         for (Entry<Object, Object> e : properties.entrySet()) {
-            propMap.put((String)e.getKey(), (String)e.getValue());
+            treeMap.put((String) e.getKey(), (String) e.getValue());
         }
 
-        for (Entry<String, String> property : propMap.entrySet()) {
+        for (Entry<String, String> property : treeMap.entrySet()) {
             String[] parts = property.getKey().split("\\.");
             if (parts.length < 3 || !parts[0].equals("database")) {
                 continue;
@@ -383,7 +385,6 @@ public class Database {
 
         private DataSource dataSource;
         private Method destroyMethod;
-//        private int priority;
 
         @Override
         public String toString() {
@@ -399,7 +400,6 @@ public class Database {
             }
             for (String key : base.dataSourceProperties.keySet()) {
                 if (!dataSourceProperties.containsKey(key)) {
-                    System.out.println(key + " => " + base.dataSourceProperties.get(key));
                     dataSourceProperties.put(key, base.dataSourceProperties.get(key));
                 }
             }
