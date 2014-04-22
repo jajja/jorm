@@ -694,25 +694,6 @@ public class Transaction {
 
 
 
-    private <T extends Record> Query getSelectQuery(Class<T> clazz) {
-        return Table.get(clazz).getSelectQuery(getDialect());
-    }
-
-    private <T extends Record> Query getSelectQuery(Class<T> clazz, Composite composite, Object value) {
-        Value v;
-        if (value instanceof Value) {
-            v = (Value)value;
-        } else {
-            v = Record.primaryKey(clazz).value(value);
-        }
-        composite.assertCompatible(v);
-        Dialect dialect = getDialect();
-        Query query = Table.get(clazz).getSelectQuery(dialect);
-        query.append("WHERE ");
-        query.append(dialect.toSqlExpression(composite, v));
-        return query;
-    }
-
     /**
      * Populates the record with the first result for which the given column name
      * matches the given value.
@@ -728,7 +709,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public boolean populateByComposite(Record record, Composite composite, Value value) throws SQLException {
-        return selectInto(record, getSelectQuery(record.getClass(), composite, value));
+        return selectInto(record, Record.getSelectQuery(record.getClass(), composite, value));
     }
 
     /**
@@ -763,8 +744,8 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> List<T> findReferences(Class<T> clazz, String column) throws SQLException {
-        return findReferences(clazz, Symbol.get(column));
+    public <T extends Record> List<T> findReferences(Record record, Class<T> clazz, String column) throws SQLException {
+        return findReferences(record, clazz, Symbol.get(column));
     }
 
     /**
@@ -781,9 +762,9 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> List<T> findReferences(Class<T> clazz, Symbol symbol) throws SQLException {
+    public <T extends Record> List<T> findReferences(Record record, Class<T> clazz, Symbol symbol) throws SQLException {
         Table table = Table.get(clazz);
-        return selectAll(clazz, "SELECT * FROM #1# WHERE #:2# = #3#", table, symbol, get(symbol));
+        return selectAll(clazz, "SELECT * FROM #1# WHERE #:2# = #3#", table, symbol, record.get(symbol));
     }
 
     /**
@@ -949,7 +930,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> T find(Class<T> clazz, Composite composite, Object value) throws SQLException {
-        return select(clazz, getSelectQuery(clazz, composite, value));
+        return select(clazz, Record.getSelectQuery(clazz, composite, value));
     }
 
     /**
@@ -969,7 +950,7 @@ public class Transaction {
      */
     public <T extends Record> T find(Class<T> clazz, String column, Object value) throws SQLException {
         Composite composite = new Composite(column);
-        return select(clazz, getSelectQuery(clazz, composite, composite.value(value)));
+        return select(clazz, Record.getSelectQuery(clazz, composite, composite.value(value)));
     }
 
     /**
@@ -988,7 +969,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> List<T> findAll(Class<T> clazz, Composite composite, Value value) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz, composite, value));
+        return selectAll(clazz, Record.getSelectQuery(clazz, composite, value));
     }
 
     /**
@@ -1008,19 +989,19 @@ public class Transaction {
      */
     public <T extends Record> List<T> findAll(Class<T> clazz, String column, Object value) throws SQLException {
         Composite composite = new Composite(column);
-        return selectAll(clazz, getSelectQuery(clazz, composite, composite.value(value)));
+        return selectAll(clazz, Record.getSelectQuery(clazz, composite, composite.value(value)));
     }
 
     public <T extends Record> List<T> findAll(Class<T> clazz) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz));
+        return selectAll(clazz, Record.getSelectQuery(clazz));
     }
 
     public RecordIterator iterate(Class<? extends Record> clazz, Composite composite, Value value) throws SQLException {
-        return selectIterator(clazz, getSelectQuery(clazz, composite, value));
+        return selectIterator(clazz, Record.getSelectQuery(clazz, composite, value));
     }
 
     public RecordIterator iterate(Class<? extends Record> clazz) throws SQLException {
-        return selectIterator(clazz, getSelectQuery(clazz));
+        return selectIterator(clazz, Record.getSelectQuery(clazz));
     }
 
 
@@ -1342,14 +1323,15 @@ public class Transaction {
                 if (!template.getClass().equals(record.getClass())) {
                     throw new IllegalArgumentException("all records must be of the same class");
                 }
-                if (!template.table.getDatabase().equals(record.table.getDatabase())) {
+
+                if (!template.table().getDatabase().equals(record.table().getDatabase())) { // XXX remove!
                     throw new IllegalArgumentException("all records must be bound to the same Database");
                 }
 
                 columns.addAll( record.fields.keySet() );
             }
 
-            String immutablePrefix = template.table.getImmutablePrefix();
+            String immutablePrefix = template.table().getImmutablePrefix();
             if (template != null && immutablePrefix != null) {
                 for (Symbol symbol : columns) {
                     if (symbol.getName().startsWith(immutablePrefix)) {
@@ -1608,7 +1590,7 @@ public class Transaction {
     }
 
     private static void batchInsert(BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        Table table = batchInfo.template.table;
+        Table table = batchInfo.template.table();
         Transaction transaction = batchInfo.template.transaction();
         Dialect dialect = transaction.getDialect();
         Query query = new Query(dialect);
@@ -1716,7 +1698,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public static void update(Collection<? extends Record> records) throws SQLException {
+    public void update(Collection<? extends Record> records) throws SQLException {
         update(records, 0, ResultMode.REPOPULATE);
     }
 
@@ -1733,7 +1715,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
+    public void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
         update(records, chunkSize, mode, null);
     }
 
@@ -1751,7 +1733,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
+    public void update(Collection<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
         if (records.isEmpty()) {
             return;
         }
@@ -1880,12 +1862,12 @@ public class Transaction {
                 if (!template.getClass().equals(record.getClass())) {
                     throw new IllegalArgumentException("all records must be of the same class");
                 }
-                if (!database.equals(record.table.getDatabase())) {
+                if (!database.equals(record.table().getDatabase())) {
                     throw new IllegalArgumentException("all records must be bound to the same Database");
                 }
             } else {
                 template = record;
-                database = record.table.getDatabase();
+                database = record.table().getDatabase();
             }
             record.checkReadOnly();
         }
@@ -1917,6 +1899,27 @@ public class Transaction {
             }
         }
         template.transaction().execute(query);
+    }
+
+    /**
+     * Save the record. This is done by a call to {@link #insert()} if the id
+     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public void save(Record record, ResultMode mode) throws SQLException {
+        record.checkReadOnly();
+        if (record.isPrimaryKeyNullOrChanged()) {
+            insert(record, mode);
+        } else {
+            update(record, mode);
+        }
+    }
+
+    public void save(Record record) throws SQLException {
+        save(record, ResultMode.REPOPULATE);
     }
 
     /**

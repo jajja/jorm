@@ -21,20 +21,14 @@
  */
 package com.jajja.jorm;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.logging.Log;
@@ -180,15 +174,6 @@ public abstract class Record {
         }
     }
 
-    private Field getOrCreateField(Symbol symbol) {
-        Field field = fields.get(symbol);
-        if (field == null) {
-            field = new Field();
-            fields.put(symbol, field);
-        }
-        return field;
-    }
-
     /**
      * Provides a cached log for the specified class. Stores a new log in the
      * cache if no preceding call with the given class has been made.
@@ -253,33 +238,12 @@ public abstract class Record {
         }
     }
 
-    /**
-     * Notifies field changes. The default implementation is empty, but provides
-     * the option to override and act upon changes. This method is called
-     * whenever {@link #set(String, Object)} or {@link #set(Symbol, Object)}
-     * changes a field, or {@link #populate(ResultSet)} is called.
-     *
-     * @param symbol
-     *            the symbol of the column.
-     * @param object
-     *            the value of the field after change.
-     */
-    protected void notifyFieldChanged(Symbol symbol, Object object) { }
-
-    public Value id() {
-        return get(primaryKey());
-    }
-
     public Composite primaryKey() {
         return table.getPrimaryKey();
     }
 
     public static Composite primaryKey(Class<? extends Record> clazz) {
         return Table.get(clazz).getPrimaryKey();
-    }
-
-    public Value get(Composite composite) {
-        return composite.valueFrom(this);
     }
 
     /**
@@ -300,29 +264,53 @@ public abstract class Record {
         return Collections.unmodifiableMap(fields);
     }
 
-    /**
-     * <p>
-     * Deprecated: Use {@link #transaction(Class)}
-     *
-     * Opens a thread local transaction to the database mapped by the record
-     * class. If an open transaction already exists for the record class, it is
-     * reused. This method is idempotent when called from the same thread.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#open(String)} for the
-     * database named by the class mapping of the record. Requires the given
-     * class to be mapped by {@link Jorm}.
-     * </p>
-     *
-     * @param clazz
-     *            the mapped record class.
-     * @return the open transaction.
-     */
-    @Deprecated
-    public static Transaction open(Class<? extends Record> clazz) {
-        return transaction(clazz);
+    Field getOrCreateField(Symbol symbol) {
+        Field field = fields.get(symbol);
+        if (field == null) {
+            field = new Field();
+            fields.put(symbol, field);
+        }
+        return field;
     }
 
+    boolean isPrimaryKeyNullOrChanged() {
+        for (Symbol symbol : primaryKey().getSymbols()) {
+            Field field = fields.get(symbol);
+            if (field == null || field.getValue() == null || field.isChanged()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    boolean isPrimaryKeyNull() {
+        for (Symbol symbol : primaryKey().getSymbols()) {
+            Field field = fields.get(symbol);
+            if (field == null || field.getValue() == null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void assertPrimaryKeyNotNull() {
+        if (isPrimaryKeyNull()) {
+            throw new IllegalStateException("Primary key contains NULL value(s)");
+        }
+    }
+
+    /**
+     * Notifies field changes. The default implementation is empty, but provides
+     * the option to override and act upon changes. This method is called
+     * whenever {@link #set(String, Object)} or {@link #set(Symbol, Object)}
+     * changes a field, or {@link #populate(ResultSet)} is called.
+     *
+     * @param symbol
+     *            the symbol of the column.
+     * @param object
+     *            the value of the field after change.
+     */
+    protected void notifyFieldChanged(Symbol symbol, Object object) { }
     /**
      * <p>
      * Opens a thread local transaction to the database mapped by the record
@@ -345,71 +333,6 @@ public abstract class Record {
 
     /**
      * <p>
-     * Deprecated: Use transaction(Class).commit();
-     *
-     * Commits the thread local transaction to the named database mapped by the
-     * record class, if it has been opened.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#commit(String)} for the
-     * database named by the class mapping of the record. Requires the given
-     * class to be mapped by {@link Jorm}.
-     * </p>
-     *
-     * @param clazz
-     *            the mapped record class.
-     * @return the committed transaction or null for no active transaction.
-     */
-    @Deprecated
-    public static Transaction commit(Class<? extends Record> clazz) throws SQLException {
-        return Database.commit(Table.get(clazz).getDatabase());
-    }
-
-    /**
-     * <p>
-     * Deprecated: Use transaction(Class).close();
-     *
-     * Closes the thread local transaction to the named database mapped by the
-     * record class, if it has been opened. This method is idempotent when
-     * called from the same thread.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#close(String)} for the
-     * database named by the class mapping of the record. Requires the given
-     * class to be mapped by {@link Jorm}.
-     * </p>
-     *
-     * @param clazz
-     *            the mapped record class.
-     * @return the closed transaction or null for no active transaction.
-     */
-    @Deprecated
-    public static Transaction close(Class<? extends Record> clazz) {
-        return Database.close(Table.get(clazz).getDatabase());
-    }
-
-    /**
-     * <p>
-     * Deprecated: Use {@link #transaction()}
-     *
-     * Opens a thread local transaction to the named database mapped by the
-     * record. If an open transaction already exists for the record, it is
-     * reused. This method is idempotent when called from the same thread.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#open(String)} for the
-     * database named by the table mapping of the record.
-     * </p>
-     *
-     * @return the open transaction.
-     */
-    @Deprecated
-    public Transaction open() {
-        return Database.open(table.getDatabase());
-    }
-
-    /**
-     * <p>
      * Opens a thread local transaction to the named database mapped by the
      * record. If an open transaction already exists for the record, it is
      * reused. This method is idempotent when called from the same thread.
@@ -425,101 +348,8 @@ public abstract class Record {
         return Database.open(table.getDatabase());
     }
 
-    /**
-     * <p>
-     * Deprecated: Use transaction().commit()
-     *
-     * Commits the thread local transaction to the named database mapped by the
-     * record, if it has been opened.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#commit(String)} for the
-     * database named by the table mapping of the record.
-     * </p>
-     * <p>
-     * <strong>Note:</strong> This may cause changes of other records to be
-     * persisted to the mapped database of the record, since all records mapped
-     * to the same named database share transaction in the context of the
-     * current thread.
-     * </p>
-     *
-     * @throws SQLException
-     *             if a database access error occurs.
-     * @return the committed transaction or null for no active transaction.
-     */
-    @Deprecated
-    public Transaction commit() throws SQLException {
-        return Database.commit(table.getDatabase());
-    }
-
-    /**
-     * <p>
-     * Deprecated: Use transaction().close()
-     *
-     * Closes the thread local transaction to the named database mapped by the
-     * record, if it has been opened. This method is idempotent when called from
-     * the same thread.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#close(String)} for the
-     * database named by the table mapping of the record.
-     * </p>
-     * <p>
-     * <strong>Note:</strong> This may cause changes of other records to be
-     * discarded in the mapped database of the record, since all records mapped
-     * to the same named database share transaction in the context of the
-     * current thread.
-     * </p>
-     *
-     * @return the closed transaction or null for no active transaction.
-     */
-    @Deprecated
-    public Transaction close() {
-        return Database.close(table.getDatabase());
-    }
-
-    /**
-     * Populates the record with the first result for which the given column name
-     * matches the given value.
-     *
-     * @param symbol
-     *            the column symbol.
-     * @param value
-     *            the value to match.
-     * @return true if the record could be updated with a matching row from the
-     *         table.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public boolean populateByComposite(Composite composite, Value value) throws SQLException {
-        return selectInto(getSelectQuery(getClass(), composite, value));
-    }
-
-    /**
-     * Populates the record with the result for which the id column matches the
-     * given value.
-     *
-     * @param id
-     *            the id value to match.
-     * @return true if the record could be updated with a matching row from the
-     *         table.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public boolean populateById(Object id) throws SQLException {
-        if (id instanceof Value) {
-            return populateByComposite(primaryKey(), (Value)id);
-        }
-        return populateByComposite(primaryKey(), primaryKey().value(id));
-    }
-
-    private static <T extends Record> Query getSelectQuery(Class<T> clazz) {
-        return Table.get(clazz).getSelectQuery(transaction(clazz).getDialect());
-    }
-
-    private static <T extends Record> Query getSelectQuery(Class<T> clazz, Composite composite, Object value) {
+    // XXX move to transaction?
+    static <T extends Record> Query getSelectQuery(Class<T> clazz, Composite composite, Object value) {
         Value v;
         if (value instanceof Value) {
             v = (Value)value;
@@ -533,6 +363,13 @@ public abstract class Record {
         query.append(dialect.toSqlExpression(composite, v));
         return query;
     }
+
+    // XXX move to transaction?
+    static <T extends Record> Query getSelectQuery(Class<T> clazz) {
+        return Table.get(clazz).getSelectQuery(transaction(clazz).getDialect());
+    }
+
+
 
     /**
      * Builds a generic SQL query for the record.
@@ -592,560 +429,6 @@ public abstract class Record {
     }
 
     /**
-     * Provides a selected record from the mapped database table, populated with
-     * the first result for which the composite key matches.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param composite
-     *            the composite key
-     * @param value
-     *            the composite key value
-     * @return the matched record or null for no match.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> T find(Class<T> clazz, Composite composite, Object value) throws SQLException {
-        return select(clazz, getSelectQuery(clazz, composite, value));
-    }
-
-    /**
-     * Provides a selected record from the mapped database table, populated with
-     * the first result for which the simple key matches.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param composite
-     *            simple key
-     * @param value
-     *            the composite key value
-     * @return the matched record or null for no match.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> T find(Class<T> clazz, String column, Object value) throws SQLException {
-        Composite composite = new Composite(column);
-        return select(clazz, getSelectQuery(clazz, composite, composite.value(value)));
-    }
-
-    /**
-     * Provides a complete list of selected records from the mapped database
-     * table, populated with the results for which the composite key matches.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param composite
-     *            the composite key
-     * @param value
-     *            the composite key value
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> List<T> findAll(Class<T> clazz, Composite composite, Value value) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz, composite, value));
-    }
-
-    /**
-     * Provides a complete list of selected records from the mapped database
-     * table, populated with the results for which the simple key matches.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param composite
-     *            the composite key
-     * @param value
-     *            the composite key value
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> List<T> findAll(Class<T> clazz, String column, Object value) throws SQLException {
-        Composite composite = new Composite(column);
-        return selectAll(clazz, getSelectQuery(clazz, composite, composite.value(value)));
-    }
-
-    public static <T extends Record> List<T> findAll(Class<T> clazz) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz));
-    }
-
-    public static RecordIterator iterate(Class<? extends Record> clazz, Composite composite, Value value) throws SQLException {
-        return selectIterator(clazz, getSelectQuery(clazz, composite, value));
-    }
-
-    public static RecordIterator iterate(Class<? extends Record> clazz) throws SQLException {
-        return selectIterator(clazz, getSelectQuery(clazz));
-    }
-
-    /**
-     * Provides a complete list of selected reference records of a given class
-     * referring to the mapped record through a given foreign key column.
-     *
-     * @param clazz
-     *            the class of the records referring to the mapped record.
-     * @param column
-     *            the column defining the foreign key for the reference records.
-     * @return the matched references.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public <T extends Record> List<T> findReferences(Class<T> clazz, String column) throws SQLException {
-        return findReferences(clazz, Symbol.get(column));
-    }
-
-    /**
-     * Provides a complete list of selected reference records of a given class
-     * referring to the mapped record through a given foreign key column.
-     *
-     * @param clazz
-     *            the class of the records referring to the mapped record.
-     * @param symbol
-     *            the symbol of the column defining the foreign key for the
-     *            reference records.
-     * @return the matched references.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public <T extends Record> List<T> findReferences(Class<T> clazz, Symbol symbol) throws SQLException {
-        Table table = Table.get(clazz);
-        return selectAll(clazz, "SELECT * FROM #1# WHERE #:2# = #3#", table, symbol, get(symbol));
-    }
-
-    /**
-     * Provides a selected record, populated with the result for which the primary key
-     * column matches the given id value.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param id
-     *            the primary key value (can be either a {@link Composite.Value} or a single column value).
-     * @return the matched record or null for no match.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
-        return find(clazz, primaryKey(clazz), id);
-    }
-
-    /**
-     * Provides a selected record, populated with the first result from the
-     * query given by a plain SQL statement and applicable parameters.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param sql
-     *            the plain SQL statement.
-     * @return the matched record or null for no match.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> T select(Class<T> clazz, String sql) throws SQLException {
-        return select(clazz, new Query(transaction(clazz).getDialect(), sql));
-    }
-
-    /**
-     * Provides a selected record, populated with the first result from the
-     * query given by a Jorm SQL statement and applicable parameters.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param sql
-     *            the Jorm SQL statement.
-     * @param params
-     *            the applicable parameters.
-     * @return the matched record or null for no match.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> T select(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return select(clazz, new Query(transaction(clazz).getDialect(), sql, params));
-    }
-
-    /**
-     * Provides a selected record, populated with the first result from the
-     * given query.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param query
-     *            the query.
-     * @return the matched record or null for no match.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> T select(Class<T> clazz, Query query) throws SQLException {
-        T record = construct(clazz);
-        if (record.selectInto(query)) {
-            return record;
-        }
-        return null;
-    }
-
-    /**
-     * Provides a list of selected records, populated with the results from the
-     * query given by a plain SQL statement.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param sql
-     *            the plain SQL statement.
-     * @return the matched records
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql) throws SQLException {
-        return selectAll(clazz, new Query(transaction(clazz).getDialect(), sql));
-    }
-
-    /**
-     * Provides a list of selected records, populated with the results from the
-     * query given by a Jorm SQL statement and applicable parameters.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param sql
-     *            the Jorm SQL statement.
-     * @param params
-     *            the applicable parameters.
-     * @return the matched records
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return selectAll(clazz, new Query(transaction(clazz).getDialect(), sql, params));
-    }
-
-    /**
-     * Provides a list of records populated with the results from the given query.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param query
-     *            the query.
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> List<T> selectAll(Class<T> clazz, Query query) throws SQLException {
-        List<T> records = new LinkedList<T>();
-        try {
-            RecordIterator iter = null;
-            try {
-                iter = new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
-                while (iter.next()) {
-                    records.add(iter.record(clazz));
-                }
-            } finally {
-                if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
-        }
-        return records;
-    }
-
-    /**
-     * Provides a record iterator with the results from the query given by
-     * a plain SQL statement.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param sql
-     *            the plain SQL statement.
-     * @return the matched records
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql) throws SQLException {
-        return selectIterator(clazz, new Query(transaction(clazz).getDialect(), sql));
-    }
-
-    /**
-     * Provides a record iterator with the results from the query given by
-     * a Jorm SQL statement and applicable parameters.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param sql
-     *            the Jorm SQL statement.
-     * @param params
-     *            the applicable parameters.
-     * @return the matched records
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql, Object... params) throws SQLException {
-        return selectIterator(clazz, new Query(transaction(clazz).getDialect(), sql, params));
-    }
-
-    /**
-     * Provides a record iterator with the results from the given query.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param query
-     *            the query.
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static RecordIterator selectIterator(Class<? extends Record> clazz, Query query) throws SQLException {
-        try {
-            return new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
-        } catch (SQLException e) {
-            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
-        }
-    }
-
-    /**
-     * Provides a hash map of selected records, populated with the results from the
-     * given query.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param column
-     *            the column to use as key.
-     * @param query
-     *            the query.
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
-        HashMap<Composite.Value, T> records = new HashMap<Composite.Value, T>();
-        try {
-            RecordIterator iter = null;
-            try {
-                iter = new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
-                while (iter.next()) {
-                    T record = iter.record(clazz);
-                    Composite.Value value = compositeKey.valueFrom(record);
-                    if (records.put(value, record) != null && !allowDuplicates) {
-                        throw new IllegalStateException("Duplicate key " + value);
-                    }
-                }
-            } finally {
-                if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
-        }
-        return records;
-    }
-
-    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, String sql, Object... params) throws SQLException {
-        return selectAsMap(clazz, compositeKey, allowDuplicates, new Query(transaction(clazz).getDialect(), sql, params));
-    }
-
-    /**
-     * Provides a hash map of selected records, populated with the results from the
-     * given query.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param column
-     *            the column to use as key.
-     * @param query
-     *            the query.
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
-        HashMap<Composite.Value, List<T>> records = new HashMap<Composite.Value, List<T>>();
-        try {
-            RecordIterator iter = null;
-            try {
-                iter = new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
-                while (iter.next()) {
-                    T record = iter.record(clazz);
-                    Composite.Value value = compositeKey.valueFrom(record);
-                    List<T> list = records.get(value);
-                    if (list == null) {
-                        list = new LinkedList<T>();
-                        records.put(value, list);
-                    }
-                    list.add(record);
-                }
-            } finally {
-                if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
-        }
-        return records;
-    }
-
-    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, String sql, Object... params) throws SQLException {
-        return selectAllAsMap(clazz, compositeKey, new Query(transaction(clazz).getDialect(), sql, params));
-    }
-
-    /**
-     * Executes the query given by a plain SQL statement and applicable
-     * parameters and populates the record with the first row of the result. Any
-     * values in the record object are cleared if the record was previously
-     * populated.
-     *
-     * @param sql
-     *            the plain SQL statement.
-     * @return true if the record was populated, otherwise false.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public boolean selectInto(String sql) throws SQLException {
-        return selectInto(new Query(transaction().getDialect(), sql));
-    }
-
-    /**
-     * Executes the query given by a Jorm SQL statement and applicable
-     * parameters and populates the record with the first row of the result. Any
-     * values in the record object are cleared if the record was previously
-     * populated.
-     *
-     * @param sql
-     *            the Jorm SQL statement.
-     * @param params
-     *            the applicable parameters.
-     * @return true if the record was populated, otherwise false.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public boolean selectInto(String sql, Object... params) throws SQLException {
-        return selectInto(new Query(transaction().getDialect(), sql, params));
-    }
-
-    /**
-     * Executes the given query and populates the record with the first row of
-     * the result. Any values in the record object are cleared if the record was
-     * previously populated.
-     *
-     * @param query
-     *            the query.
-     * @return true if the record was populated, otherwise false.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public boolean selectInto(Query query) throws SQLException {
-        try {
-            RecordIterator iter = null;
-            try {
-                iter = new RecordIterator(transaction().prepare(query.getSql(), query.getParams()));
-                if (iter.next()) {
-                    iter.record(this);
-                    return true;
-                }
-            } finally {
-                 if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw transaction().getDialect().rethrow(e, query.getSql());
-        }
-        return false;
-    }
-
-    /**
-     * Populates all records in the given collection of records with a single
-     * prefetched reference of the given record class. Existing cached
-     * references are not overwritten.
-     *
-     * @param records
-     *            the records to populate with prefetched references.
-     * @param foreignKeySymbol
-     *            the symbol defining the foreign key to the referenced records.
-     * @param clazz
-     *            the class of the referenced records.
-     * @param referredSymbol
-     *            the symbol defining the referred column of the referenced
-     *            records.
-     * @return the prefetched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
-        return prefetch(records, foreignKeySymbol, clazz, referredSymbol, false);
-    }
-
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
-        Set<Object> values = new HashSet<Object>();
-
-        for (Record record : records) {
-            Field field = record.fields.get(foreignKeySymbol);
-            if (field != null && field.getValue() != null && field.getReference() == null) {
-                values.add(field.getValue());
-            }
-        }
-
-        if (values.isEmpty()) {
-            return new HashMap<Composite.Value, T>();
-        }
-
-        Composite key = new Composite(referredSymbol);
-        Map<Composite.Value, T> map = selectAsMap(clazz, key, false, "SELECT * FROM #1# WHERE #2# IN (#3#)", Table.get(clazz), referredSymbol, values);
-
-        for (Record record : records) {
-            Field field = record.fields.get(foreignKeySymbol);
-            if (field != null && field.getValue() != null && field.getReference() == null) {
-                Record referenceRecord = map.get(key.value(field.getValue()));
-                if (referenceRecord == null && !ignoreInvalidReferences) {
-                    throw new IllegalStateException(field.getValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
-                }
-                record.set(foreignKeySymbol, referenceRecord);
-            }
-        }
-
-        return map;
-    }
-
-    /**
-     * Populates all records in the given collection of records with a single
-     * prefetched reference of the given record class. Existing cached
-     * references are not overwritten.
-     *
-     * @param records
-     *            the records to populate with prefetched references.
-     * @param foreignKeySymbol
-     *            the column name defining the foreign key to the referenced records.
-     * @param clazz
-     *            the class of the referenced records.
-     * @param referredSymbol
-     *            the column name defining the referred column of the referenced
-     *            records.
-     * @return the prefetched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
-        return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol));
-    }
-
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
-        return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol), ignoreInvalidReferences);
-    }
-
-    /**
      * Populates the record with the first row of the result. Any values in the
      * record object are cleared if the record was previously populated. Returns
      * true if the record was populated, false otherwise (no rows in resultSet).
@@ -1171,169 +454,6 @@ public abstract class Record {
             throw transaction().getDialect().rethrow(e);
         }
         return false;
-    }
-
-    private boolean isPrimaryKeyNullOrChanged() {
-        for (Symbol symbol : primaryKey().getSymbols()) {
-            Field field = fields.get(symbol);
-            if (field == null || field.getValue() == null || field.isChanged()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isPrimaryKeyNull() {
-        for (Symbol symbol : primaryKey().getSymbols()) {
-            Field field = fields.get(symbol);
-            if (field == null || field.getValue() == null) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void assertPrimaryKeyNotNull() {
-        if (isPrimaryKeyNull()) {
-            throw new IllegalStateException("Primary key contains NULL value(s)");
-        }
-    }
-
-    /**
-     * Save the record. This is done by a call to {@link #insert()} if the id
-     * field is null, unset or changed, otherwise by a call to {@link #update()}.
-     *
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public void save(ResultMode mode) throws SQLException {
-        checkReadOnly();
-        if (isPrimaryKeyNullOrChanged()) {
-            insert(mode);
-        } else {
-            update(mode);
-        }
-    }
-
-    public void save() throws SQLException {
-        save(ResultMode.REPOPULATE);
-    }
-
-    /**
-     * Batch saves the records. This is done by a call to {@link #insert()} if the id
-     * field is null, unset or changed, otherwise by a call to {@link #update()}.
-     *
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static void save(Collection<? extends Record> records, int batchSize, ResultMode mode) throws SQLException {
-        List<Record> insertRecords = new LinkedList<Record>();
-        List<Record> updateRecords = new LinkedList<Record>();
-
-        for (Record record : records) {
-            if (record.isPrimaryKeyNullOrChanged()) {
-                insertRecords.add(record);
-            } else {
-                updateRecords.add(record);
-            }
-        }
-
-        insert(insertRecords, batchSize, mode);
-        update(updateRecords, batchSize, mode);
-    }
-
-    /**
-     * Batch saves the records. This is done by a call to {@link #insert()} if the id
-     * field is null, unset or changed, otherwise by a call to {@link #update()}.
-     *
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static void save(Collection<? extends Record> records) throws SQLException {
-        save(records, 0, ResultMode.REPOPULATE);
-    }
-
-    /**
-     * Deletes the record row from the database by executing the SQL query "DELETE FROM [tableName] WHERE [primaryKey] = [primaryKeyColumnValue]".
-     * The primary key column value is also set to null.
-     *
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public void delete() throws SQLException {
-        checkReadOnly();
-        Dialect dialect = transaction().getDialect();
-        Composite primaryKey = primaryKey();
-        Query query = new Query(dialect, "DELETE FROM #1# WHERE #2#", table, dialect.toSqlExpression(primaryKey, id()));
-
-        PreparedStatement preparedStatement = transaction().prepare(query);
-        try {
-            preparedStatement.execute();
-        } finally {
-            preparedStatement.close();
-        }
-        for (Symbol symbol : primaryKey.getSymbols()) {
-            put(symbol, null);
-        }
-    }
-
-    /**
-     * Deletes multiple records by exeuting a DELETE FROM table WHERE id IN (...)
-     *
-     * @param records List of records to delete (must be of the same class, and bound to the same Database)
-     * @throws SQLException
-     *             if a database access error occurs.
-     */
-    public static void delete(Collection<? extends Record> records) throws SQLException {
-        Record template = null;
-        String database = null;
-
-        for (Record record : records) {
-            if (template != null) {
-                if (!template.getClass().equals(record.getClass())) {
-                    throw new IllegalArgumentException("all records must be of the same class");
-                }
-                if (!database.equals(record.table.getDatabase())) {
-                    throw new IllegalArgumentException("all records must be bound to the same Database");
-                }
-            } else {
-                template = record;
-                database = record.table.getDatabase();
-            }
-            record.checkReadOnly();
-        }
-
-        if (template == null) {
-            return;
-        }
-
-        Query query = new Query(template.transaction(), "DELETE FROM #1# WHERE", template.getClass());
-        Composite primaryKey = template.primaryKey();
-        Dialect dialect = template.transaction().getDialect();
-        if (primaryKey.isSingle()) {
-            query.append("#:1# IN (#2:@#)", primaryKey, records);
-        } else {
-            if (dialect.isRowWiseComparisonSupported()) {
-                query.append(" (#:1#) IN (", primaryKey);
-                boolean isFirst = true;
-                for (Record record : records) {
-                    query.append(isFirst ? "(#1#)" : ", (#1#)", record.id());
-                    isFirst = false;
-                }
-                query.append(")");
-            } else {
-                boolean isFirst = true;
-                for (Record record : records) {
-                    query.append(isFirst ? " (#1#)" : " OR (#1#)", dialect.toSqlExpression(primaryKey, record.id()));
-                    isFirst = false;
-                }
-            }
-        }
-        template.transaction().execute(query);
     }
 
     /**
@@ -1394,539 +514,6 @@ public abstract class Record {
         return isStale;
     }
 
-    private static List<? extends Record> batchChunk(Iterator<? extends Record> iterator, int size) {
-        List<Record> records = null;
-
-        if (iterator.hasNext()) {
-            do {
-                Record record = iterator.next();
-                if (record.isChanged()) {
-                    if (records == null) {
-                        records = new ArrayList<Record>(size);
-                    }
-                    records.add(record);
-                    size--;
-                }
-            } while (size > 0 && iterator.hasNext());
-        }
-
-        return records;
-    }
-
-    private static class BatchInfo {
-        private Set<Symbol> columns = new HashSet<Symbol>();
-        private Record template = null;
-
-        private BatchInfo(Collection<? extends Record> records) {
-            for (Record record : records) {
-                record.checkReadOnly();
-
-                if (template == null) {
-                    template = record;
-                }
-
-                if (!template.getClass().equals(record.getClass())) {
-                    throw new IllegalArgumentException("all records must be of the same class");
-                }
-                if (!template.table.getDatabase().equals(record.table.getDatabase())) {
-                    throw new IllegalArgumentException("all records must be bound to the same Database");
-                }
-
-                columns.addAll( record.fields.keySet() );
-            }
-
-            String immutablePrefix = template.table.getImmutablePrefix();
-            if (template != null && immutablePrefix != null) {
-                for (Symbol symbol : columns) {
-                    if (symbol.getName().startsWith(immutablePrefix)) {
-                        columns.remove(symbol);
-                    }
-                }
-            }
-        }
-    }
-
-    private static void batchExecute(Query query, Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        PreparedStatement preparedStatement = null;
-        ResultSet resultSet = null;
-        Record template = records.iterator().next();
-        Transaction transaction = template.transaction();
-        Table table = template.table();
-        Composite primaryKey = template.primaryKey();
-        Dialect dialect = transaction.getDialect();
-
-        // XXX UPDATE + REPOPULATE?
-        if (mode != ResultMode.NO_RESULT && !primaryKey.isSingle() && !dialect.isReturningSupported()) {
-            throw new UnsupportedOperationException("Batch operations on composite primary keys not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
-        }
-
-        try {
-            boolean useReturning = (mode == ResultMode.REPOPULATE) && dialect.isReturningSupported();
-            Map<Object, Record> map = null;
-
-            if (useReturning) {
-                query.append(" RETURNING *");   // XXX ID_ONLY support
-                preparedStatement = transaction.prepare(query.getSql(), query.getParams());
-                resultSet = preparedStatement.executeQuery();
-            } else {
-                preparedStatement = transaction.prepare(query.getSql(), query.getParams(), true);
-                preparedStatement.execute();
-                resultSet = preparedStatement.getGeneratedKeys();
-                if (mode == ResultMode.REPOPULATE) {
-                    map = new HashMap<Object, Record>();
-                }
-            }
-
-            RecordIterator iter = null;
-
-            for (Record record : records) {
-                if (!resultSet.next()) {
-                    throw new IllegalStateException("too few rows returned?");
-                }
-                if (useReturning) {
-                    // RETURNING rocks!
-                    if (iter == null) {
-                        iter = new RecordIterator(resultSet);
-                        iter.setAutoClose(false);
-                    }
-                    iter.record(record);
-                } else {
-                    Field field = record.getOrCreateField(primaryKey.getSymbol());
-                    field.setValue(resultSet.getObject(1));
-                    field.setChanged(false);
-                    if (mode == ResultMode.REPOPULATE) {
-                        if (map == null) throw new IllegalStateException("bug");
-                        map.put(field.getValue(), record);
-                        record.isStale = false; // actually still stale
-                    }
-                }
-            }
-
-            if (!useReturning && mode == ResultMode.REPOPULATE) {
-                if (map == null) throw new IllegalStateException("bug");
-
-                resultSet.close();
-                resultSet = null;
-                preparedStatement.close();
-                preparedStatement = null;
-
-                // records must not be stale, or Query will generate SELECTs
-                Query q = table.getSelectQuery(dialect).append("WHERE #1# IN (#2:@#)", primaryKey.getSymbol(), records);
-
-                preparedStatement = transaction.prepare(q);
-                resultSet = preparedStatement.executeQuery();
-
-                int idColumn = resultSet.findColumn(primaryKey.getSymbol().getName());
-                if (Dialect.DatabaseProduct.MYSQL.equals(dialect.getDatabaseProduct())) {
-                    while (resultSet.next()) {
-                        map.get(resultSet.getLong(idColumn)).populate(resultSet);
-                    }
-                } else {
-                    while (resultSet.next()) {
-                        map.get(resultSet.getObject(idColumn)).populate(resultSet);
-                    }
-                }
-            }
-        } catch (SQLException sqlException) {
-            // records are in an unknown state, mark them stale
-            for (Record record : records) {
-                record.markStale();
-            }
-            throw dialect.rethrow(sqlException);
-        } finally {
-            try {
-                if (resultSet != null) {
-                    resultSet.close();
-                }
-            } finally {
-                if (preparedStatement != null) {
-                    preparedStatement.close();
-                }
-            }
-        }
-    }
-
-    /**
-     * Inserts the record's changed values into the database by executing an SQL INSERT query.
-     * The record's primary key value is set to the primary key generated by the database.
-     *
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public void insert(ResultMode mode) throws SQLException {
-        checkReadOnly();
-
-        if (isStale) {
-            return;
-        }
-
-        if (mode != ResultMode.NO_RESULT && !primaryKey().isSingle() && !transaction().getDialect().isReturningSupported()) {
-            throw new UnsupportedOperationException("INSERT with composite primary key not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
-        }
-
-        Query query = new Query(transaction().getDialect());
-
-        query.append("INSERT INTO #1# (", table);
-
-        boolean isFirst = true;
-        for (Entry<Symbol, Field> entry : fields.entrySet()) {
-            if (entry.getValue().isChanged()) {
-                query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
-                isFirst = false;
-            }
-        }
-
-        if (isFirst) {
-            // No fields are marked as changed, but we need to insert something... INSERT INTO foo DEFAULT VALUES is not supported on all databases
-            query.append("#1#", primaryKey());
-            for (int i = 0; i < primaryKey().getSymbols().length; i++) {
-                query.append(i == 0 ? ") VALUES (DEFAULT" : ", DEFAULT");
-            }
-        } else {
-            query.append(") VALUES (");
-            isFirst = true;
-            for (Field field : fields.values()) {
-                if (field.isChanged()) {
-                    if (field.getValue() instanceof Query) {
-                        query.append(isFirst ? "#1#" : ", #1#", field.getValue());
-                    } else {
-                        query.append(isFirst ? "#?1#" : ", #?1#", field.getValue());
-                    }
-                    isFirst = false;
-                }
-            }
-            query.append(")");
-        }
-
-        markStale();
-
-        if (mode == ResultMode.NO_RESULT) {
-            transaction().execute(query);
-            return;
-        }
-
-        if (transaction().getDialect().isReturningSupported()) {
-            query.append(" RETURNING *");       // XXX ID_ONLY support
-            selectInto(query);
-        } else {
-            PreparedStatement preparedStatement = transaction().prepare(query.getSql(), query.getParams(), true);
-            ResultSet resultSet = null;
-            Object id = null;
-            try {
-                preparedStatement.execute();
-                resultSet = preparedStatement.getGeneratedKeys();
-                if (resultSet.next()) {
-                    id = resultSet.getObject(1);
-                }
-            } catch (SQLException e) {
-                throw transaction().getDialect().rethrow(e, query.getSql());
-            } finally {
-                try {
-                    if (resultSet != null) {
-                        resultSet.close();
-                    }
-                } finally {
-                    preparedStatement.close();
-                }
-            }
-
-            if (id == null) {
-                throw new RuntimeException("INSERT to " + table.toString() + " did not generate a key (AKA insert id): " + query.getSql());
-            }
-            Field field = getOrCreateField(primaryKey().getSymbol());
-            field.setValue(id);
-            field.setChanged(false);
-        }
-    }
-
-    public void insert() throws SQLException {
-        insert(ResultMode.REPOPULATE);
-    }
-
-    /**
-     * Executes a batch INSERT (INSERT INTO ... (columns...) VALUES (row1), (row2), (row3), ...) and repopulates the list with stored entities.
-     *
-     * @param records List of records to insert (must be of the same class, and bound to the same Database)
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static void insert(Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        insert(records, 0, mode);
-    }
-
-    public static void insert(Collection<? extends Record> records) throws SQLException {
-        insert(records, 0, ResultMode.REPOPULATE);
-    }
-
-    /**
-     * Executes a batch INSERT (INSERT INTO ... (columns...) VALUES (row1), (row2), (row3), ...).
-     *
-     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
-     *
-     * Setting isFullRepopulate to true will re-populate the record fields with fresh values. This will generate
-     * an additional SELECT query for every chunk of records for databases that do not support RETURNING.
-     *
-     * @param records List of records to insert (must be of the same class, and bound to the same Database)
-     * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param isFullRepopulate Whether or not to fully re-populate the record fields, or just update their primary key value and markStale()
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static void insert(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        if (records.isEmpty()) {
-            return;
-        }
-
-        BatchInfo batchInfo = new BatchInfo(records);
-
-        if (chunkSize <= 0) {
-            batchInsert(batchInfo, records, mode);
-        } else {
-            Iterator<? extends Record> iterator = records.iterator();
-            List<? extends Record> batch;
-            while ((batch = batchChunk(iterator, chunkSize)) != null) {
-                batchInsert(batchInfo, batch, mode);
-            }
-        }
-    }
-
-    private static void batchInsert(BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        Table table = batchInfo.template.table;
-        Transaction transaction = batchInfo.template.transaction();
-        Dialect dialect = transaction.getDialect();
-        Query query = new Query(dialect);
-
-        for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
-            batchInfo.columns.add(symbol);
-        }
-
-        query.append("INSERT INTO #1# (", table);
-
-        boolean isFirst = true;
-        for (Symbol column : batchInfo.columns) {
-            query.append(isFirst ? "#:1#" : ", #:1#", column);
-            isFirst = false;
-        }
-        if (isFirst) {
-            throw new RuntimeException("zero columns to insert!");
-        }
-        query.append(") VALUES ");
-
-        isFirst = true;
-        for (Record record : records) {
-            query.append(isFirst ? "(" : ", (");
-            isFirst = false;
-
-            boolean isColumnFirst = true;
-            for (Symbol column : batchInfo.columns) {
-                if (record.isFieldChanged(column)) {
-                    Object value = record.get(column);
-                    if (value instanceof Query) {
-                        query.append(isColumnFirst ? "#1#" : ", #1#", value);
-                    } else {
-                        query.append(isColumnFirst ? "#?1#" : ", #?1#", value);
-                    }
-                } else {
-                    query.append(isColumnFirst ? "DEFAULT" : ", DEFAULT");
-                }
-                isColumnFirst = false;
-            }
-            query.append(")");
-            record.markStale();
-        }
-
-        batchExecute(query, records, mode);
-    }
-
-    /**
-     * Updates the record's changed column values by executing an SQL UPDATE query.
-     *
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public void update(ResultMode mode) throws SQLException {
-        checkReadOnly();
-
-        if (!isChanged()) {
-            return;
-        }
-        if (isStale) {
-            //throw new IllegalStateException("Attempting to update a stale record!");
-            return;
-        }
-
-        Query query = new Query(transaction().getDialect());
-
-        query.append("UPDATE #1# SET ", table);
-
-        boolean isFirst = true;
-        for (Entry<Symbol, Field> entry : fields.entrySet()) {
-            Field field = entry.getValue();
-            if (field.isChanged()) {
-                if (field.getValue() instanceof Query) {
-                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), field.getValue());
-                } else {
-                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), field.getValue());
-                }
-                isFirst = false;
-            }
-        }
-
-        assertPrimaryKeyNotNull();
-
-        query.append(" WHERE #1#", transaction().getDialect().toSqlExpression(primaryKey(), id()));
-
-        markStale();
-        if (transaction().getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
-            query.append(" RETURNING *");
-            selectInto(query);
-        } else {
-            transaction().executeUpdate(query);
-        }
-    }
-
-    public void update() throws SQLException {
-        update(ResultMode.REPOPULATE);
-    }
-
-    /**
-     * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
-     *
-     * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
-     *
-     * @param records List of records to insert (must be of the same class, and bound to the same Database)
-     * @throws SQLException
-     *             if a database access error occurs
-     */
-    public static void update(Collection<? extends Record> records) throws SQLException {
-        update(records, 0, ResultMode.REPOPULATE);
-    }
-
-    /**
-     * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
-     *
-     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
-     *
-     * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
-     *
-     * @param records List of records to insert (must be of the same class, and bound to the same Database)
-     * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param mode
-     * @throws SQLException
-     *             if a database access error occurs
-     */
-    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        update(records, chunkSize, mode, null);
-    }
-
-    /**
-     * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
-     *
-     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
-     *
-     * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
-     *
-     * @param records List of records to insert (must be of the same class, and bound to the same Database)
-     * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param mode
-     * @param primaryKey
-     * @throws SQLException
-     *             if a database access error occurs
-     */
-    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
-        if (records.isEmpty()) {
-            return;
-        }
-
-        BatchInfo batchInfo = new BatchInfo(records);
-
-        if (primaryKey == null) {
-            primaryKey = batchInfo.template.primaryKey();
-        }
-
-        if (batchInfo.columns.isEmpty()) {
-            throw new IllegalArgumentException("No columns to update");
-        }
-
-        Dialect dialect = records.iterator().next().transaction().getDialect();
-        if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
-            for (Record record : records) {
-                record.update();
-            }
-            return;
-        }
-
-        if (chunkSize <= 0) {
-            batchUpdate(batchInfo, records, mode, primaryKey);
-        } else {
-            Iterator<? extends Record> iterator = records.iterator();
-            List<? extends Record> batch;
-            while ((batch = batchChunk(iterator, chunkSize)) != null) {
-                batchUpdate(batchInfo, batch, mode, primaryKey);
-            }
-        }
-    }
-
-    private static void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
-        Table table = batchInfo.template.table();
-        Transaction transaction = batchInfo.template.transaction();
-        Query query = new Query(transaction);
-        String vTable = table.getTable().equals("v") ? "v2" : "v";
-
-        query.append("UPDATE #1# SET ", table);
-        boolean isFirstColumn = true;
-        for (Symbol column : batchInfo.columns) {
-            query.append(isFirstColumn ? "#1# = #!2#.#1#" : ", #1# = #!2#.#1#", column, vTable);
-            isFirstColumn = false;
-        }
-
-        query.append(" FROM (VALUES ");
-
-        boolean isFirstValue = true;
-        for (Record record : records) {
-            if (record.isPrimaryKeyNull()) {
-                throw new IllegalArgumentException("Record has unset or NULL primary key: " + record);
-            }
-            isFirstColumn = true;
-            query.append(isFirstValue ? "(" : ", (");
-            for (Symbol column : batchInfo.columns) {
-                Object value = record.get(column);
-                if (value instanceof Query) {
-                    query.append(isFirstColumn ? "#1#" : ", #1#", value);
-                } else {
-                    query.append(isFirstColumn ? "#?1#" : ", #?1#", value);
-                }
-                isFirstColumn = false;
-            }
-            query.append(")");
-            isFirstValue = false;
-        }
-
-        query.append(") #!1# (", vTable);
-        isFirstColumn = true;
-        for (Symbol column : batchInfo.columns) {
-            query.append(isFirstColumn ? "#1#" : ", #1#", column);
-            isFirstColumn = false;
-        }
-
-        query.append(") WHERE");
-        boolean isFirst = true;
-        for (Symbol symbol : primaryKey.getSymbols()) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                query.append(" AND");
-            }
-            query.append(" #1#.#2# = #:3#.#2#", table, symbol, vTable);
-        }
-
-        batchExecute(query, records, mode);
-    }
-
     /**
      * Determines whether a field has been changed or not.
      *
@@ -1947,29 +534,6 @@ public abstract class Record {
      */
     public static boolean isRecordSubclass(Class<?> clazz) {
         return Record.class.isAssignableFrom(clazz) && !clazz.equals(Record.class);
-    }
-
-    /**
-     * Re-populates a stale record with fresh database values by a select query.
-     * A record is considered stale after a call to either
-     * {@link Record#insert()} or {@link Record#insert()}, if the SQL dialect of
-     * the mapped database does not support returning. A record mapped to a
-     * table in a Postgres database is thus never stale.
-     *
-     *
-     * @throws RuntimeException
-     *             whenever a SQLException occurs.
-     */
-    public void refresh() {
-        if (isStale) {
-            try {
-                assertPrimaryKeyNotNull();
-                populateById(primaryKey().valueFrom(this, true));
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to refresh stale record", e);
-            }
-            isStale = false;
-        }
     }
 
     /**
@@ -2000,7 +564,7 @@ public abstract class Record {
         return isReadOnly;
     }
 
-    private void checkReadOnly() {
+    void checkReadOnly() {
         if (isReadOnly) {
             throw new RuntimeException("Record is read only!");
         }
@@ -2022,6 +586,764 @@ public abstract class Record {
         } else {
             return oldValue == null || !oldValue.equals(newValue);
         }
+    }
+
+    /**
+     * Unsets the specified field corresponding to a column of the mapped record.
+     *
+     * @param column
+     *            the name of the column corresponding to the field to set.
+     */
+    public void unset(String column) {
+        unset(Symbol.get(column));
+    }
+
+    /**
+     * Unsets the specified field corresponding to a column of the mapped record.
+     *
+     * @param symbol
+     *            the symbol of the column corresponding to the field to set.
+     */
+    public void unset(Symbol symbol) {
+        checkReadOnly();
+        Field field;
+
+        refresh();
+
+        field = fields.get(symbol);
+        if (field != null) {
+            notifyFieldChanged(symbol, null);
+            fields.remove(symbol);
+        }
+    }
+
+    /**
+     * Determines whether the field corresponding to a given column name is set
+     * or not.
+     *
+     * @param column
+     *            the name of the column corresponding to the field to set.
+     * @return true if the field is set, false otherwise.
+     */
+    public boolean isSet(String column) {
+        return isSet(Symbol.get(column));
+    }
+
+    /**
+     * Determines whether the field corresponding to a given column name is set
+     * or not.
+     *
+     * @param symbol
+     *            the symbol of the column corresponding to the field to set.
+     * @return true if the field is set, false otherwise.
+     */
+    public boolean isSet(Symbol symbol) {
+        refresh();
+        return fields.get(symbol) != null;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public Value id() {
+        return get(primaryKey());
+    }
+
+    public Value get(Composite composite) {
+        return composite.valueFrom(this);
+    }
+
+    /**
+     * Populates the record with the first result for which the given column name
+     * matches the given value.
+     *
+     * @param symbol
+     *            the column symbol.
+     * @param value
+     *            the value to match.
+     * @return true if the record could be updated with a matching row from the
+     *         table.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public boolean populateByComposite(Composite composite, Value value) throws SQLException {
+        return transaction().populateByComposite(this, composite, value);
+    }
+
+    /**
+     * Populates the record with the result for which the id column matches the
+     * given value.
+     *
+     * @param id
+     *            the id value to match.
+     * @return true if the record could be updated with a matching row from the
+     *         table.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public boolean populateById(Object id) throws SQLException {
+        return transaction().populateById(this, id);
+    }
+
+    /**
+     * Provides a selected record from the mapped database table, populated with
+     * the first result for which the composite key matches.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param composite
+     *            the composite key
+     * @param value
+     *            the composite key value
+     * @return the matched record or null for no match.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> T find(Class<T> clazz, Composite composite, Object value) throws SQLException {
+        return transaction(clazz).find(clazz, composite, value);
+    }
+
+    /**
+     * Provides a selected record from the mapped database table, populated with
+     * the first result for which the simple key matches.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param composite
+     *            simple key
+     * @param value
+     *            the composite key value
+     * @return the matched record or null for no match.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> T find(Class<T> clazz, String column, Object value) throws SQLException {
+        return transaction(clazz).find(clazz, column, value);
+    }
+
+    /**
+     * Provides a complete list of selected records from the mapped database
+     * table, populated with the results for which the composite key matches.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param composite
+     *            the composite key
+     * @param value
+     *            the composite key value
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> List<T> findAll(Class<T> clazz, Composite composite, Value value) throws SQLException {
+        return transaction(clazz).findAll(clazz, composite, value);
+    }
+
+    /**
+     * Provides a complete list of selected records from the mapped database
+     * table, populated with the results for which the simple key matches.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param composite
+     *            the composite key
+     * @param value
+     *            the composite key value
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> List<T> findAll(Class<T> clazz, String column, Object value) throws SQLException {
+        return transaction(clazz).findAll(clazz, column, value);
+    }
+
+    public static <T extends Record> List<T> findAll(Class<T> clazz) throws SQLException {
+        return transaction(clazz).findAll(clazz);
+    }
+
+    public static RecordIterator iterate(Class<? extends Record> clazz, Composite composite, Value value) throws SQLException {
+        return transaction(clazz).iterate(clazz, composite, value);
+    }
+
+    public static RecordIterator iterate(Class<? extends Record> clazz) throws SQLException {
+        return transaction(clazz).iterate(clazz);
+    }
+
+    /**
+     * Provides a complete list of selected reference records of a given class
+     * referring to the mapped record through a given foreign key column.
+     *
+     * @param clazz
+     *            the class of the records referring to the mapped record.
+     * @param symbol
+     *            the symbol of the column defining the foreign key for the
+     *            reference records.
+     * @return the matched references.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public <T extends Record> List<T> findReferences(Class<T> clazz, Symbol symbol) throws SQLException {
+        return transaction().findReferences(this, clazz, symbol);
+    }
+
+    /**
+     * Provides a complete list of selected reference records of a given class
+     * referring to the mapped record through a given foreign key column.
+     *
+     * @param clazz
+     *            the class of the records referring to the mapped record.
+     * @param column
+     *            the column defining the foreign key for the reference records.
+     * @return the matched references.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public <T extends Record> List<T> findReferences(Class<T> clazz, String column) throws SQLException {
+        return transaction().findReferences(this, clazz, column);
+    }
+
+    /**
+     * Provides a selected record, populated with the result for which the primary key
+     * column matches the given id value.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param id
+     *            the primary key value (can be either a {@link Composite.Value} or a single column value).
+     * @return the matched record or null for no match.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
+        return transaction(clazz).findById(clazz, id);
+    }
+
+    /**
+     * Provides a selected record, populated with the first result from the
+     * query given by a plain SQL statement and applicable parameters.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the plain SQL statement.
+     * @return the matched record or null for no match.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> T select(Class<T> clazz, String sql) throws SQLException {
+        return transaction(clazz).select(clazz, sql);
+    }
+
+    /**
+     * Provides a selected record, populated with the first result from the
+     * query given by a Jorm SQL statement and applicable parameters.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the Jorm SQL statement.
+     * @param params
+     *            the applicable parameters.
+     * @return the matched record or null for no match.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> T select(Class<T> clazz, String sql, Object... params) throws SQLException {
+        return transaction(clazz).select(clazz, sql, params);
+    }
+
+    /**
+     * Provides a selected record, populated with the first result from the
+     * given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param query
+     *            the query.
+     * @return the matched record or null for no match.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> T select(Class<T> clazz, Query query) throws SQLException {
+        return transaction(clazz).select(clazz, query);
+    }
+
+    /**
+     * Provides a list of selected records, populated with the results from the
+     * query given by a plain SQL statement.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the plain SQL statement.
+     * @return the matched records
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql) throws SQLException {
+        return transaction(clazz).selectAll(clazz, sql);
+    }
+
+    /**
+     * Provides a list of selected records, populated with the results from the
+     * query given by a Jorm SQL statement and applicable parameters.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the Jorm SQL statement.
+     * @param params
+     *            the applicable parameters.
+     * @return the matched records
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectAll(clazz, sql, params);
+    }
+
+    /**
+     * Provides a list of records populated with the results from the given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> List<T> selectAll(Class<T> clazz, Query query) throws SQLException {
+        return transaction(clazz).selectAll(clazz, query);
+    }
+
+    /**
+     * Provides a record iterator with the results from the query given by
+     * a plain SQL statement.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the plain SQL statement.
+     * @return the matched records
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql) throws SQLException {
+        return transaction(clazz).selectIterator(clazz, sql);
+    }
+
+    /**
+     * Provides a record iterator with the results from the query given by
+     * a Jorm SQL statement and applicable parameters.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param sql
+     *            the Jorm SQL statement.
+     * @param params
+     *            the applicable parameters.
+     * @return the matched records
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectIterator(clazz, sql, params);
+    }
+
+    /**
+     * Provides a record iterator with the results from the given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static RecordIterator selectIterator(Class<? extends Record> clazz, Query query) throws SQLException {
+        return transaction(clazz).selectIterator(clazz, query);
+    }
+
+    /**
+     * Provides a hash map of selected records, populated with the results from the
+     * given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param column
+     *            the column to use as key.
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
+        return transaction(clazz).selectAsMap(clazz, compositeKey, allowDuplicates, query);
+    }
+
+    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectAsMap(clazz, compositeKey, allowDuplicates, sql, params);
+    }
+
+    /**
+     * Provides a hash map of selected records, populated with the results from the
+     * given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param column
+     *            the column to use as key.
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
+        return transaction(clazz).selectAllAsMap(clazz, compositeKey, query);
+    }
+
+    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectAllAsMap(clazz, compositeKey, sql, params);
+    }
+
+    /**
+     * Executes the query given by a plain SQL statement and applicable
+     * parameters and populates the record with the first row of the result. Any
+     * values in the record object are cleared if the record was previously
+     * populated.
+     *
+     * @param sql
+     *            the plain SQL statement.
+     * @return true if the record was populated, otherwise false.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public boolean selectInto(String sql) throws SQLException {
+        return transaction().selectInto(this, sql);
+    }
+
+    /**
+     * Executes the query given by a Jorm SQL statement and applicable
+     * parameters and populates the record with the first row of the result. Any
+     * values in the record object are cleared if the record was previously
+     * populated.
+     *
+     * @param sql
+     *            the Jorm SQL statement.
+     * @param params
+     *            the applicable parameters.
+     * @return true if the record was populated, otherwise false.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public boolean selectInto(String sql, Object... params) throws SQLException {
+        return transaction().selectInto(this, sql, params);
+    }
+
+    /**
+     * Executes the given query and populates the record with the first row of
+     * the result. Any values in the record object are cleared if the record was
+     * previously populated.
+     *
+     * @param query
+     *            the query.
+     * @return true if the record was populated, otherwise false.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public boolean selectInto(Query query) throws SQLException {
+        return transaction().selectInto(this, query);
+    }
+
+    /**
+     * Populates all records in the given collection of records with a single
+     * prefetched reference of the given record class. Existing cached
+     * references are not overwritten.
+     *
+     * @param records
+     *            the records to populate with prefetched references.
+     * @param foreignKeySymbol
+     *            the symbol defining the foreign key to the referenced records.
+     * @param clazz
+     *            the class of the referenced records.
+     * @param referredSymbol
+     *            the symbol defining the referred column of the referenced
+     *            records.
+     * @return the prefetched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
+        return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
+    }
+
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+        return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
+    }
+
+    /**
+     * Populates all records in the given collection of records with a single
+     * prefetched reference of the given record class. Existing cached
+     * references are not overwritten.
+     *
+     * @param records
+     *            the records to populate with prefetched references.
+     * @param foreignKeySymbol
+     *            the column name defining the foreign key to the referenced records.
+     * @param clazz
+     *            the class of the referenced records.
+     * @param referredSymbol
+     *            the column name defining the referred column of the referenced
+     *            records.
+     * @return the prefetched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
+        return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
+    }
+
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+        return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
+    }
+
+    /**
+     * Save the record. This is done by a call to {@link #insert()} if the id
+     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public void save(ResultMode mode) throws SQLException {
+        transaction().save(this, mode);
+    }
+
+    public void save() throws SQLException {
+        transaction().save(this);
+    }
+
+    /**
+     * Batch saves the records. This is done by a call to {@link #insert()} if the id
+     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static void save(Collection<? extends Record> records, int batchSize, ResultMode mode) throws SQLException {
+        // XXX FIXME blargfg
+        //transaction(???).save(records, batchSize, mode);
+    }
+
+    /**
+     * Batch saves the records. This is done by a call to {@link #insert()} if the id
+     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static void save(Collection<? extends Record> records) throws SQLException {
+        // XXX FIXME blargfg
+        //transaction(???).save(records);
+    }
+
+    /**
+     * Deletes the record row from the database by executing the SQL query "DELETE FROM [tableName] WHERE [primaryKey] = [primaryKeyColumnValue]".
+     * The primary key column value is also set to null.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public void delete() throws SQLException {
+        transaction().delete(this);
+    }
+
+    /**
+     * Deletes multiple records by exeuting a DELETE FROM table WHERE id IN (...)
+     *
+     * @param records List of records to delete (must be of the same class, and bound to the same Database)
+     * @throws SQLException
+     *             if a database access error occurs.
+     */
+    public static void delete(Collection<? extends Record> records) throws SQLException {
+        // XXX FIXME blargfg
+        //transaction(???).delete(records);
+    }
+
+    /**
+     * Inserts the record's changed values into the database by executing an SQL INSERT query.
+     * The record's primary key value is set to the primary key generated by the database.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public void insert(ResultMode mode) throws SQLException {
+        transaction().insert(this, mode);
+    }
+
+    public void insert() throws SQLException {
+        transaction().insert(this);
+    }
+
+    public static void insert(Collection<? extends Record> records) throws SQLException {
+        // XXX FIXME blargfg
+        //transaction(???).insert(records);
+    }
+
+    /**
+     * Executes a batch INSERT (INSERT INTO ... (columns...) VALUES (row1), (row2), (row3), ...) and repopulates the list with stored entities.
+     *
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static void insert(Collection<? extends Record> records, ResultMode mode) throws SQLException {
+        // XXX FIXME blargfg
+        //transaction(???).insert(records, mode);
+    }
+
+    /**
+     * Executes a batch INSERT (INSERT INTO ... (columns...) VALUES (row1), (row2), (row3), ...).
+     *
+     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
+     *
+     * Setting isFullRepopulate to true will re-populate the record fields with fresh values. This will generate
+     * an additional SELECT query for every chunk of records for databases that do not support RETURNING.
+     *
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
+     * @param chunkSize Splits the records into chunks, <= 0 disables
+     * @param isFullRepopulate Whether or not to fully re-populate the record fields, or just update their primary key value and markStale()
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static void insert(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
+        // XXX FIXME blargfg
+        //transaction(???).insert(records, chunkSize, mode);
+    }
+
+    /**
+     * Updates the record's changed column values by executing an SQL UPDATE query.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public void update(ResultMode mode) throws SQLException {
+        transaction().update(this, mode);
+    }
+
+    public void update() throws SQLException {
+        transaction().update(this);
+    }
+
+    /**
+     * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
+     *
+     * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
+     *
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
+     * @throws SQLException
+     *             if a database access error occurs
+     */
+    public static void update(Collection<? extends Record> records) throws SQLException {
+        // XXX FIXME blargfg
+        //transaction(???).update(records);
+    }
+
+    /**
+     * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
+     *
+     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
+     *
+     * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
+     *
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
+     * @param chunkSize Splits the records into chunks, <= 0 disables
+     * @param mode
+     * @throws SQLException
+     *             if a database access error occurs
+     */
+    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
+        // XXX FIXME blargfg
+        //transaction(???).update(records, chunkSize, mode);
+    }
+
+    /**
+     * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
+     *
+     * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
+     *
+     * Currently, this is only supported on PostgreSQL. The method will fall back to using individual update()s on other databases.
+     *
+     * @param records List of records to insert (must be of the same class, and bound to the same Database)
+     * @param chunkSize Splits the records into chunks, <= 0 disables
+     * @param mode
+     * @param primaryKey
+     * @throws SQLException
+     *             if a database access error occurs
+     */
+    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
+        // XXX FIXME blargfg
+        //transaction(???).update(records, chunkSize, mode, primaryKey);
+    }
+
+    /**
+     * Re-populates a stale record with fresh database values by a select query.
+     * A record is considered stale after a call to either
+     * {@link Record#insert()} or {@link Record#insert()}, if the SQL dialect of
+     * the mapped database does not support returning. A record mapped to a
+     * table in a Postgres database is thus never stale.
+     *
+     *
+     * @throws RuntimeException
+     *             whenever a SQLException occurs.
+     */
+    public void refresh() {
+        transaction().refresh(this);
     }
 
     void put(Symbol symbol, Object value) {
@@ -2096,60 +1418,6 @@ public abstract class Record {
     public void set(Symbol symbol, Object value) {
         checkReadOnly();
         put(symbol, value);
-    }
-
-    /**
-     * Unsets the specified field corresponding to a column of the mapped record.
-     *
-     * @param column
-     *            the name of the column corresponding to the field to set.
-     */
-    public void unset(String column) {
-        unset(Symbol.get(column));
-    }
-
-    /**
-     * Unsets the specified field corresponding to a column of the mapped record.
-     *
-     * @param symbol
-     *            the symbol of the column corresponding to the field to set.
-     */
-    public void unset(Symbol symbol) {
-        checkReadOnly();
-        Field field;
-
-        refresh();
-
-        field = fields.get(symbol);
-        if (field != null) {
-            notifyFieldChanged(symbol, null);
-            fields.remove(symbol);
-        }
-    }
-
-    /**
-     * Determines whether the field corresponding to a given column name is set
-     * or not.
-     *
-     * @param column
-     *            the name of the column corresponding to the field to set.
-     * @return true if the field is set, false otherwise.
-     */
-    public boolean isSet(String column) {
-        return isSet(Symbol.get(column));
-    }
-
-    /**
-     * Determines whether the field corresponding to a given column name is set
-     * or not.
-     *
-     * @param symbol
-     *            the symbol of the column corresponding to the field to set.
-     * @return true if the field is set, false otherwise.
-     */
-    public boolean isSet(Symbol symbol) {
-        refresh();
-        return fields.get(symbol) != null;
     }
 
     /**
@@ -2247,7 +1515,7 @@ public abstract class Record {
                 throw new RuntimeException("column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
             }
         }
-        return (T) value;
+        return (T)value;
     }
 
     /**
