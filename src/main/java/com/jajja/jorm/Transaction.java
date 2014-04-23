@@ -1853,7 +1853,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public static void delete(Collection<? extends Record> records) throws SQLException {
+    public void delete(Collection<? extends Record> records) throws SQLException {      // XXX chunkSize?
         Record template = null;
         String database = null;
 
@@ -1862,7 +1862,7 @@ public class Transaction {
                 if (!template.getClass().equals(record.getClass())) {
                     throw new IllegalArgumentException("all records must be of the same class");
                 }
-                if (!database.equals(record.table().getDatabase())) {
+                if (!database.equals(record.table().getDatabase())) {   // XXX remove?
                     throw new IllegalArgumentException("all records must be bound to the same Database");
                 }
             } else {

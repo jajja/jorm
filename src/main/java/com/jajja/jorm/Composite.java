@@ -32,6 +32,7 @@ public class Composite {
         if (!noRefresh) {
             return valueFrom(record);
         }
+        // XXX move to Record (staleGet()?)
         Object[] values = new Object[symbols.length];
         for (int i = 0; i < symbols.length; i++) {
             Record.Field field = record.fields.get(symbols[i]);

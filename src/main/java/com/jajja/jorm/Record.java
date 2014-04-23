@@ -26,6 +26,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -643,8 +644,14 @@ public abstract class Record {
     }
 
 
-
-
+    // Used by batch delete/update/insert methods to quickly determine a list's generic type (Transaction.BatchInfo checks all list entries to ensure type correctness)
+    private static Class<? extends Record> getListGenericType(Collection<? extends Record> records) {
+        Iterator<? extends Record> iter = records.iterator();
+        if (iter.hasNext()) {
+            return iter.next().getClass();
+        }
+        return Record.class;
+    }
 
 
 
@@ -1170,8 +1177,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void save(Collection<? extends Record> records, int batchSize, ResultMode mode) throws SQLException {
-        // XXX FIXME blargfg
-        //transaction(???).save(records, batchSize, mode);
+        transaction(getListGenericType(records)).save(records, batchSize, mode);
     }
 
     /**
@@ -1183,8 +1189,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void save(Collection<? extends Record> records) throws SQLException {
-        // XXX FIXME blargfg
-        //transaction(???).save(records);
+        transaction(getListGenericType(records)).save(records);
     }
 
     /**
@@ -1207,8 +1212,7 @@ public abstract class Record {
      *             if a database access error occurs.
      */
     public static void delete(Collection<? extends Record> records) throws SQLException {
-        // XXX FIXME blargfg
-        //transaction(???).delete(records);
+        transaction(getListGenericType(records)).delete(records);
     }
 
     /**
@@ -1228,8 +1232,7 @@ public abstract class Record {
     }
 
     public static void insert(Collection<? extends Record> records) throws SQLException {
-        // XXX FIXME blargfg
-        //transaction(???).insert(records);
+        transaction(getListGenericType(records)).insert(records);
     }
 
     /**
@@ -1241,8 +1244,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void insert(Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        // XXX FIXME blargfg
-        //transaction(???).insert(records, mode);
+        transaction(getListGenericType(records)).insert(records, mode);
     }
 
     /**
@@ -1261,8 +1263,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void insert(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        // XXX FIXME blargfg
-        //transaction(???).insert(records, chunkSize, mode);
+        transaction(getListGenericType(records)).insert(records, chunkSize, mode);
     }
 
     /**
@@ -1290,8 +1291,7 @@ public abstract class Record {
      *             if a database access error occurs
      */
     public static void update(Collection<? extends Record> records) throws SQLException {
-        // XXX FIXME blargfg
-        //transaction(???).update(records);
+        transaction(getListGenericType(records)).update(records);
     }
 
     /**
@@ -1308,8 +1308,7 @@ public abstract class Record {
      *             if a database access error occurs
      */
     public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        // XXX FIXME blargfg
-        //transaction(???).update(records, chunkSize, mode);
+        transaction(getListGenericType(records)).update(records, chunkSize, mode);
     }
 
     /**
@@ -1327,8 +1326,7 @@ public abstract class Record {
      *             if a database access error occurs
      */
     public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
-        // XXX FIXME blargfg
-        //transaction(???).update(records, chunkSize, mode, primaryKey);
+        transaction(getListGenericType(records)).update(records, chunkSize, mode, primaryKey);
     }
 
     /**
