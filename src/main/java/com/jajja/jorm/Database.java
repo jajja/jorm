@@ -231,17 +231,20 @@ public class Database {
     }
 
     public static void load(String context) {
-        Database.context = context;
+        Database.context.set(context);
     }
 
-    private static String context = "";
+    private static ThreadLocal<String> context = new ThreadLocal<String>();
+    static {
+        context.set("");
+    }
     private static final char CTX = '@';
 
     public static String name(String database) {
-        if (context.isEmpty() || 0 < database.indexOf(CTX)) {
+        if (context.get().isEmpty() || 0 < database.indexOf(CTX)) {
             return database;
         } else {
-            return database + CTX + context;
+            return database + CTX + context.get();
         }
     }
 
