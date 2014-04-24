@@ -81,7 +81,7 @@ public class Database {
     }
 
     private DataSource getDataSource(String database) {
-        database = name(database);
+        database = context.get(database);
         synchronized (dataSources) {
             return dataSources.get(database);
         }
@@ -156,7 +156,7 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
-        database = name(database);
+        database = context.get(database);
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction == null) {
@@ -170,6 +170,11 @@ public class Database {
         return transaction;
     }
 
+    public static Transaction open(String database, String context) {
+        Database.context.set(database, context);
+        return open(database);
+    }
+
     /**
      * Commits the thread local transaction for the given database name if it
      * has been opened.
@@ -179,7 +184,7 @@ public class Database {
      * @throws SQLException if a database access error occur
      */
     public static Transaction commit(String database) throws SQLException {
-        database = name(database);
+        database = context.get(database);
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
@@ -198,7 +203,7 @@ public class Database {
      * @return the closed transaction or null for no active transaction.
      */
     public static Transaction close(String database) {
-        database = name(database);
+        database = context.get(database);
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
@@ -213,6 +218,7 @@ public class Database {
      * Closes and destroys all transactions for the current thread.
      */
     public static void close() {
+        context.clear();
         HashMap<String, Transaction> map = instance.getTransactions();
         for (Transaction transaction : map.values()) {
             transaction.destroy();
@@ -226,29 +232,60 @@ public class Database {
         configure();
     }
 
-    public static void load() {
-        load("");
+    public static void set(String context) {
+        Database.context.set(context);
     }
 
-    public static void load(String context) {
-        Database.context = context;
+    public static void unset() {
+        set("");
     }
 
-    private static String context = "";
-    private static final char CTX = '@';
+    private static Context context = new Context();
 
-    public static String name(String database) {
-        if (context.isEmpty() || 0 < database.indexOf(CTX)) {
-            return database;
-        } else {
-            return database + CTX + context;
-        }
-    }
 
     public static void destroy() {
         for (Configuration configuration : configurations.values()) {
             configuration.destroy();
         }
+    }
+
+    private static class Context {
+
+        private static final char SEPARATOR = '@';
+
+        private String global;
+        private ThreadLocal<Map<String,String>> local;
+
+        public Context() {
+            global = "";
+            local = new ThreadLocal<Map<String,String>>();
+            local.set(new HashMap<String, String>());
+        }
+
+        public void set(String name) {
+            global = name;
+        }
+
+        public void set(String database, String name) {
+            local.get().put(database, name);
+        }
+
+        public void clear() {
+            local.get().clear();
+        }
+
+        public String get(String database) {
+            String name = local.get().get(database);
+            if (name == null) {
+                name = global;
+            }
+            if (name.isEmpty() || 0 < database.indexOf(SEPARATOR)) {
+                return database;
+            } else {
+                return database + SEPARATOR + name;
+            }
+        }
+
     }
 
     /*
@@ -291,7 +328,7 @@ public class Database {
                 configure(local);
             }
             for (Entry<String, Configuration> entry : configurations.entrySet()) {
-                int context = entry.getKey().indexOf(CTX);
+                int context = entry.getKey().indexOf(Context.SEPARATOR);
                 if (0 < context) {
                     Configuration base =  configurations.get(entry.getKey().substring(0, context));
                     if (base != null) {
