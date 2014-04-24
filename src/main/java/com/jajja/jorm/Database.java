@@ -240,6 +240,10 @@ public class Database {
         set("");
     }
 
+    public String context(String database) {
+        return context.get(database);
+    }
+
     private static Context context = new Context();
 
 
