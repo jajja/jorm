@@ -29,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.jajja.jorm.Database;
 import com.jajja.jorm.Dialect;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
@@ -46,6 +47,7 @@ import com.jajja.jorm.Transaction;
 public class DatabaseGenerator implements Lookupable {
     private String packageName;
     private String name;
+    private String defaultSchemaName = null;
     private Map<String, String> typeMap = new HashMap<String, String>();
     private Map<String, SchemaGenerator> schemas = new LinkedHashMap<String, SchemaGenerator>();
     private Generator generator;
@@ -58,7 +60,15 @@ public class DatabaseGenerator implements Lookupable {
         this.generator = generator;
         this.name = name;
         this.packageName = packageName;
-        addSchema(null);        // the default schema
+        Transaction transaction = Database.open(name);
+        try {
+            if (Dialect.DatabaseProduct.POSTGRESQL.equals(transaction.getDialect().getDatabaseProduct())) {
+                defaultSchemaName = "public";
+            }
+            addSchema(defaultSchemaName);
+        } finally {
+            transaction.close();
+        }
     }
 
     public Generator getGenerator() {
@@ -109,12 +119,12 @@ public class DatabaseGenerator implements Lookupable {
     }
 
     public SchemaGenerator getDefaultSchema() {
-        return schemas.get(null);
+        return schemas.get(defaultSchemaName);
     }
 
     // Add table to default schema
     public DatabaseGenerator addTable(String tableName) {
-        schemas.get(null).addTable(tableName);
+        schemas.get(defaultSchemaName).addTable(tableName);
         return this;
     }
 
@@ -132,7 +142,7 @@ public class DatabaseGenerator implements Lookupable {
 
     // Get table from default schema
 //    public TableGenerator getTable(String name) {
-//        return schemas.get(null).getTable(name);
+//        return schemas.get(defaultSchemaName).getTable(name);
 //    }
 
     public String getJavaDataType(String databaseTypeName) {
@@ -145,7 +155,7 @@ public class DatabaseGenerator implements Lookupable {
     }
 
     public void fetchMetadata() throws SQLException {
-        Transaction transaction = com.jajja.jorm.Database.open(name);
+        Transaction transaction = Database.open(name);
 
         try {
             if (transaction.getDialect().getDatabaseProduct().equals(Dialect.DatabaseProduct.MYSQL)) {
@@ -198,7 +208,7 @@ public class DatabaseGenerator implements Lookupable {
     public Lookupable lookup(List<String> path, Class<? extends Lookupable> expectedClass) {
         String name = path.remove(0);
         if (name.equals("@")) {
-            name = null;        // default schema
+            name = defaultSchemaName;   // default schema
         }
         SchemaGenerator schema = getSchema(name);
         if (path.isEmpty()) {
