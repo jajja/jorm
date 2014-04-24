@@ -47,7 +47,7 @@ import com.jajja.jorm.Transaction;
 public class SchemaGenerator implements Lookupable {
     private String name;
     private String packageName;
-    private Map<String, TableGenerator> tables = new LinkedHashMap<String, TableGenerator>();
+    Map<String, TableGenerator> tables = new LinkedHashMap<String, TableGenerator>();
     private DatabaseGenerator database;
 
     public SchemaGenerator(DatabaseGenerator database, String name) {

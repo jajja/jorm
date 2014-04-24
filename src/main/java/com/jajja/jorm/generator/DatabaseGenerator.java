@@ -23,6 +23,7 @@ package com.jajja.jorm.generator;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -177,6 +178,59 @@ public class DatabaseGenerator implements Lookupable {
             }
             for (SchemaGenerator schema : schemas.values()) {
                 schema.fetchMetadata(transaction);
+            }
+        } finally {
+            transaction.close();
+        }
+    }
+
+    void fetchForeignKeys() throws SQLException {
+        Transaction transaction = Database.open(name);
+
+        try {
+            // Fetch foreign keys
+            for (SchemaGenerator schema : schemas.values()) {
+                for (TableGenerator table : schema.tables.values()) {
+                    ResultSet resultSet = transaction.getConnection().getMetaData().getImportedKeys(null, schema.getName(), table.getName());
+                    try {
+                        while (resultSet.next()) {
+                            // PK null.springbank.locales.id --> FK null.springbank.phrases.locale_id  (phrases_locale_id_fkey, locales_pkey)
+                            ColumnGenerator pkColumn = table.getColumn(resultSet.getString("PKCOLUMN_NAME"));
+                            SchemaGenerator fkSchema = null;
+                            TableGenerator fkTable = null;
+                            ColumnGenerator fkColumn = null;
+
+                            fkSchema = getSchema(resultSet.getString("FKTABLE_SCHEM"));
+                            if (fkSchema != null) {
+                                fkTable = fkSchema.getTable(resultSet.getString("FKTABLE_NAME"));
+                            }
+                            if (fkTable != null) {
+                                fkColumn = fkTable.getColumn(resultSet.getString("FKCOLUMN_NAME"));
+                            }
+                            if (fkColumn != null) {
+                                fkColumn.addReference(pkColumn);
+                            }
+        //                    System.out.println(
+        //                        String.format("%s.%s.%s.%s --> %s.%s.%s.%s  (%s, %s)",
+        //                            resultSet.getString("PKTABLE_CAT"),
+        //                            resultSet.getString("PKTABLE_SCHEM"),
+        //                            resultSet.getString("PKTABLE_NAME"),
+        //                            resultSet.getString("PKCOLUMN_NAME"),
+        //
+        //                            resultSet.getString("FKTABLE_CAT"),
+        //                            resultSet.getString("FKTABLE_SCHEM"),
+        //                            resultSet.getString("FKTABLE_NAME"),
+        //                            resultSet.getString("FKCOLUMN_NAME"),
+        //
+        //                            resultSet.getString("FK_NAME"),
+        //                            resultSet.getString("PK_NAME")
+        //                        )
+        //                    );
+                        }
+                    } finally {
+                        resultSet.close();
+                    }
+                }
             }
         } finally {
             transaction.close();

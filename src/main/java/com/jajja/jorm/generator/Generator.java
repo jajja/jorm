@@ -56,6 +56,9 @@ public class Generator implements Lookupable {
             database.fetchMetadata();
         }
         metadataFetched = true;
+        for (DatabaseGenerator database : databases.values()) {
+            database.fetchForeignKeys();
+        }
     }
 
     public boolean isMetadataFetched() {
