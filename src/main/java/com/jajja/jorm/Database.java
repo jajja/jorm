@@ -263,23 +263,31 @@ public class Database {
         public Context() {
             global = "";
             local = new ThreadLocal<Map<String,String>>();
-            local.set(new HashMap<String, String>());
         }
 
         public void set(String name) {
             global = name;
         }
 
+        private Map<String,String> local() {
+            Map<String, String> map = local.get();
+            if (map == null) {
+                local.set(new HashMap<String, String>());
+                map = local.get();
+            }
+            return map;
+        }
+
         public void set(String database, String name) {
-            local.get().put(database, name);
+            local().put(database, name);
         }
 
         public void clear() {
-            local.get().clear();
+            local().clear();
         }
 
         public String get(String database) {
-            String name = local.get().get(database);
+            String name = local().get(database);
             if (name == null) {
                 name = global;
             }
