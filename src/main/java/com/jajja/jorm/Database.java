@@ -53,7 +53,6 @@ import org.apache.commons.logging.LogFactory;
  * @since 1.0.0
  */
 public class Database {
-
     private ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
     private Map<String, DataSource> dataSources = new HashMap<String, DataSource>();
     protected Log log = LogFactory.getLog(Database.class);
@@ -244,32 +243,29 @@ public class Database {
         return context.get(database);
     }
 
-    private static Context context = new Context();
-
-
     public static void destroy() {
         for (Configuration configuration : configurations.values()) {
             configuration.destroy();
         }
     }
 
+    private static Context context = new Context();
+
     private static class Context {
-
         private static final char SEPARATOR = '@';
-
         private String global;
-        private ThreadLocal<Map<String,String>> local;
+        private ThreadLocal<Map<String, String>> local;
 
         public Context() {
             global = "";
-            local = new ThreadLocal<Map<String,String>>();
+            local = new ThreadLocal<Map<String, String>>();
         }
 
         public void set(String name) {
             global = name;
         }
 
-        private Map<String,String> local() {
+        private Map<String, String> local() {
             Map<String, String> map = local.get();
             if (map == null) {
                 local.set(new HashMap<String, String>());
@@ -297,7 +293,6 @@ public class Database {
                 return database + SEPARATOR + name;
             }
         }
-
     }
 
     /*
@@ -426,12 +421,10 @@ public class Database {
     }
 
     public static class Configuration {
-
         private String database;
         private String dataSourceClassName;
         private String destroyMethodName;
         private Map<String, String> dataSourceProperties;
-
         private DataSource dataSource;
         private Method destroyMethod;
 
