@@ -194,38 +194,30 @@ public class DatabaseGenerator implements Lookupable {
                     ResultSet resultSet = transaction.getConnection().getMetaData().getImportedKeys(null, schema.getName(), table.getName());
                     try {
                         while (resultSet.next()) {
-                            // PK null.springbank.locales.id --> FK null.springbank.phrases.locale_id  (phrases_locale_id_fkey, locales_pkey)
-                            ColumnGenerator pkColumn = table.getColumn(resultSet.getString("PKCOLUMN_NAME"));
-                            SchemaGenerator fkSchema = null;
-                            TableGenerator fkTable = null;
-                            ColumnGenerator fkColumn = null;
+                            // table = offices
+                            // PK* = null.public.companies.id
+                            // FK* = null.public.offices.company_id
+                            ColumnGenerator column = table.getColumn(resultSet.getString("FKCOLUMN_NAME"));
+                            SchemaGenerator pkSchema = null;
+                            TableGenerator pkTable = null;
+                            ColumnGenerator pkColumn = null;
 
-                            fkSchema = getSchema(resultSet.getString("FKTABLE_SCHEM"));
-                            if (fkSchema != null) {
-                                fkTable = fkSchema.getTable(resultSet.getString("FKTABLE_NAME"));
+                            if (column == null) {
+                                // Should not happen
+                                continue;
                             }
-                            if (fkTable != null) {
-                                fkColumn = fkTable.getColumn(resultSet.getString("FKCOLUMN_NAME"));
+
+                            pkSchema = getSchema(resultSet.getString("PKTABLE_SCHEM"));
+                            if (pkSchema != null) {
+                                pkTable = pkSchema.getTable(resultSet.getString("PKTABLE_NAME"));
                             }
-                            if (fkColumn != null) {
-                                fkColumn.addReference(pkColumn);
+                            if (pkTable != null) {
+                                pkColumn = pkTable.getColumn(resultSet.getString("PKCOLUMN_NAME"));
                             }
-        //                    System.out.println(
-        //                        String.format("%s.%s.%s.%s --> %s.%s.%s.%s  (%s, %s)",
-        //                            resultSet.getString("PKTABLE_CAT"),
-        //                            resultSet.getString("PKTABLE_SCHEM"),
-        //                            resultSet.getString("PKTABLE_NAME"),
-        //                            resultSet.getString("PKCOLUMN_NAME"),
-        //
-        //                            resultSet.getString("FKTABLE_CAT"),
-        //                            resultSet.getString("FKTABLE_SCHEM"),
-        //                            resultSet.getString("FKTABLE_NAME"),
-        //                            resultSet.getString("FKCOLUMN_NAME"),
-        //
-        //                            resultSet.getString("FK_NAME"),
-        //                            resultSet.getString("PK_NAME")
-        //                        )
-        //                    );
+                            if (pkColumn != null && pkColumn.isPrimary()) {
+                                //System.out.println(String.format("* %s.%s references %s.%s", table.getName(), column.getName(), pkColumn.getTable().getName(), pkColumn.getName()));
+                                column.addReference(pkColumn);
+                            }
                         }
                     } finally {
                         resultSet.close();
