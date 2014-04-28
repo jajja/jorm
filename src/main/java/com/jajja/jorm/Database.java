@@ -28,11 +28,11 @@ import java.net.URL;
 import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
-import java.util.TreeMap;
-
+import java.util.Set;
 import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
@@ -53,7 +53,6 @@ import org.apache.commons.logging.LogFactory;
  * @since 1.0.0
  */
 public class Database {
-
     private ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
     private Map<String, DataSource> dataSources = new HashMap<String, DataSource>();
     protected Log log = LogFactory.getLog(Database.class);
@@ -171,7 +170,7 @@ public class Database {
     }
 
     public static Transaction open(String database, String context) {
-        Database.context.set(database, context);
+        Database.context.setLocal(database, context);
         return open(database);
     }
 
@@ -228,24 +227,26 @@ public class Database {
     }
     private static Map<String, Configuration> configurations;
 
+    private static final Context context = new Context();
     static {
         configure();
     }
 
-    public static void set(String context) {
-        Database.context.set(context);
+    public static void set(String database, String context) {
+        Database.context.setGlobal(database, context);
     }
 
-    public static void unset() {
-        set("");
+    public static void set(String context) { // XXX: necessary?
+        for (Configuration configuration : configurations.values()) {
+            if (configuration.context != null) {
+                set(configuration.database, context);
+            }
+        }
     }
 
     public String context(String database) {
         return context.get(database);
     }
-
-    private static Context context = new Context();
-
 
     public static void destroy() {
         for (Configuration configuration : configurations.values()) {
@@ -254,31 +255,29 @@ public class Database {
     }
 
     private static class Context {
-
         private static final char SEPARATOR = '@';
-
-        private String global;
-        private ThreadLocal<Map<String,String>> local;
+        private Map<String, String> global;
+        private ThreadLocal<Map<String, String>> threadLocal;
 
         public Context() {
-            global = "";
-            local = new ThreadLocal<Map<String,String>>();
+            global = new HashMap<String, String>();
+            threadLocal = new ThreadLocal<Map<String, String>>();
         }
 
-        public void set(String name) {
-            global = name;
-        }
-
-        private Map<String,String> local() {
-            Map<String, String> map = local.get();
+        private Map<String, String> local() {
+            Map<String, String> map = threadLocal.get();
             if (map == null) {
-                local.set(new HashMap<String, String>());
-                map = local.get();
+                threadLocal.set(new HashMap<String, String>());
+                map = threadLocal.get();
             }
             return map;
         }
 
-        public void set(String database, String name) {
+        public void setGlobal(String database, String name) {
+            global.put(database, name);
+        }
+
+        public void setLocal(String database, String name) {
             local().put(database, name);
         }
 
@@ -287,17 +286,19 @@ public class Database {
         }
 
         public String get(String database) {
+            if (0 < database.indexOf(SEPARATOR)) {
+                return database;
+            }
             String name = local().get(database);
             if (name == null) {
-                name = global;
+                name = global.get(database);
             }
-            if (name.isEmpty() || 0 < database.indexOf(SEPARATOR)) {
+            if (name.isEmpty()) {
                 return database;
             } else {
                 return database + SEPARATOR + name;
             }
         }
-
     }
 
     /*
@@ -322,16 +323,23 @@ public class Database {
      * database.moria@production.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_production
      * database.moria@production.dataSource.username=prod
      * database.moria@production.dataSource.password=$43CR37:P455
+     *
+     * database.context=
+     * database.moria.context=production
      */
     private static void configure() {
         try {
             Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
             configurations = new HashMap<String, Configuration>();
             URL local = null;
+            String globalContext = "";
             while (urls.hasMoreElements()) {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
-                    configure(url);
+                    String configuredContext = configure(url);
+                    if (!configuredContext.isEmpty()) {
+                        globalContext = configuredContext;
+                    }
                 } else {
                     local = url;
                 }
@@ -339,16 +347,28 @@ public class Database {
             if (local != null) {
                 configure(local);
             }
+            Set<String> databases = new HashSet<String>();
             for (Entry<String, Configuration> entry : configurations.entrySet()) {
-                int context = entry.getKey().indexOf(Context.SEPARATOR);
-                if (0 < context) {
-                    Configuration base =  configurations.get(entry.getKey().substring(0, context));
+                String database = entry.getKey();
+                int index = database.indexOf(Context.SEPARATOR);
+                if (0 < index) {
+                    database = database.substring(0, index);
+                    Configuration base =  configurations.get(database);
                     if (base != null) {
                         entry.getValue().inherit(base);
                     }
                 }
+                databases.add(database);
                 entry.getValue().apply();
                 Database.get().log.debug("Configured " + entry.getValue());
+            }
+            for (Configuration configuration : configurations.values()) {
+                if (configuration.context != null) {
+                    if (configuration.context.isEmpty()) {
+                        configuration.context = globalContext;
+                    }
+                    context.setGlobal(configuration.database, configuration.context);
+                }
             }
         } catch (IOException ex) {
             ex.printStackTrace();
@@ -357,7 +377,7 @@ public class Database {
         }
     }
 
-    private static void configure(URL url) {
+    private static String configure(URL url) { // return context
         Database.get().log.debug("Found jorm configuration @ " + url.toString());
 
         Properties properties = new Properties();
@@ -367,71 +387,64 @@ public class Database {
             is.close();
         } catch (IOException ex) {
             Database.get().log.error("Failed to open jorm.properties: " + ex.getMessage(), ex);
-            return;
+            return "";
         }
-
-        String database = null;
-        String destroyMethodName = null;
-        String dataSourceClassName = null;
-        Map<String, String> dataSourceProperties = new HashMap<String, String>();
-
-        TreeMap<String, String> treeMap = new TreeMap<String, String>();
-        for (Entry<Object, Object> e : properties.entrySet()) {
-            treeMap.put((String) e.getKey(), (String) e.getValue());
-        }
-
-        for (Entry<String, String> property : treeMap.entrySet()) {
-            String[] parts = property.getKey().split("\\.");
-            if (parts.length < 3 || !parts[0].equals("database")) {
-                continue;
-            }
-            if (database != null && !parts[1].equals(database)) {
+        String context = "";
+        for (Entry<Object, Object> property : properties.entrySet()) {
+            String[] parts = ((String) property.getKey()).split("\\.");
+            boolean isMalformed = false;
+            if (parts[0].equals("database")) {
+                String database = parts[1];
                 Configuration configuration = configurations.get(database);
                 if (configuration == null) {
-                    configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
-                    configurations.put(database, configuration);
-                    Database.get().log.debug("Configured " + configuration);
+                    configurations.put(database, new Configuration(database));
+                    configuration = configurations.get(database);
                 }
-                database = null;
-                destroyMethodName = null;
-                dataSourceClassName = null;
-                dataSourceProperties = new HashMap<String, String>();
-            }
-            if (database == null) {
-                database = parts[1];
-            }
-            if (parts.length == 3 && parts[2].equals("destroyMethod")) {
-                destroyMethodName = property.getValue();
-            } else if (parts[2].equals("dataSource")) {
-                if (parts.length == 3) {
-                    dataSourceClassName = property.getValue();
-                } else if (parts.length == 4) {
-                    dataSourceProperties.put(parts[3], property.getValue());
-                } else {
-                    Database.get().log.warn("Invalid DataSource property '" + property.getKey() + "'");
+                String value = (String) property.getValue();
+                switch (parts.length) {
+                case 2:
+                    if (parts[1].equals("context")) {
+                        context = value;
+                    } else {
+                        isMalformed = true;
+                    }
+                case 3:
+                    if (parts[2].equals("destroyMethod")) {
+                        configuration.destroyMethodName = value;
+                    } else if (parts[2].equals("context")) {
+                        configuration.context = value;
+                    } else if (parts[2].equals("dataSource")) {
+                        configuration.dataSourceClassName = value;
+                    } else {
+                        isMalformed = true;
+                    }
+                    break;
+                case 4:
+                    if (parts[2].equals("dataSource")) {
+                        configuration.dataSourceProperties.put(parts[3], value);
+                    } else {
+                        isMalformed = true;
+                    }
+                    break;
+                default:
+                    isMalformed = true;
                 }
             } else {
-                Database.get().log.warn("Invalid property '" + property.getKey() + "'");
+                isMalformed = true;
+            }
+            if (isMalformed) {
+                Database.get().log.warn(String.format("Malformed jorm property: %s", property.toString()));
             }
         }
-
-        if (database != null) {
-            Configuration configuration = configurations.get(database);
-            if (configuration == null) {
-                configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
-                configurations.put(database, configuration);
-                Database.get().log.debug("Configured " + configuration);
-            }
-        }
+        return context;
     }
 
     public static class Configuration {
-
         private String database;
+        private String context;
         private String dataSourceClassName;
         private String destroyMethodName;
         private Map<String, String> dataSourceProperties;
-
         private DataSource dataSource;
         private Method destroyMethod;
 
@@ -452,6 +465,7 @@ public class Database {
                     dataSourceProperties.put(key, base.dataSourceProperties.get(key));
                 }
             }
+            context = null;
         }
 
         public void apply() {
@@ -459,11 +473,17 @@ public class Database {
             configure(database, dataSource);
         }
 
-        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties, String destroyMethodName) {
+//        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties, String destroyMethodName) {
+//            this.database = database;
+//            this.dataSourceClassName = dataSourceClassName;
+//            this.destroyMethodName = destroyMethodName;
+//            this.dataSourceProperties = dataSourceProperties;
+//        }
+
+        public Configuration(String database) {
             this.database = database;
-            this.dataSourceClassName = dataSourceClassName;
-            this.destroyMethodName = destroyMethodName;
-            this.dataSourceProperties = dataSourceProperties;
+            context = "";
+            dataSourceProperties = new HashMap<String, String>();
         }
 
         private void init() {
