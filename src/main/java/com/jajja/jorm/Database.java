@@ -382,61 +382,6 @@ public class Database {
             return;
         }
 
-//        String database = null;
-//        String destroyMethodName = null;
-//        String dataSourceClassName = null;
-//        Map<String, String> dataSourceProperties = new HashMap<String, String>();
-//
-//        TreeMap<String, String> treeMap = new TreeMap<String, String>(); // XXX: not really needed anymore since the order is no longer important
-//        for (Entry<Object, Object> e : properties.entrySet()) {
-//            treeMap.put((String) e.getKey(), (String) e.getValue());
-//        }
-//
-//        for (Entry<String, String> property : treeMap.entrySet()) {
-//            String[] parts = property.getKey().split("\\.");
-//            if (parts.length < 3 || !parts[0].equals("database")) {
-//                continue;
-//            }
-//            if (database != null && !parts[1].equals(database)) {
-//                Configuration configuration = configurations.get(database);
-//                if (configuration == null) {
-//                    configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
-//                    configurations.put(database, configuration);
-//                    Database.get().log.debug("Configured " + configuration);
-//                }
-//                database = null;
-//                destroyMethodName = null;
-//                dataSourceClassName = null;
-//                dataSourceProperties = new HashMap<String, String>();
-//            }
-//            if (database == null) {
-//                database = parts[1];
-//            }
-//            if (parts.length == 3 && parts[2].equals("destroyMethod")) {
-//                destroyMethodName = property.getValue();
-//            } else if (parts[2].equals("dataSource")) {
-//                if (parts.length == 3) {
-//                    dataSourceClassName = property.getValue();
-//                } else if (parts.length == 4) {
-//                    dataSourceProperties.put(parts[3], property.getValue());
-//                } else {
-//                    Database.get().log.warn("Invalid DataSource property '" + property.getKey() + "'");
-//                }
-//            } else {
-//                Database.get().log.warn("Invalid property '" + property.getKey() + "'");
-//            }
-//        }
-//
-//        if (database != null) {
-//            Configuration configuration = configurations.get(database);
-//            if (configuration == null) {
-//                configuration = new Configuration(database, dataSourceClassName, dataSourceProperties, destroyMethodName);
-//                configurations.put(database, configuration);
-//                Database.get().log.debug("Configured " + configuration);
-//            }
-//        }
-
-        // XXX: OOP approach
         for (Entry<Object, Object> property : properties.entrySet()) {
             String[] parts = ((String) property.getKey()).split("\\.");
             if (parts.length < 3 || !parts[0].equals("database")) {
