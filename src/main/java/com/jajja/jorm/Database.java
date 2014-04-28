@@ -324,6 +324,7 @@ public class Database {
      * database.moria@production.dataSource.username=prod
      * database.moria@production.dataSource.password=$43CR37:P455
      *
+     * database.context=
      * database.moria.context=production
      */
     private static void configure() {
@@ -331,10 +332,14 @@ public class Database {
             Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
             configurations = new HashMap<String, Configuration>();
             URL local = null;
+            String globalContext = "";
             while (urls.hasMoreElements()) {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
-                    configure(url);
+                    String configuredContext = configure(url);
+                    if (!configuredContext.isEmpty()) {
+                        globalContext = configuredContext;
+                    }
                 } else {
                     local = url;
                 }
@@ -345,9 +350,9 @@ public class Database {
             Set<String> databases = new HashSet<String>();
             for (Entry<String, Configuration> entry : configurations.entrySet()) {
                 String database = entry.getKey();
-                int context = database.indexOf(Context.SEPARATOR);
-                if (0 < context) {
-                    database = database.substring(0, context);
+                int index = database.indexOf(Context.SEPARATOR);
+                if (0 < index) {
+                    database = database.substring(0, index);
                     Configuration base =  configurations.get(database);
                     if (base != null) {
                         entry.getValue().inherit(base);
@@ -359,6 +364,9 @@ public class Database {
             }
             for (Configuration configuration : configurations.values()) {
                 if (configuration.context != null) {
+                    if (configuration.context.isEmpty()) {
+                        configuration.context = globalContext;
+                    }
                     context.setGlobal(configuration.database, configuration.context);
                 }
             }
@@ -369,7 +377,7 @@ public class Database {
         }
     }
 
-    private static void configure(URL url) {
+    private static String configure(URL url) { // return context
         Database.get().log.debug("Found jorm configuration @ " + url.toString());
 
         Properties properties = new Properties();
@@ -379,44 +387,56 @@ public class Database {
             is.close();
         } catch (IOException ex) {
             Database.get().log.error("Failed to open jorm.properties: " + ex.getMessage(), ex);
-            return;
+            return "";
         }
-
+        String context = "";
         for (Entry<Object, Object> property : properties.entrySet()) {
             String[] parts = ((String) property.getKey()).split("\\.");
-            if (parts.length < 3 || !parts[0].equals("database")) {
-                continue;
-            }
-            String database = parts[1];
-            Configuration configuration = configurations.get(database);
-            if (configuration == null) {
-                configurations.put(database, new Configuration(database));
-                configuration = configurations.get(database);
-            }
-            String value = (String) property.getValue();
-            switch (parts.length) {
-            case 3:
-                if (parts[2].equals("destroyMethod")) {
-                    configuration.destroyMethodName = value;
-                } else if (parts[2].equals("context")) {
-                    configuration.context = value;
-                } else if (parts[2].equals("dataSource")) {
-                    configuration.dataSourceClassName = value;
-                } else {
-                    Database.get().log.warn(String.format("Unknown database attribute '%s' in jorm property: ‰s", parts[2], property.toString()));
+            boolean isMalformed = false;
+            if (parts[0].equals("database")) {
+                String database = parts[1];
+                Configuration configuration = configurations.get(database);
+                if (configuration == null) {
+                    configurations.put(database, new Configuration(database));
+                    configuration = configurations.get(database);
                 }
-                break;
-            case 4:
-                if (parts[2].equals("dataSource")) {
-                    configuration.dataSourceProperties.put(parts[3], value);
-                } else {
-                    Database.get().log.warn(String.format("Invalid jorm property: ‰s", property.toString()));
+                String value = (String) property.getValue();
+                switch (parts.length) {
+                case 2:
+                    if (parts[1].equals("context")) {
+                        context = value;
+                    } else {
+                        isMalformed = true;
+                    }
+                case 3:
+                    if (parts[2].equals("destroyMethod")) {
+                        configuration.destroyMethodName = value;
+                    } else if (parts[2].equals("context")) {
+                        configuration.context = value;
+                    } else if (parts[2].equals("dataSource")) {
+                        configuration.dataSourceClassName = value;
+                    } else {
+                        isMalformed = true;
+                    }
+                    break;
+                case 4:
+                    if (parts[2].equals("dataSource")) {
+                        configuration.dataSourceProperties.put(parts[3], value);
+                    } else {
+                        isMalformed = true;
+                    }
+                    break;
+                default:
+                    isMalformed = true;
                 }
-                break;
-            default:
-                Database.get().log.warn(String.format("Invalid jorm property: ‰s", property.toString()));
+            } else {
+                isMalformed = true;
+            }
+            if (isMalformed) {
+                Database.get().log.warn(String.format("Malformed jorm property: ‰s", property.toString()));
             }
         }
+        return context;
     }
 
     public static class Configuration {
