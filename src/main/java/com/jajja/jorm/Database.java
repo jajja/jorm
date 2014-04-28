@@ -433,7 +433,7 @@ public class Database {
                 isMalformed = true;
             }
             if (isMalformed) {
-                Database.get().log.warn(String.format("Malformed jorm property: ‰s", property.toString()));
+                Database.get().log.warn(String.format("Malformed jorm property: %s", property.toString()));
             }
         }
         return context;
