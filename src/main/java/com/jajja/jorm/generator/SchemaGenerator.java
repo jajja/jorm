@@ -27,9 +27,11 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
@@ -45,17 +47,39 @@ import com.jajja.jorm.Transaction;
  * @since 1.1.0
  */
 public class SchemaGenerator implements Lookupable {
+    private static final Set<String> reservedKeywords = new HashSet<String>();
     private String name;
     private String packageName;
     Map<String, TableGenerator> tables = new LinkedHashMap<String, TableGenerator>();
     private DatabaseGenerator database;
+
+    static {
+        String[] keywords = new String[] {
+                "abstract", "assert", "boolean", "break", "byte", "case",
+                "catch", "char", "class", "const", "continue", "default",
+                "do", "double", "else", "enum", "extends", "final",
+                "finally", "float", "for", "goto", "if", "implements",
+                "import", "instanceof", "int", "interface", "long",
+                "native", "new", "package", "private", "protected",
+                "public", "return", "short", "static", "strictfp",
+                "super", "switch", "synchronized", "this", "throw",
+                "throws", "transient", "try", "void", "volatile",
+                "while", "false", "null", "true" };
+        for (String keyword : keywords) {
+            reservedKeywords.add(keyword);
+        }
+    }
 
     public SchemaGenerator(DatabaseGenerator database, String name) {
         this.database = database;
         this.name = name;
         this.packageName = database.getPackageName();
         if (name != null) {
-            this.packageName += "." + name.toLowerCase();
+            String lcaseName = name.toLowerCase();
+            while (reservedKeywords.contains(lcaseName)) {
+                lcaseName = "x" + lcaseName;
+            }
+            this.packageName += "." + lcaseName;
         }
     }
 
