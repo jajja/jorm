@@ -165,7 +165,7 @@ public class Moria {
 
     @Test
     public void t10_environment() {
-        Database.set("test");
+        Database.set("moria", "test");
         try {
             Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql")); // per transaction!
             Goblin goblin = Record.select(Goblin.class, "SELECT * FROM #1# LIMIT 1", Goblin.class);
@@ -178,6 +178,6 @@ public class Moria {
             e.printStackTrace();
             Assert.fail();
         }
-        Database.unset();
+        Database.set("moria", "");
     }
 }
