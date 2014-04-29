@@ -37,8 +37,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.generator.Generator;
@@ -137,7 +137,7 @@ public abstract class Record {
     private Table table;
     protected boolean isStale = false;
     private boolean isReadOnly = false;
-    private static Map<Class<? extends Record>, Log> logs = new ConcurrentHashMap<Class<? extends Record>, Log>(16, 0.75f, 1);
+    private static Map<Class<? extends Record>, Logger> logs = new ConcurrentHashMap<Class<? extends Record>, Logger>(16, 0.75f, 1);
 
     public static enum ResultMode {
         /** For both INSERTs and UPDATEs, fully repopulate record(s). This is the default. */
@@ -197,13 +197,13 @@ public abstract class Record {
      *            the class defining log instance.
      * @return the class specific cached log.
      */
-    public static Log log(Class<? extends Record> clazz) {
-        Log log = logs.get(clazz);
+    public static Logger log(Class<? extends Record> clazz) {
+        Logger log = logs.get(clazz);
         if (log == null) {
             synchronized (logs) {
                 log = logs.get(clazz);
                 if (log == null) {
-                    log = LogFactory.getLog(clazz);
+                    log = LoggerFactory.getLogger(clazz);
                     logs.put(clazz, log);
                 }
             }
@@ -214,7 +214,7 @@ public abstract class Record {
     /**
      * Provides the cached log for the instance class according to {@link Record#log(Class)}.
      */
-    public Log log() {
+    public Logger log() {
         return log(getClass());
     }
 

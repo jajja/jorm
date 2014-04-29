@@ -38,8 +38,8 @@ import java.util.Map;
 
 import javax.sql.DataSource;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The transaction implementation executing all queries in for {@link Jorm}
@@ -72,7 +72,7 @@ import org.apache.commons.logging.LogFactory;
  * @since 1.0.0
  */
 public class Transaction {
-    private static Log log = LogFactory.getLog(Transaction.class);
+    private static Logger log = LoggerFactory.getLogger(Transaction.class);
     private String database;
     private DataSource dataSource;
     private Dialect dialect;
@@ -251,7 +251,7 @@ public class Transaction {
 
     /**
      * Rolls back the current transaction and closes the database connection.
-     * 
+     *
      * @param close
      *            whether or not to close the database connection.
      */
@@ -261,7 +261,7 @@ public class Transaction {
 
     /**
      * Rolls back the current transaction and optionally closes the database connection.
-     * 
+     *
      * @param close
      *            whether or not to close the database connection.
      */
@@ -271,12 +271,12 @@ public class Transaction {
                 tracelog("ROLLBACK");
                 connection.rollback();
             } catch (SQLException e) {
-                log.fatal("Failed to rollback transaction", e);
+                log.error("Failed to rollback transaction", e);
             }
             try {
                 connection.close();
             } catch (SQLException e) {
-                log.fatal("Failed to close connection", e);
+                log.error("Failed to close connection", e);
             }
             now = null;
             dialect = null;
