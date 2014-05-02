@@ -29,6 +29,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+
 import org.joda.time.Period;
 import org.postgresql.jdbc4.Jdbc4Array;
 import org.postgresql.util.PGInterval;

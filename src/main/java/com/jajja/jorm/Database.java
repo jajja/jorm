@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+
 import javax.sql.DataSource;
 
 import org.slf4j.Logger;
@@ -225,12 +226,9 @@ public class Database {
         map.clear();
         instance.transactions.remove();
     }
-    private static Map<String, Configuration> configurations;
+
 
     private static final Context context = new Context();
-    static {
-        configure();
-    }
 
     public static void set(String database, String context) {
         Database.context.setGlobal(database, context);
@@ -301,6 +299,12 @@ public class Database {
         }
     }
 
+
+    private static Map<String, Configuration> configurations;
+
+    static {
+        configure();
+    }
     /*
      * jorm.properties
      * ---------------
@@ -391,7 +395,7 @@ public class Database {
         }
         String context = "";
         for (Entry<Object, Object> property : properties.entrySet()) {
-            String[] parts = ((String) property.getKey()).split("\\.");
+            String[] parts = ((String)property.getKey()).split("\\.");
             boolean isMalformed = false;
             if (parts[0].equals("database")) {
                 String database = parts[1];
@@ -400,7 +404,7 @@ public class Database {
                     configurations.put(database, new Configuration(database));
                     configuration = configurations.get(database);
                 }
-                String value = (String) property.getValue();
+                String value = (String)property.getValue();
                 switch (parts.length) {
                 case 2:
                     if (parts[1].equals("context")) {
@@ -498,7 +502,7 @@ public class Database {
                         throw new IllegalArgumentException("The destroy method is not accessible!", e);
                     }
                 }
-                dataSource = (DataSource) type.newInstance();
+                dataSource = (DataSource)type.newInstance();
                 for (Method method : dataSource.getClass().getMethods()) {
                     String methodName = method.getName();
                     Class<?>[] parameterTypes = method.getParameterTypes();
@@ -553,7 +557,7 @@ public class Database {
             } else {
                 object = null;
             }
-            return (T) object;
+            return (T)object;
         }
     }
 }

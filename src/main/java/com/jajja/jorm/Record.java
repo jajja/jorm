@@ -2247,7 +2247,7 @@ public abstract class Record {
                 throw new RuntimeException("column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
             }
         }
-        return (T) value;
+        return (T)value;
     }
 
     /**
