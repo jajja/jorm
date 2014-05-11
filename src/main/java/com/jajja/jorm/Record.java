@@ -133,10 +133,11 @@ import com.jajja.jorm.generator.Generator;
  * @since 1.0.0
  */
 public abstract class Record {
+    public static final byte FLAG_STALE = 0x01;
+    public static final byte FLAG_READ_ONLY = 0x02;
     Map<Symbol, Field> fields = new HashMap<Symbol, Field>();
     private Table table;
-    protected boolean isStale = false;
-    private boolean isReadOnly = false;
+    private byte flags;
     private static Map<Class<? extends Record>, Logger> logs = new ConcurrentHashMap<Class<? extends Record>, Logger>(16, 0.75f, 1);
 
     public static enum ResultMode {
@@ -1372,14 +1373,39 @@ public abstract class Record {
         return false;
     }
 
+    private void flag(int flag, boolean set) {
+        if (set) {
+            flags |= flag;
+        } else {
+            flags &= ~flag;
+        }
+    }
+
+    private boolean flag(int flag) {
+        return (flags &= flag) != 0;
+    }
+
     /**
+     * Deprecated: use stale(true)
      * Marks this record as stale. It will be re-populated on the next call to
      * {@link #set(String, Object)}, {@link #set(Symbol, Object)},
      * {@link #get(String)}, {@link #get(Symbol)} or {@link #refresh()},
      * whichever comes first.
      */
+    @Deprecated
     public void markStale() {
-        isStale = true;
+        flag(FLAG_STALE, true);
+    }
+
+    /**
+     * Marks this record as stale or fresh. Stale records are re-populated
+     * with fresh values from the database on the next call to
+     * {@link #set(String, Object)}, {@link #set(Symbol, Object)},
+     * {@link #get(String)}, {@link #get(Symbol)} or {@link #refresh()},
+     * whichever comes first.
+     */
+    public void stale(boolean setStale) {
+        flag(FLAG_STALE, setStale);
     }
 
     /**
@@ -1391,7 +1417,41 @@ public abstract class Record {
      * @return true if the record is stale otherwise false.
      */
     public boolean isStale() {
-        return isStale;
+        return flag(FLAG_STALE);
+    }
+
+    /**
+     * Sets the record as read only according to given value
+     *
+     * @param setReadOnly
+     *            the value determining read only state of the record.
+     * @throws RuntimeException
+     *             whenever a record is set to read only without table mapping
+     *             provided by an {@link Jorm} annotation, i.e. on anonymous
+     *             records retrieved through calls to
+     *             {@link Transaction#select(Query)},
+     *             {@link Transaction#select(String, Object...)},
+     *             {@link Transaction#selectAll(Query)} and
+     *             {@link Transaction#selectAll(String, Object...)}.
+     */
+    public void readOnly(boolean setReadOnly) {
+        if (primaryKey() == null && setReadOnly) {
+            throw new RuntimeException("Cannot mark anonymous records as read only!");
+        }
+        flag(FLAG_READ_ONLY, setReadOnly);
+    }
+
+    /**
+     * Returns true if this record is read only.
+     */
+    public boolean isReadOnly() {
+        return flag(FLAG_READ_ONLY);
+    }
+
+    private void checkReadOnly() {
+        if (isReadOnly()) {
+            throw new RuntimeException("Record is read only!");
+        }
     }
 
     private static List<? extends Record> batchChunk(Iterator<? extends Record> iterator, int size) {
@@ -1497,7 +1557,7 @@ public abstract class Record {
                     if (mode == ResultMode.REPOPULATE) {
                         if (map == null) throw new IllegalStateException("bug");
                         map.put(field.getValue(), record);
-                        record.isStale = false; // actually still stale
+                        record.stale(false);    // actually still stale
                     }
                 }
             }
@@ -1530,7 +1590,7 @@ public abstract class Record {
         } catch (SQLException sqlException) {
             // records are in an unknown state, mark them stale
             for (Record record : records) {
-                record.markStale();
+                record.stale(true);
             }
             throw dialect.rethrow(sqlException);
         } finally {
@@ -1557,7 +1617,7 @@ public abstract class Record {
     public void insert(ResultMode mode) throws SQLException {
         checkReadOnly();
 
-        if (isStale) {
+        if (isStale()) {
             return;
         }
 
@@ -1599,7 +1659,7 @@ public abstract class Record {
             query.append(")");
         }
 
-        markStale();
+        stale(true);
 
         if (mode == ResultMode.NO_RESULT) {
             transaction().execute(query);
@@ -1735,7 +1795,7 @@ public abstract class Record {
                 isColumnFirst = false;
             }
             query.append(")");
-            record.markStale();
+            record.stale(true);
         }
 
         batchExecute(query, records, mode);
@@ -1754,7 +1814,7 @@ public abstract class Record {
         if (!isChanged()) {
             return;
         }
-        if (isStale) {
+        if (isStale()) {
             //throw new IllegalStateException("Attempting to update a stale record!");
             return;
         }
@@ -1780,7 +1840,7 @@ public abstract class Record {
 
         query.append(" WHERE #1#", transaction().getDialect().toSqlExpression(primaryKey(), id()));
 
-        markStale();
+        stale(true);
         if (transaction().getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
             query.append(" RETURNING *");
             selectInto(query);
@@ -1961,53 +2021,19 @@ public abstract class Record {
      *             whenever a SQLException occurs.
      */
     public void refresh() {
-        if (isStale) {
+        if (isStale()) {
             try {
                 assertPrimaryKeyNotNull();
                 populateById(primaryKey().valueFrom(this, true));
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to refresh stale record", e);
             }
-            isStale = false;
-        }
-    }
-
-    /**
-     * Sets the record as read only according to given value
-     *
-     * @param isReadOnly
-     *            the value determining read only state of the record.
-     * @throws RuntimeException
-     *             whenever a record is set to read only without table mapping
-     *             provided by an {@link Jorm} annotation, i.e. on anonymous
-     *             records retrieved through calls to
-     *             {@link Transaction#select(Query)},
-     *             {@link Transaction#select(String, Object...)},
-     *             {@link Transaction#selectAll(Query)} and
-     *             {@link Transaction#selectAll(String, Object...)}.
-     */
-    public void readOnly(boolean isReadOnly) {
-        if (primaryKey() == null && isReadOnly) {
-            throw new RuntimeException("Cannot mark anonymous records as read only!");
-        }
-        this.isReadOnly = isReadOnly;
-    }
-
-    /**
-     * Returns true if this record is read only.
-     */
-    public boolean isReadOnly() {
-        return isReadOnly;
-    }
-
-    private void checkReadOnly() {
-        if (isReadOnly) {
-            throw new RuntimeException("Record is read only!");
+            stale(false);
         }
     }
 
     private boolean isChanged(Symbol symbol, Object newValue) {
-        if (isReadOnly || table.isImmutable(symbol)) {
+        if (isReadOnly() || table.isImmutable(symbol)) {
             return false;
         }
 
@@ -2294,10 +2320,10 @@ public abstract class Record {
             stringBuilder.append(table.getTable());
             stringBuilder.append(' ');
         }
-        if (isStale) {
+        if (isStale()) {
             stringBuilder.append("stale ");
         }
-        if (isReadOnly) {
+        if (isReadOnly()) {
             stringBuilder.append("read-only ");
         }
 

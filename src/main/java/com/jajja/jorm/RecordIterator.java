@@ -39,15 +39,15 @@ public class RecordIterator implements Closeable {
 
     private void populate(Record record, ResultSet resultSet) throws SQLException {
         for (int i = 0; i < symbols.length; i++) {
-            record.isStale = false;
+            record.stale(false);
             try {
                 record.put(symbols[i], resultSet.getObject(i + 1));
             } catch (SQLException sqlException) {
                 record.transaction().getDialect().rethrow(sqlException);
             } finally {
-                record.isStale = true; // lol exception
+                record.stale(true);
             }
-            record.isStale = false;
+            record.stale(false);
         }
         Iterator<Symbol> i = record.fields.keySet().iterator();
         while (i.hasNext()) {
