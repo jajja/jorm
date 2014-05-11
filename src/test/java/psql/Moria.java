@@ -4,13 +4,13 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 
-import junit.framework.Assert;
 import moria.Goblin;
 import moria.Litter;
 import moria.Locale;
 import moria.Tribe;
 
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
