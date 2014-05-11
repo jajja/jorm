@@ -13,7 +13,6 @@ import moria.Tribe;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +22,6 @@ import com.jajja.jorm.exceptions.CheckViolationException;
 import com.jajja.jorm.exceptions.UniqueViolationException;
 
 public class Moria {
-
     Logger log = LoggerFactory.getLogger(Moria.class);
 
     @BeforeClass
@@ -172,7 +170,7 @@ public class Moria {
 
     @Test
     public void t10_environment() {
-        Database.set("moria", "test");
+        Database.Context context = Database.context("moria", "test");
         try {
             Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql")); // per transaction!
             Goblin goblin = Record.select(Goblin.class, "SELECT * FROM #1# LIMIT 1", Goblin.class);
@@ -184,7 +182,72 @@ public class Moria {
         } catch (IOException e) {
             log.error("Fail caused by IO exception", e);
             Assert.fail();
+        } finally {
+            context.close();
         }
-        Database.set("moria", "");
     }
+
+    private static void assertContext(String name) {
+        Assert.assertTrue(name.equals(Database.context("moria").effectiveName()));
+    }
+
+    @Test
+    public void t11_stacked_context() {
+        Database.Context context1;
+        Database.Context context2;
+        Database.Context context3;
+
+        Assert.assertTrue(Database.globalDefaultContext().isEmpty());
+        Assert.assertTrue(Database.defaultContext("moria") == null);
+
+        context1 = Database.context("moria", "test");
+        assertContext("moria@test");
+        context1.close();
+
+        assertContext("moria");
+        context1 = Database.context("moria", "test"); {
+            assertContext("moria@test");
+            context2 = Database.context("moria", "test2"); {
+                assertContext("moria@test2");
+                context3 = Database.context("moria", "test3"); {
+                    assertContext("moria@test3");
+                } context3.close();
+                assertContext("moria@test2");
+            } context2.close();
+            assertContext("moria@test");
+        } context1.close();
+        assertContext("moria");
+
+        // Closing the root context should throw an exception
+        try {
+            Database.context("moria").close();
+            Assert.fail();
+        } catch (IllegalStateException e) {
+        }
+
+        Database.globalDefaultContext("dev");
+        Database.defaultContext("moria", "test");
+        Assert.assertTrue(Database.globalDefaultContext().equals("dev"));
+        Assert.assertTrue(Database.defaultContext("moria").equals("test"));
+        assertContext("moria@test");
+        Database.defaultContext("moria", null);
+
+        assertContext("moria@dev");
+        context1 = Database.context("moria", "test"); {
+            assertContext("moria@test");
+            context2 = Database.context("moria", null); {       // null = global context
+                assertContext("moria@dev");
+                context3 = Database.context("moria", ""); {     // "" = empty context
+                    assertContext("moria");
+                } context3.close();
+                assertContext("moria@dev");
+            } context2.close();
+            assertContext("moria@test");
+        } context1.close();
+        assertContext("moria@dev");
+
+        Database.globalDefaultContext("");
+        Database.defaultContext("moria", null);
+        assertContext("moria");
+     }
 }

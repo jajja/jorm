@@ -21,6 +21,7 @@
  */
 package com.jajja.jorm;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
@@ -28,11 +29,9 @@ import java.net.URL;
 import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
-import java.util.Set;
 
 import javax.sql.DataSource;
 
@@ -56,7 +55,10 @@ import org.slf4j.LoggerFactory;
 public class Database {
     private ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
     private Map<String, DataSource> dataSources = new HashMap<String, DataSource>();
-    protected Logger log = LoggerFactory.getLogger(Database.class);
+    private ThreadLocal<HashMap<String, Context>> contextStack = new ThreadLocal<HashMap<String, Context>>();
+    private String globalDefaultContext = "";
+    private Map<String, String> defaultContext = new HashMap<String, String>();
+    private Logger log = LoggerFactory.getLogger(Database.class);
     private static volatile Database instance = new Database();
 
     private Database() {
@@ -81,7 +83,6 @@ public class Database {
     }
 
     private DataSource getDataSource(String database) {
-        database = context.get(database);
         synchronized (dataSources) {
             return dataSources.get(database);
         }
@@ -156,7 +157,7 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
-        database = context.get(database);
+        database = context(database).effectiveName();
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction == null) {
@@ -170,11 +171,6 @@ public class Database {
         return transaction;
     }
 
-    public static Transaction open(String database, String context) {
-        Database.context.setLocal(database, context);
-        return open(database);
-    }
-
     /**
      * Commits the thread local transaction for the given database name if it
      * has been opened.
@@ -184,7 +180,7 @@ public class Database {
      * @throws SQLException if a database access error occur
      */
     public static Transaction commit(String database) throws SQLException {
-        database = context.get(database);
+        database = context(database).effectiveName();
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
@@ -203,7 +199,7 @@ public class Database {
      * @return the closed transaction or null for no active transaction.
      */
     public static Transaction close(String database) {
-        database = context.get(database);
+        database = context(database).effectiveName();
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
@@ -218,7 +214,6 @@ public class Database {
      * Closes and destroys all transactions for the current thread.
      */
     public static void close() {
-        context.clear();
         HashMap<String, Transaction> map = instance.getTransactions();
         for (Transaction transaction : map.values()) {
             transaction.destroy();
@@ -227,84 +222,18 @@ public class Database {
         instance.transactions.remove();
     }
 
-
-    private static final Context context = new Context();
-
-    public static void set(String database, String context) {
-        Database.context.setGlobal(database, context);
-    }
-
-    public static void set(String context) { // XXX: necessary?
-        for (Configuration configuration : configurations.values()) {
-            if (configuration.context != null) {
-                set(configuration.database, context);
-            }
-        }
-    }
-
-    public String context(String database) {
-        return context.get(database);
-    }
-
     public static void destroy() {
         for (Configuration configuration : configurations.values()) {
             configuration.destroy();
         }
     }
 
-    private static class Context {
-        private static final char SEPARATOR = '@';
-        private Map<String, String> global;
-        private ThreadLocal<Map<String, String>> threadLocal;
-
-        public Context() {
-            global = new HashMap<String, String>();
-            threadLocal = new ThreadLocal<Map<String, String>>();
-        }
-
-        private Map<String, String> local() {
-            Map<String, String> map = threadLocal.get();
-            if (map == null) {
-                threadLocal.set(new HashMap<String, String>());
-                map = threadLocal.get();
-            }
-            return map;
-        }
-
-        public void setGlobal(String database, String name) {
-            global.put(database, name);
-        }
-
-        public void setLocal(String database, String name) {
-            local().put(database, name);
-        }
-
-        public void clear() {
-            local().clear();
-        }
-
-        public String get(String database) {
-            if (0 < database.indexOf(SEPARATOR)) {
-                return database;
-            }
-            String name = local().get(database);
-            if (name == null) {
-                name = global.get(database);
-            }
-            if (name.isEmpty()) {
-                return database;
-            } else {
-                return database + SEPARATOR + name;
-            }
-        }
-    }
-
-
     private static Map<String, Configuration> configurations;
 
     static {
         configure();
     }
+
     /*
      * jorm.properties
      * ---------------
@@ -333,17 +262,14 @@ public class Database {
      */
     private static void configure() {
         try {
-            Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
             configurations = new HashMap<String, Configuration>();
+
+            Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
             URL local = null;
-            String globalContext = "";
             while (urls.hasMoreElements()) {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
-                    String configuredContext = configure(url);
-                    if (!configuredContext.isEmpty()) {
-                        globalContext = configuredContext;
-                    }
+                    configure(url);
                 } else {
                     local = url;
                 }
@@ -351,37 +277,28 @@ public class Database {
             if (local != null) {
                 configure(local);
             }
-            Set<String> databases = new HashSet<String>();
+
             for (Entry<String, Configuration> entry : configurations.entrySet()) {
                 String database = entry.getKey();
-                int index = database.indexOf(Context.SEPARATOR);
-                if (0 < index) {
-                    database = database.substring(0, index);
-                    Configuration base =  configurations.get(database);
+                Configuration configuration = entry.getValue();
+                int index = database.indexOf(Context.CONTEXT_SEPARATOR);
+                if (index > 0) {
+                    Configuration base = configurations.get(database.substring(0, index));
                     if (base != null) {
-                        entry.getValue().inherit(base);
+                        configuration.inherit(base);
                     }
                 }
-                databases.add(database);
-                entry.getValue().apply();
-                Database.get().log.debug("Configured " + entry.getValue());
-            }
-            for (Configuration configuration : configurations.values()) {
-                if (configuration.context != null) {
-                    if (configuration.context.isEmpty()) {
-                        configuration.context = globalContext;
-                    }
-                    context.setGlobal(configuration.database, configuration.context);
-                }
+                configuration.init();
+                configure(database, configuration.dataSource);
+                Database.get().log.debug("Configured " + configuration);
             }
         } catch (IOException ex) {
-            ex.printStackTrace();
             Database.get().log.warn("Failed to find resource 'jorm.properties': " + ex.getMessage(), ex);
             configurations = null;
         }
     }
 
-    private static String configure(URL url) { // return context
+    private static void configure(URL url) {
         Database.get().log.debug("Found jorm configuration @ " + url.toString());
 
         Properties properties = new Properties();
@@ -391,38 +308,48 @@ public class Database {
             is.close();
         } catch (IOException ex) {
             Database.get().log.error("Failed to open jorm.properties: " + ex.getMessage(), ex);
-            return "";
+            return;
         }
-        String context = "";
+
         for (Entry<Object, Object> property : properties.entrySet()) {
             String[] parts = ((String)property.getKey()).split("\\.");
             boolean isMalformed = false;
-            if (parts[0].equals("database")) {
+
+            if (parts[0].equals("database") && parts.length > 1) {
                 String database = parts[1];
+
                 Configuration configuration = configurations.get(database);
                 if (configuration == null) {
-                    configurations.put(database, new Configuration(database));
-                    configuration = configurations.get(database);
+                    configuration = new Configuration(database);
+                    configurations.put(database, configuration);
                 }
+
                 String value = (String)property.getValue();
                 switch (parts.length) {
                 case 2:
                     if (parts[1].equals("context")) {
-                        context = value;
-                    } else {
-                        isMalformed = true;
-                    }
-                case 3:
-                    if (parts[2].equals("destroyMethod")) {
-                        configuration.destroyMethodName = value;
-                    } else if (parts[2].equals("context")) {
-                        configuration.context = value;
-                    } else if (parts[2].equals("dataSource")) {
-                        configuration.dataSourceClassName = value;
+                        Database.get().globalDefaultContext = value;
                     } else {
                         isMalformed = true;
                     }
                     break;
+
+                case 3:
+                    if (parts[2].equals("destroyMethod")) {
+                        configuration.destroyMethodName = value;
+                    } else if (parts[2].equals("dataSource")) {
+                        configuration.dataSourceClassName = value;
+                    } else if (parts[2].equals("defaultContext")) {
+                        if (database.indexOf(Context.CONTEXT_SEPARATOR) != -1) {
+                            isMalformed = true;
+                        } else {
+                            Database.get().defaultContext.put(database, value);
+                        }
+                    } else {
+                        isMalformed = true;
+                    }
+                    break;
+
                 case 4:
                     if (parts[2].equals("dataSource")) {
                         configuration.dataSourceProperties.put(parts[3], value);
@@ -430,32 +357,27 @@ public class Database {
                         isMalformed = true;
                     }
                     break;
+
                 default:
                     isMalformed = true;
                 }
             } else {
                 isMalformed = true;
             }
+
             if (isMalformed) {
                 Database.get().log.warn(String.format("Malformed jorm property: %s", property.toString()));
             }
         }
-        return context;
     }
 
     public static class Configuration {
         private String database;
-        private String context;
         private String dataSourceClassName;
         private String destroyMethodName;
-        private Map<String, String> dataSourceProperties;
+        private Map<String, String> dataSourceProperties = new HashMap<String, String>();
         private DataSource dataSource;
         private Method destroyMethod;
-
-        @Override
-        public String toString() {
-            return "{ database => " + database + ", dataSourceClassName => " + dataSourceClassName + ", dataSourceProperties => " + dataSourceProperties + " }";
-        }
 
         public void inherit(Configuration base) {
             if (dataSourceClassName == null) {
@@ -469,25 +391,10 @@ public class Database {
                     dataSourceProperties.put(key, base.dataSourceProperties.get(key));
                 }
             }
-            context = null;
         }
-
-        public void apply() {
-            init();
-            configure(database, dataSource);
-        }
-
-//        public Configuration(String database, String dataSourceClassName, Map<String, String> dataSourceProperties, String destroyMethodName) {
-//            this.database = database;
-//            this.dataSourceClassName = dataSourceClassName;
-//            this.destroyMethodName = destroyMethodName;
-//            this.dataSourceProperties = dataSourceProperties;
-//        }
 
         public Configuration(String database) {
             this.database = database;
-            context = "";
-            dataSourceProperties = new HashMap<String, String>();
         }
 
         private void init() {
@@ -502,11 +409,13 @@ public class Database {
                         throw new IllegalArgumentException("The destroy method is not accessible!", e);
                     }
                 }
+
                 dataSource = (DataSource)type.newInstance();
                 for (Method method : dataSource.getClass().getMethods()) {
                     String methodName = method.getName();
                     Class<?>[] parameterTypes = method.getParameterTypes();
-                    if (methodName.startsWith("set") && 3 < methodName.length() && parameterTypes.length == 1) {
+
+                    if (methodName.startsWith("set") && methodName.length() > 3 && parameterTypes.length == 1) {
                         String name = method.getName().substring(3, 4).toLowerCase() + method.getName().substring(4); // setValue -> value
                         String property = dataSourceProperties.get(name);
                         if (property != null) {
@@ -559,5 +468,130 @@ public class Database {
             }
             return (T)object;
         }
+
+        @Override
+        public String toString() {
+            return "{ database => " + database + ", dataSourceClassName => " + dataSourceClassName + ", dataSourceProperties => " + dataSourceProperties + " }";
+        }
+    }
+
+    public static class Context implements Closeable {
+        public static final char CONTEXT_SEPARATOR = '@';
+        private Context prev;
+        private Context next;
+        private String database;
+        private String name;
+        private boolean isClosed = false;
+
+        // Root context
+        private Context(String database) {
+            this.database = database;
+        }
+
+        private Context(Context previous, String name) {
+            this.database = previous.database;
+            this.name = name;
+            this.prev = previous;
+            previous.next = this;
+        }
+
+        public String database() {
+            return database;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public String effectiveName() {
+            String effectiveName = database;
+            String name = this.name;
+            if (name == null) {
+                name = defaultContext(database);
+            }
+            if (name == null) {
+                name = globalDefaultContext();
+            }
+            if (name == null) {
+                name = "";
+            }
+            if (!name.isEmpty()) {
+                effectiveName += CONTEXT_SEPARATOR + name;
+            }
+            return effectiveName;
+        }
+
+        @Override
+        public void close() {
+            if (prev == null) {
+                throw new IllegalStateException("Attempt to close root context");
+            }
+            if (next != null || isClosed) {
+                throw new IllegalStateException("Context closed in wrong order");
+            }
+            contextStack(database).put(database, prev);
+            prev.next = null;
+            prev = null;
+            isClosed = true;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s { database=%s, name=%s, prev=%s, next=%s }", getClass(), database, name, prev != null ? "yes" : "no", next != null ? "yes" : "no");
+        }
+    }
+
+    // Get default global context (not thread safe)
+    public static String globalDefaultContext() {
+        return get().globalDefaultContext;
+    }
+
+    // Set default global context (not thread safe)
+    public static String globalDefaultContext(String name) {
+        if (name == null) {
+            name = "";
+        }
+        String previous = globalDefaultContext();
+        get().globalDefaultContext = name;
+        return previous;
+    }
+
+    // Get default per database context (not thread safe)
+    public static String defaultContext(String database) {
+        return get().defaultContext.get(database);
+    }
+
+    // Set default per database context (not thread safe)
+    public static String defaultContext(String database, String name) {
+        return get().defaultContext.put(database, name);
+    }
+
+    private static HashMap<String, Context> contextStack(String database) {
+        ensureConfigured(database);
+        HashMap<String, Context> map = get().contextStack.get();
+        if (map == null) {
+            map = new HashMap<String, Context>();
+            get().contextStack.set(map);
+        }
+        return map;
+    }
+
+    // Get active thread-local context
+    public static Context context(String database) {
+        HashMap<String, Context> map = contextStack(database);
+        Context activeContext = map.get(database);
+        if (activeContext == null) {
+            activeContext = new Context(database);
+            map.put(database, activeContext);
+        }
+        return activeContext;
+    }
+
+    // Push active thread-local context
+    public static Context context(String database, String name) {
+        HashMap<String, Context> map = contextStack(database);
+        Context newContext = new Context(context(database), name);
+        map.put(database, newContext);
+        return newContext;
     }
 }
