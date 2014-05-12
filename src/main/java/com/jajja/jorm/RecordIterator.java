@@ -5,13 +5,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
 
 public class RecordIterator implements Closeable {
     private Symbol[] symbols;
-    private Set<Symbol> symbolSet = new HashSet<Symbol>();
     private PreparedStatement preparedStatement;
     private ResultSet resultSet;
     private boolean autoClose = true;
@@ -30,30 +26,20 @@ public class RecordIterator implements Closeable {
     private void init() throws SQLException {
         ResultSetMetaData metaData = resultSet.getMetaData();
         symbols = new Symbol[metaData.getColumnCount()];
-        symbolSet = new HashSet<Symbol>(symbols.length + 1, 1.0f);    // + 1 to prevent resize?
         for (int i = 0; i < symbols.length; i++) {
             symbols[i] = Symbol.get(metaData.getColumnLabel(i + 1));
-            symbolSet.add(symbols[i]);
         }
     }
 
     private void populate(Record record, ResultSet resultSet) throws SQLException {
+        record.reinitFields(symbols.length);
         for (int i = 0; i < symbols.length; i++) {
             record.stale(false);
             try {
                 record.put(symbols[i], resultSet.getObject(i + 1));
             } catch (SQLException sqlException) {
-                record.transaction().getDialect().rethrow(sqlException);
-            } finally {
                 record.stale(true);
-            }
-            record.stale(false);
-        }
-        Iterator<Symbol> i = record.fields.keySet().iterator();
-        while (i.hasNext()) {
-            Symbol symbol = i.next();
-            if (!symbolSet.contains(symbol)) {
-                record.unset(symbol);
+                record.transaction().getDialect().rethrow(sqlException);
             }
         }
         record.purify();

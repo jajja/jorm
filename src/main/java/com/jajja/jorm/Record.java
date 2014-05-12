@@ -181,6 +181,11 @@ public abstract class Record {
         }
     }
 
+    protected void reinitFields(int numFields) {
+        stale(false);
+        fields = new HashMap<Symbol, Field>(numFields, 1.0f);
+    }
+
     private Field getOrCreateField(Symbol symbol) {
         Field field = fields.get(symbol);
         if (field == null) {
