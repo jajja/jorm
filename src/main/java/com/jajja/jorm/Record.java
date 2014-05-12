@@ -1209,7 +1209,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void save(ResultMode mode) throws SQLException {
-        checkReadOnly();
+        ensureNotReadOnly();
         if (isPrimaryKeyNullOrChanged()) {
             insert(mode);
         } else {
@@ -1266,7 +1266,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void delete() throws SQLException {
-        checkReadOnly();
+        ensureNotReadOnly();
         Dialect dialect = transaction().getDialect();
         Composite primaryKey = primaryKey();
         Query query = new Query(dialect, "DELETE FROM #1# WHERE #2#", table, dialect.toSqlExpression(primaryKey, id()));
@@ -1305,7 +1305,7 @@ public abstract class Record {
                 template = record;
                 database = record.table.getDatabase();
             }
-            record.checkReadOnly();
+            record.ensureNotReadOnly();
         }
 
         if (template == null) {
@@ -1448,7 +1448,7 @@ public abstract class Record {
         return flag(FLAG_READ_ONLY);
     }
 
-    private void checkReadOnly() {
+    private void ensureNotReadOnly() {
         if (isReadOnly()) {
             throw new RuntimeException("Record is read only!");
         }
@@ -1479,7 +1479,7 @@ public abstract class Record {
 
         private BatchInfo(Collection<? extends Record> records) {
             for (Record record : records) {
-                record.checkReadOnly();
+                record.ensureNotReadOnly();
 
                 if (record.isStale()) {
                     throw new IllegalStateException("Attempt to perform batch operation on stale record(s)");
@@ -1619,7 +1619,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void insert(ResultMode mode) throws SQLException {
-        checkReadOnly();
+        ensureNotReadOnly();
 
         if (isStale()) {
             throw new IllegalStateException("Attempt to insert a stale record!");
@@ -1813,7 +1813,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void update(ResultMode mode) throws SQLException {
-        checkReadOnly();
+        ensureNotReadOnly();
 
         if (!isChanged()) {
             return;
@@ -2124,7 +2124,7 @@ public abstract class Record {
      *            the value.
      */
     public void set(Symbol symbol, Object value) {
-        checkReadOnly();
+        ensureNotReadOnly();
         put(symbol, value);
     }
 
@@ -2145,7 +2145,7 @@ public abstract class Record {
      *            the symbol of the column corresponding to the field to set.
      */
     public void unset(Symbol symbol) {
-        checkReadOnly();
+        ensureNotReadOnly();
         Field field;
 
         refresh();
