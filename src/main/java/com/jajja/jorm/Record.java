@@ -1481,6 +1481,10 @@ public abstract class Record {
             for (Record record : records) {
                 record.checkReadOnly();
 
+                if (record.isStale()) {
+                    throw new IllegalStateException("Attempt to perform batch operation on stale record(s)");
+                }
+
                 if (template == null) {
                     template = record;
                 }
@@ -1618,7 +1622,7 @@ public abstract class Record {
         checkReadOnly();
 
         if (isStale()) {
-            return;
+            throw new IllegalStateException("Attempt to insert a stale record!");
         }
 
         if (mode != ResultMode.NO_RESULT && !primaryKey().isSingle() && !transaction().getDialect().isReturningSupported()) {
@@ -1814,9 +1818,9 @@ public abstract class Record {
         if (!isChanged()) {
             return;
         }
+
         if (isStale()) {
-            //throw new IllegalStateException("Attempting to update a stale record!");
-            return;
+            throw new IllegalStateException("Attempt to update a stale record!");
         }
 
         Query query = new Query(transaction().getDialect());
