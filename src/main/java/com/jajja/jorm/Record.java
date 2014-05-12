@@ -135,7 +135,7 @@ import com.jajja.jorm.generator.Generator;
 public abstract class Record {
     public static final byte FLAG_STALE = 0x01;
     public static final byte FLAG_READ_ONLY = 0x02;
-    Map<Symbol, Field> fields = new HashMap<Symbol, Field>();
+    Map<Symbol, Field> fields = new HashMap<Symbol, Field>(8, 1.0f);
     private Table table;
     private byte flags;
     private static Map<Class<? extends Record>, Logger> logs = new ConcurrentHashMap<Class<? extends Record>, Logger>(16, 0.75f, 1);
