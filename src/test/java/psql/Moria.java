@@ -107,6 +107,7 @@ public class Moria {
     public void t06_queryField() {
         try {
             List<Goblin> goblins = Record.findAll(Goblin.class);
+            System.out.println(goblins);
             for (Goblin goblin : goblins) {
                 Litter litter = goblin.relieve();
                 litter.save();

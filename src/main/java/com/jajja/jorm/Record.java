@@ -21,20 +21,15 @@
  */
 package com.jajja.jorm;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -181,7 +176,7 @@ public abstract class Record {
         }
     }
 
-    private Field getOrCreateField(Symbol symbol) {
+    Field getOrCreateField(Symbol symbol) {
         Field field = fields.get(symbol);
         if (field == null) {
             field = new Field();
@@ -217,6 +212,15 @@ public abstract class Record {
      */
     public Logger log() {
         return log(getClass());
+    }
+
+    // Helper method used by batch methods to quickly determine a list's generic type
+    private static Class<? extends Record> genericType(Collection<? extends Record> records) {
+        Iterator<? extends Record> iter = records.iterator();
+        if (iter.hasNext()) {
+            return iter.next().getClass();
+        }
+        throw new IllegalArgumentException("List is empty");
     }
 
 
@@ -494,7 +498,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean populateByComposite(Composite composite, Value value) throws SQLException {
-        return selectInto(getSelectQuery(getClass(), composite, value));
+        return transaction().populateByComposite(this, composite, value);
     }
 
     /**
@@ -510,29 +514,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean populateById(Object id) throws SQLException {
-        if (id instanceof Value) {
-            return populateByComposite(primaryKey(), (Value)id);
-        }
-        return populateByComposite(primaryKey(), primaryKey().value(id));
-    }
-
-    private static <T extends Record> Query getSelectQuery(Class<T> clazz) {
-        return Table.get(clazz).getSelectQuery(transaction(clazz).getDialect());
-    }
-
-    private static <T extends Record> Query getSelectQuery(Class<T> clazz, Composite composite, Object value) {
-        Value v;
-        if (value instanceof Value) {
-            v = (Value)value;
-        } else {
-            v = primaryKey(clazz).value(value);
-        }
-        composite.assertCompatible(v);
-        Dialect dialect = transaction(clazz).getDialect();
-        Query query = Table.get(clazz).getSelectQuery(dialect);
-        query.append("WHERE ");
-        query.append(dialect.toSqlExpression(composite, v));
-        return query;
+        return transaction().populateById(this, id);
     }
 
     /**
@@ -543,7 +525,7 @@ public abstract class Record {
      * @return the built query.
      */
     public Query build(String sql) {
-        return new Query(transaction().getDialect(), sql);
+        return transaction().build(sql);
     }
 
     /**
@@ -558,7 +540,7 @@ public abstract class Record {
      * @return the built query.
      */
     public Query build(String sql, Object... params) {
-        return new Query(transaction().getDialect(), sql, params);
+        return transaction().build(sql, params);
     }
 
     /**
@@ -571,7 +553,7 @@ public abstract class Record {
      * @return the built query.
      */
     public static Query build(Class<? extends Record> clazz, String sql) {
-        return new Query(transaction(clazz).getDialect(), sql);
+        return transaction(clazz).build(sql);
     }
 
     /**
@@ -589,7 +571,7 @@ public abstract class Record {
      * @return the built query.
      */
     public static Query build(Class<? extends Record> clazz, String sql, Object... params) {
-        return new Query(transaction(clazz).getDialect(), sql, params);
+        return transaction(clazz).build(sql, params);
     }
 
     /**
@@ -608,7 +590,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T find(Class<T> clazz, Composite composite, Object value) throws SQLException {
-        return select(clazz, getSelectQuery(clazz, composite, value));
+        return transaction(clazz).find(clazz, composite, value);
     }
 
     /**
@@ -627,8 +609,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T find(Class<T> clazz, String column, Object value) throws SQLException {
-        Composite composite = new Composite(column);
-        return select(clazz, getSelectQuery(clazz, composite, composite.value(value)));
+        return transaction(clazz).find(clazz, column, value);
     }
 
     /**
@@ -647,7 +628,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> findAll(Class<T> clazz, Composite composite, Value value) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz, composite, value));
+        return transaction(clazz).findAll(clazz, composite, value);
     }
 
     /**
@@ -666,56 +647,19 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> findAll(Class<T> clazz, String column, Object value) throws SQLException {
-        Composite composite = new Composite(column);
-        return selectAll(clazz, getSelectQuery(clazz, composite, composite.value(value)));
+        return transaction(clazz).findAll(clazz, column, value);
     }
 
     public static <T extends Record> List<T> findAll(Class<T> clazz) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz));
+        return transaction(clazz).findAll(clazz);
     }
 
     public static RecordIterator iterate(Class<? extends Record> clazz, Composite composite, Value value) throws SQLException {
-        return selectIterator(clazz, getSelectQuery(clazz, composite, value));
+        return transaction(clazz).iterate(clazz, composite, value);
     }
 
     public static RecordIterator iterate(Class<? extends Record> clazz) throws SQLException {
-        return selectIterator(clazz, getSelectQuery(clazz));
-    }
-
-    /**
-     * Provides a complete list of selected reference records of a given class
-     * referring to the mapped record through a given foreign key column.
-     *
-     * @param clazz
-     *            the class of the records referring to the mapped record.
-     * @param column
-     *            the column defining the foreign key for the reference records.
-     * @return the matched references.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public <T extends Record> List<T> findReferences(Class<T> clazz, String column) throws SQLException {
-        return findReferences(clazz, Symbol.get(column));
-    }
-
-    /**
-     * Provides a complete list of selected reference records of a given class
-     * referring to the mapped record through a given foreign key column.
-     *
-     * @param clazz
-     *            the class of the records referring to the mapped record.
-     * @param symbol
-     *            the symbol of the column defining the foreign key for the
-     *            reference records.
-     * @return the matched references.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public <T extends Record> List<T> findReferences(Class<T> clazz, Symbol symbol) throws SQLException {
-        Table table = Table.get(clazz);
-        return selectAll(clazz, "SELECT * FROM #1# WHERE #:2# = #3#", table, symbol, get(symbol));
+        return transaction(clazz).iterate(clazz);
     }
 
     /**
@@ -732,7 +676,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
-        return find(clazz, primaryKey(clazz), id);
+        return transaction(clazz).findById(clazz, id);
     }
 
     /**
@@ -749,7 +693,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T select(Class<T> clazz, String sql) throws SQLException {
-        return select(clazz, new Query(transaction(clazz).getDialect(), sql));
+        return transaction(clazz).select(clazz, sql);
     }
 
     /**
@@ -768,7 +712,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T select(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return select(clazz, new Query(transaction(clazz).getDialect(), sql, params));
+        return transaction(clazz).select(clazz, sql, params);
     }
 
     /**
@@ -785,11 +729,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> T select(Class<T> clazz, Query query) throws SQLException {
-        T record = construct(clazz);
-        if (record.selectInto(query)) {
-            return record;
-        }
-        return null;
+        return transaction(clazz).select(clazz, query);
     }
 
     /**
@@ -806,7 +746,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql) throws SQLException {
-        return selectAll(clazz, new Query(transaction(clazz).getDialect(), sql));
+        return transaction(clazz).selectAll(clazz, sql);
     }
 
     /**
@@ -825,7 +765,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return selectAll(clazz, new Query(transaction(clazz).getDialect(), sql, params));
+        return transaction(clazz).selectAll(clazz, sql, params);
     }
 
     /**
@@ -841,21 +781,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> List<T> selectAll(Class<T> clazz, Query query) throws SQLException {
-        List<T> records = new LinkedList<T>();
-        try {
-            RecordIterator iter = null;
-            try {
-                iter = new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
-                while (iter.next()) {
-                    records.add(iter.record(clazz));
-                }
-            } finally {
-                if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
-        }
-        return records;
+        return transaction(clazz).selectAll(clazz, query);
     }
 
     /**
@@ -872,7 +798,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql) throws SQLException {
-        return selectIterator(clazz, new Query(transaction(clazz).getDialect(), sql));
+        return transaction(clazz).selectIterator(clazz, sql);
     }
 
     /**
@@ -891,7 +817,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static RecordIterator selectIterator(Class<? extends Record> clazz, String sql, Object... params) throws SQLException {
-        return selectIterator(clazz, new Query(transaction(clazz).getDialect(), sql, params));
+        return transaction(clazz).selectIterator(clazz, sql, params);
     }
 
     /**
@@ -907,11 +833,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static RecordIterator selectIterator(Class<? extends Record> clazz, Query query) throws SQLException {
-        try {
-            return new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
-        } catch (SQLException e) {
-            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
-        }
+        return transaction(clazz).selectIterator(clazz, query);
     }
 
     /**
@@ -930,29 +852,15 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
-        HashMap<Composite.Value, T> records = new HashMap<Composite.Value, T>();
-        try {
-            RecordIterator iter = null;
-            try {
-                iter = new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
-                while (iter.next()) {
-                    T record = iter.record(clazz);
-                    Composite.Value value = compositeKey.valueFrom(record);
-                    if (records.put(value, record) != null && !allowDuplicates) {
-                        throw new IllegalStateException("Duplicate key " + value);
-                    }
-                }
-            } finally {
-                if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
-        }
-        return records;
+        return transaction(clazz).selectAsMap(clazz, compositeKey, allowDuplicates, query);
     }
 
     public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, String sql, Object... params) throws SQLException {
-        return selectAsMap(clazz, compositeKey, allowDuplicates, new Query(transaction(clazz).getDialect(), sql, params));
+        return transaction(clazz).selectAsMap(clazz, compositeKey, allowDuplicates, sql, params);
+    }
+
+    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates) throws SQLException {
+        return transaction(clazz).selectAsMap(clazz, compositeKey, allowDuplicates);
     }
 
     /**
@@ -971,32 +879,15 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
-        HashMap<Composite.Value, List<T>> records = new HashMap<Composite.Value, List<T>>();
-        try {
-            RecordIterator iter = null;
-            try {
-                iter = new RecordIterator(transaction(clazz).prepare(query.getSql(), query.getParams()));
-                while (iter.next()) {
-                    T record = iter.record(clazz);
-                    Composite.Value value = compositeKey.valueFrom(record);
-                    List<T> list = records.get(value);
-                    if (list == null) {
-                        list = new LinkedList<T>();
-                        records.put(value, list);
-                    }
-                    list.add(record);
-                }
-            } finally {
-                if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw transaction(clazz).getDialect().rethrow(e, query.getSql());
-        }
-        return records;
+        return transaction(clazz).selectAllAsMap(clazz, compositeKey, query);
     }
 
     public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, String sql, Object... params) throws SQLException {
-        return selectAllAsMap(clazz, compositeKey, new Query(transaction(clazz).getDialect(), sql, params));
+        return transaction(clazz).selectAllAsMap(clazz, compositeKey, sql, params);
+    }
+
+    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey) throws SQLException {
+        return transaction(clazz).selectAllAsMap(clazz, compositeKey);
     }
 
     /**
@@ -1013,7 +904,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(String sql) throws SQLException {
-        return selectInto(new Query(transaction().getDialect(), sql));
+        return transaction().selectInto(this, sql);
     }
 
     /**
@@ -1032,7 +923,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(String sql, Object... params) throws SQLException {
-        return selectInto(new Query(transaction().getDialect(), sql, params));
+        return transaction().selectInto(this, sql, params);
     }
 
     /**
@@ -1048,21 +939,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public boolean selectInto(Query query) throws SQLException {
-        try {
-            RecordIterator iter = null;
-            try {
-                iter = new RecordIterator(transaction().prepare(query.getSql(), query.getParams()));
-                if (iter.next()) {
-                    iter.record(this);
-                    return true;
-                }
-            } finally {
-                 if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw transaction().getDialect().rethrow(e, query.getSql());
-        }
-        return false;
+        return transaction().selectInto(this, query);
     }
 
     /**
@@ -1085,38 +962,17 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
-        return prefetch(records, foreignKeySymbol, clazz, referredSymbol, false);
+        if (!records.isEmpty()) {
+            return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
+        }
+        return new HashMap<Composite.Value, T>();
     }
 
     public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
-        Set<Object> values = new HashSet<Object>();
-
-        for (Record record : records) {
-            Field field = record.fields.get(foreignKeySymbol);
-            if (field != null && field.getValue() != null && field.getReference() == null) {
-                values.add(field.getValue());
-            }
+        if (!records.isEmpty()) {
+            return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
         }
-
-        if (values.isEmpty()) {
-            return new HashMap<Composite.Value, T>();
-        }
-
-        Composite key = new Composite(referredSymbol);
-        Map<Composite.Value, T> map = selectAsMap(clazz, key, false, "SELECT * FROM #1# WHERE #2# IN (#3#)", Table.get(clazz), referredSymbol, values);
-
-        for (Record record : records) {
-            Field field = record.fields.get(foreignKeySymbol);
-            if (field != null && field.getValue() != null && field.getReference() == null) {
-                Record referenceRecord = map.get(key.value(field.getValue()));
-                if (referenceRecord == null && !ignoreInvalidReferences) {
-                    throw new IllegalStateException(field.getValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
-                }
-                record.set(foreignKeySymbol, referenceRecord);
-            }
-        }
-
-        return map;
+        return new HashMap<Composite.Value, T>();
     }
 
     /**
@@ -1139,11 +995,17 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
-        return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol));
+        if (!records.isEmpty()) {
+            return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
+        }
+        return new HashMap<Composite.Value, T>();
     }
 
     public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
-        return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol), ignoreInvalidReferences);
+        if (!records.isEmpty()) {
+            return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
+        }
+        return new HashMap<Composite.Value, T>();
     }
 
     /**
@@ -1174,7 +1036,7 @@ public abstract class Record {
         return false;
     }
 
-    private boolean isPrimaryKeyNullOrChanged() {
+    boolean isPrimaryKeyNullOrChanged() {
         for (Symbol symbol : primaryKey().getSymbols()) {
             Field field = fields.get(symbol);
             if (field == null || field.getValue() == null || field.isChanged()) {
@@ -1184,7 +1046,7 @@ public abstract class Record {
         return false;
     }
 
-    private boolean isPrimaryKeyNull() {
+    boolean isPrimaryKeyNull() {
         for (Symbol symbol : primaryKey().getSymbols()) {
             Field field = fields.get(symbol);
             if (field == null || field.getValue() == null) {
@@ -1194,7 +1056,7 @@ public abstract class Record {
         return false;
     }
 
-    private void assertPrimaryKeyNotNull() {
+    void assertPrimaryKeyNotNull() {
         if (isPrimaryKeyNull()) {
             throw new IllegalStateException("Primary key contains NULL value(s)");
         }
@@ -1209,16 +1071,11 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void save(ResultMode mode) throws SQLException {
-        ensureNotReadOnly();
-        if (isPrimaryKeyNullOrChanged()) {
-            insert(mode);
-        } else {
-            update(mode);
-        }
+        transaction().save(this, mode);
     }
 
     public void save() throws SQLException {
-        save(ResultMode.REPOPULATE);
+        transaction().save(this);
     }
 
     /**
@@ -1230,19 +1087,9 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void save(Collection<? extends Record> records, int batchSize, ResultMode mode) throws SQLException {
-        List<Record> insertRecords = new LinkedList<Record>();
-        List<Record> updateRecords = new LinkedList<Record>();
-
-        for (Record record : records) {
-            if (record.isPrimaryKeyNullOrChanged()) {
-                insertRecords.add(record);
-            } else {
-                updateRecords.add(record);
-            }
+        if (!records.isEmpty()) {
+            transaction(genericType(records)).save(records, batchSize, mode);
         }
-
-        insert(insertRecords, batchSize, mode);
-        update(updateRecords, batchSize, mode);
     }
 
     /**
@@ -1254,7 +1101,9 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void save(Collection<? extends Record> records) throws SQLException {
-        save(records, 0, ResultMode.REPOPULATE);
+        if (!records.isEmpty()) {
+            transaction(genericType(records)).save(records, 0, ResultMode.REPOPULATE);
+        }
     }
 
     /**
@@ -1266,20 +1115,7 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void delete() throws SQLException {
-        ensureNotReadOnly();
-        Dialect dialect = transaction().getDialect();
-        Composite primaryKey = primaryKey();
-        Query query = new Query(dialect, "DELETE FROM #1# WHERE #2#", table, dialect.toSqlExpression(primaryKey, id()));
-
-        PreparedStatement preparedStatement = transaction().prepare(query);
-        try {
-            preparedStatement.execute();
-        } finally {
-            preparedStatement.close();
-        }
-        for (Symbol symbol : primaryKey.getSymbols()) {
-            put(symbol, null);
-        }
+        transaction().delete(this);
     }
 
     /**
@@ -1290,51 +1126,9 @@ public abstract class Record {
      *             if a database access error occurs.
      */
     public static void delete(Collection<? extends Record> records) throws SQLException {
-        Record template = null;
-        String database = null;
-
-        for (Record record : records) {
-            if (template != null) {
-                if (!template.getClass().equals(record.getClass())) {
-                    throw new IllegalArgumentException("all records must be of the same class");
-                }
-                if (!database.equals(record.table.getDatabase())) {
-                    throw new IllegalArgumentException("all records must be bound to the same Database");
-                }
-            } else {
-                template = record;
-                database = record.table.getDatabase();
-            }
-            record.ensureNotReadOnly();
+        if (!records.isEmpty()) {
+            transaction(genericType(records)).delete(records);
         }
-
-        if (template == null) {
-            return;
-        }
-
-        Query query = new Query(template.transaction(), "DELETE FROM #1# WHERE", template.getClass());
-        Composite primaryKey = template.primaryKey();
-        Dialect dialect = template.transaction().getDialect();
-        if (primaryKey.isSingle()) {
-            query.append("#:1# IN (#2:@#)", primaryKey, records);
-        } else {
-            if (dialect.isRowWiseComparisonSupported()) {
-                query.append(" (#:1#) IN (", primaryKey);
-                boolean isFirst = true;
-                for (Record record : records) {
-                    query.append(isFirst ? "(#1#)" : ", (#1#)", record.id());
-                    isFirst = false;
-                }
-                query.append(")");
-            } else {
-                boolean isFirst = true;
-                for (Record record : records) {
-                    query.append(isFirst ? " (#1#)" : " OR (#1#)", dialect.toSqlExpression(primaryKey, record.id()));
-                    isFirst = false;
-                }
-            }
-        }
-        template.transaction().execute(query);
     }
 
     /**
@@ -1444,169 +1238,13 @@ public abstract class Record {
     /**
      * Returns true if this record is read only.
      */
-    public boolean isReadOnly() {
+    boolean isReadOnly() {
         return flag(FLAG_READ_ONLY);
     }
 
-    private void ensureNotReadOnly() {
+    void ensureNotReadOnly() {
         if (isReadOnly()) {
             throw new RuntimeException("Record is read only!");
-        }
-    }
-
-    private static List<? extends Record> batchChunk(Iterator<? extends Record> iterator, int size) {
-        List<Record> records = null;
-
-        if (iterator.hasNext()) {
-            do {
-                Record record = iterator.next();
-                if (record.isChanged()) {
-                    if (records == null) {
-                        records = new ArrayList<Record>(size);
-                    }
-                    records.add(record);
-                    size--;
-                }
-            } while (size > 0 && iterator.hasNext());
-        }
-
-        return records;
-    }
-
-    private static class BatchInfo {
-        private Set<Symbol> columns = new HashSet<Symbol>();
-        private Record template = null;
-
-        private BatchInfo(Collection<? extends Record> records) {
-            for (Record record : records) {
-                record.ensureNotReadOnly();
-
-                if (record.isStale()) {
-                    throw new IllegalStateException("Attempt to perform batch operation on stale record(s)");
-                }
-
-                if (template == null) {
-                    template = record;
-                }
-
-                if (!template.getClass().equals(record.getClass())) {
-                    throw new IllegalArgumentException("all records must be of the same class");
-                }
-                if (!template.table.getDatabase().equals(record.table.getDatabase())) {
-                    throw new IllegalArgumentException("all records must be bound to the same Database");
-                }
-
-                columns.addAll( record.fields.keySet() );
-            }
-
-            String immutablePrefix = template.table.getImmutablePrefix();
-            if (template != null && immutablePrefix != null) {
-                for (Symbol symbol : columns) {
-                    if (symbol.getName().startsWith(immutablePrefix)) {
-                        columns.remove(symbol);
-                    }
-                }
-            }
-        }
-    }
-
-    private static void batchExecute(Query query, Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        PreparedStatement preparedStatement = null;
-        ResultSet resultSet = null;
-        Record template = records.iterator().next();
-        Transaction transaction = template.transaction();
-        Table table = template.table();
-        Composite primaryKey = template.primaryKey();
-        Dialect dialect = transaction.getDialect();
-
-        // XXX UPDATE + REPOPULATE?
-        if (mode != ResultMode.NO_RESULT && !primaryKey.isSingle() && !dialect.isReturningSupported()) {
-            throw new UnsupportedOperationException("Batch operations on composite primary keys not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
-        }
-
-        try {
-            boolean useReturning = (mode == ResultMode.REPOPULATE) && dialect.isReturningSupported();
-            Map<Object, Record> map = null;
-
-            if (useReturning) {
-                query.append(" RETURNING *");   // XXX ID_ONLY support
-                preparedStatement = transaction.prepare(query.getSql(), query.getParams());
-                resultSet = preparedStatement.executeQuery();
-            } else {
-                preparedStatement = transaction.prepare(query.getSql(), query.getParams(), true);
-                preparedStatement.execute();
-                resultSet = preparedStatement.getGeneratedKeys();
-                if (mode == ResultMode.REPOPULATE) {
-                    map = new HashMap<Object, Record>();
-                }
-            }
-
-            RecordIterator iter = null;
-
-            for (Record record : records) {
-                if (!resultSet.next()) {
-                    throw new IllegalStateException("too few rows returned?");
-                }
-                if (useReturning) {
-                    // RETURNING rocks!
-                    if (iter == null) {
-                        iter = new RecordIterator(resultSet);
-                        iter.setAutoClose(false);
-                    }
-                    iter.record(record);
-                } else {
-                    Field field = record.getOrCreateField(primaryKey.getSymbol());
-                    field.setValue(resultSet.getObject(1));
-                    field.setChanged(false);
-                    if (mode == ResultMode.REPOPULATE) {
-                        if (map == null) throw new IllegalStateException("bug");
-                        map.put(field.getValue(), record);
-                        record.stale(false);    // actually still stale
-                    }
-                }
-            }
-
-            if (!useReturning && mode == ResultMode.REPOPULATE) {
-                if (map == null) throw new IllegalStateException("bug");
-
-                resultSet.close();
-                resultSet = null;
-                preparedStatement.close();
-                preparedStatement = null;
-
-                // records must not be stale, or Query will generate SELECTs
-                Query q = table.getSelectQuery(dialect).append("WHERE #1# IN (#2:@#)", primaryKey.getSymbol(), records);
-
-                preparedStatement = transaction.prepare(q);
-                resultSet = preparedStatement.executeQuery();
-
-                int idColumn = resultSet.findColumn(primaryKey.getSymbol().getName());
-                if (Dialect.DatabaseProduct.MYSQL.equals(dialect.getDatabaseProduct())) {
-                    while (resultSet.next()) {
-                        map.get(resultSet.getLong(idColumn)).populate(resultSet);
-                    }
-                } else {
-                    while (resultSet.next()) {
-                        map.get(resultSet.getObject(idColumn)).populate(resultSet);
-                    }
-                }
-            }
-        } catch (SQLException sqlException) {
-            // records are in an unknown state, mark them stale
-            for (Record record : records) {
-                record.stale(true);
-            }
-            throw dialect.rethrow(sqlException);
-        } finally {
-            try {
-                if (resultSet != null) {
-                    resultSet.close();
-                }
-            } finally {
-                if (preparedStatement != null) {
-                    preparedStatement.close();
-                }
-            }
         }
     }
 
@@ -1619,93 +1257,11 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void insert(ResultMode mode) throws SQLException {
-        ensureNotReadOnly();
-
-        if (isStale()) {
-            throw new IllegalStateException("Attempt to insert a stale record!");
-        }
-
-        if (mode != ResultMode.NO_RESULT && !primaryKey().isSingle() && !transaction().getDialect().isReturningSupported()) {
-            throw new UnsupportedOperationException("INSERT with composite primary key not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
-        }
-
-        Query query = new Query(transaction().getDialect());
-
-        query.append("INSERT INTO #1# (", table);
-
-        boolean isFirst = true;
-        for (Entry<Symbol, Field> entry : fields.entrySet()) {
-            if (entry.getValue().isChanged()) {
-                query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
-                isFirst = false;
-            }
-        }
-
-        if (isFirst) {
-            // No fields are marked as changed, but we need to insert something... INSERT INTO foo DEFAULT VALUES is not supported on all databases
-            query.append("#1#", primaryKey());
-            for (int i = 0; i < primaryKey().getSymbols().length; i++) {
-                query.append(i == 0 ? ") VALUES (DEFAULT" : ", DEFAULT");
-            }
-        } else {
-            query.append(") VALUES (");
-            isFirst = true;
-            for (Field field : fields.values()) {
-                if (field.isChanged()) {
-                    if (field.getValue() instanceof Query) {
-                        query.append(isFirst ? "#1#" : ", #1#", field.getValue());
-                    } else {
-                        query.append(isFirst ? "#?1#" : ", #?1#", field.getValue());
-                    }
-                    isFirst = false;
-                }
-            }
-            query.append(")");
-        }
-
-        stale(true);
-
-        if (mode == ResultMode.NO_RESULT) {
-            transaction().execute(query);
-            return;
-        }
-
-        if (transaction().getDialect().isReturningSupported()) {
-            query.append(" RETURNING *");       // XXX ID_ONLY support
-            selectInto(query);
-        } else {
-            PreparedStatement preparedStatement = transaction().prepare(query.getSql(), query.getParams(), true);
-            ResultSet resultSet = null;
-            Object id = null;
-            try {
-                preparedStatement.execute();
-                resultSet = preparedStatement.getGeneratedKeys();
-                if (resultSet.next()) {
-                    id = resultSet.getObject(1);
-                }
-            } catch (SQLException e) {
-                throw transaction().getDialect().rethrow(e, query.getSql());
-            } finally {
-                try {
-                    if (resultSet != null) {
-                        resultSet.close();
-                    }
-                } finally {
-                    preparedStatement.close();
-                }
-            }
-
-            if (id == null) {
-                throw new RuntimeException("INSERT to " + table.toString() + " did not generate a key (AKA insert id): " + query.getSql());
-            }
-            Field field = getOrCreateField(primaryKey().getSymbol());
-            field.setValue(id);
-            field.setChanged(false);
-        }
+        transaction().insert(this, mode);
     }
 
     public void insert() throws SQLException {
-        insert(ResultMode.REPOPULATE);
+        transaction().insert(this);
     }
 
     /**
@@ -1717,11 +1273,15 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void insert(Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        insert(records, 0, mode);
+        if (!records.isEmpty()) {
+            transaction(genericType(records)).insert(records, mode);
+        }
     }
 
     public static void insert(Collection<? extends Record> records) throws SQLException {
-        insert(records, 0, ResultMode.REPOPULATE);
+        if (!records.isEmpty()) {
+            transaction(genericType(records)).insert(records);
+        }
     }
 
     /**
@@ -1740,69 +1300,9 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public static void insert(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        if (records.isEmpty()) {
-            return;
+        if (!records.isEmpty()) {
+            transaction(genericType(records)).insert(records, chunkSize, mode);
         }
-
-        BatchInfo batchInfo = new BatchInfo(records);
-
-        if (chunkSize <= 0) {
-            batchInsert(batchInfo, records, mode);
-        } else {
-            Iterator<? extends Record> iterator = records.iterator();
-            List<? extends Record> batch;
-            while ((batch = batchChunk(iterator, chunkSize)) != null) {
-                batchInsert(batchInfo, batch, mode);
-            }
-        }
-    }
-
-    private static void batchInsert(BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        Table table = batchInfo.template.table;
-        Transaction transaction = batchInfo.template.transaction();
-        Dialect dialect = transaction.getDialect();
-        Query query = new Query(dialect);
-
-        for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
-            batchInfo.columns.add(symbol);
-        }
-
-        query.append("INSERT INTO #1# (", table);
-
-        boolean isFirst = true;
-        for (Symbol column : batchInfo.columns) {
-            query.append(isFirst ? "#:1#" : ", #:1#", column);
-            isFirst = false;
-        }
-        if (isFirst) {
-            throw new RuntimeException("zero columns to insert!");
-        }
-        query.append(") VALUES ");
-
-        isFirst = true;
-        for (Record record : records) {
-            query.append(isFirst ? "(" : ", (");
-            isFirst = false;
-
-            boolean isColumnFirst = true;
-            for (Symbol column : batchInfo.columns) {
-                if (record.isFieldChanged(column)) {
-                    Object value = record.get(column);
-                    if (value instanceof Query) {
-                        query.append(isColumnFirst ? "#1#" : ", #1#", value);
-                    } else {
-                        query.append(isColumnFirst ? "#?1#" : ", #?1#", value);
-                    }
-                } else {
-                    query.append(isColumnFirst ? "DEFAULT" : ", DEFAULT");
-                }
-                isColumnFirst = false;
-            }
-            query.append(")");
-            record.stale(true);
-        }
-
-        batchExecute(query, records, mode);
     }
 
     /**
@@ -1813,48 +1313,11 @@ public abstract class Record {
      *             statement does not return a result set.
      */
     public void update(ResultMode mode) throws SQLException {
-        ensureNotReadOnly();
-
-        if (!isChanged()) {
-            return;
-        }
-
-        if (isStale()) {
-            throw new IllegalStateException("Attempt to update a stale record!");
-        }
-
-        Query query = new Query(transaction().getDialect());
-
-        query.append("UPDATE #1# SET ", table);
-
-        boolean isFirst = true;
-        for (Entry<Symbol, Field> entry : fields.entrySet()) {
-            Field field = entry.getValue();
-            if (field.isChanged()) {
-                if (field.getValue() instanceof Query) {
-                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), field.getValue());
-                } else {
-                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), field.getValue());
-                }
-                isFirst = false;
-            }
-        }
-
-        assertPrimaryKeyNotNull();
-
-        query.append(" WHERE #1#", transaction().getDialect().toSqlExpression(primaryKey(), id()));
-
-        stale(true);
-        if (transaction().getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
-            query.append(" RETURNING *");
-            selectInto(query);
-        } else {
-            transaction().executeUpdate(query);
-        }
+        transaction().update(this, mode);
     }
 
     public void update() throws SQLException {
-        update(ResultMode.REPOPULATE);
+        transaction().update(this);
     }
 
     /**
@@ -1867,7 +1330,9 @@ public abstract class Record {
      *             if a database access error occurs
      */
     public static void update(Collection<? extends Record> records) throws SQLException {
-        update(records, 0, ResultMode.REPOPULATE);
+        if (!records.isEmpty()) {
+            transaction(genericType(records)).update(records);
+        }
     }
 
     /**
@@ -1884,7 +1349,9 @@ public abstract class Record {
      *             if a database access error occurs
      */
     public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        update(records, chunkSize, mode, null);
+        if (!records.isEmpty()) {
+            transaction(genericType(records)).update(records, chunkSize, mode);
+        }
     }
 
     /**
@@ -1902,93 +1369,9 @@ public abstract class Record {
      *             if a database access error occurs
      */
     public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
-        if (records.isEmpty()) {
-            return;
+        if (!records.isEmpty()) {
+            transaction(genericType(records)).update(records, chunkSize, mode, primaryKey);
         }
-
-        BatchInfo batchInfo = new BatchInfo(records);
-
-        if (primaryKey == null) {
-            primaryKey = batchInfo.template.primaryKey();
-        }
-
-        if (batchInfo.columns.isEmpty()) {
-            throw new IllegalArgumentException("No columns to update");
-        }
-
-        Dialect dialect = records.iterator().next().transaction().getDialect();
-        if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
-            for (Record record : records) {
-                record.update();
-            }
-            return;
-        }
-
-        if (chunkSize <= 0) {
-            batchUpdate(batchInfo, records, mode, primaryKey);
-        } else {
-            Iterator<? extends Record> iterator = records.iterator();
-            List<? extends Record> batch;
-            while ((batch = batchChunk(iterator, chunkSize)) != null) {
-                batchUpdate(batchInfo, batch, mode, primaryKey);
-            }
-        }
-    }
-
-    private static void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
-        Table table = batchInfo.template.table();
-        Transaction transaction = batchInfo.template.transaction();
-        Query query = new Query(transaction);
-        String vTable = table.getTable().equals("v") ? "v2" : "v";
-
-        query.append("UPDATE #1# SET ", table);
-        boolean isFirstColumn = true;
-        for (Symbol column : batchInfo.columns) {
-            query.append(isFirstColumn ? "#1# = #!2#.#1#" : ", #1# = #!2#.#1#", column, vTable);
-            isFirstColumn = false;
-        }
-
-        query.append(" FROM (VALUES ");
-
-        boolean isFirstValue = true;
-        for (Record record : records) {
-            if (record.isPrimaryKeyNull()) {
-                throw new IllegalArgumentException("Record has unset or NULL primary key: " + record);
-            }
-            isFirstColumn = true;
-            query.append(isFirstValue ? "(" : ", (");
-            for (Symbol column : batchInfo.columns) {
-                Object value = record.get(column);
-                if (value instanceof Query) {
-                    query.append(isFirstColumn ? "#1#" : ", #1#", value);
-                } else {
-                    query.append(isFirstColumn ? "#?1#" : ", #?1#", value);
-                }
-                isFirstColumn = false;
-            }
-            query.append(")");
-            isFirstValue = false;
-        }
-
-        query.append(") #!1# (", vTable);
-        isFirstColumn = true;
-        for (Symbol column : batchInfo.columns) {
-            query.append(isFirstColumn ? "#1#" : ", #1#", column);
-            isFirstColumn = false;
-        }
-
-        query.append(") WHERE");
-        boolean isFirst = true;
-        for (Symbol symbol : primaryKey.getSymbols()) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                query.append(" AND");
-            }
-            query.append(" #1#.#2# = #:3#.#2#", table, symbol, vTable);
-        }
-
-        batchExecute(query, records, mode);
     }
 
     /**

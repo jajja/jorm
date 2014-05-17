@@ -62,7 +62,7 @@ public class Table {
     private Table(Class<? extends Record> clazz) {
         Jorm jorm = clazz.getAnnotation(Jorm.class);
         if (jorm == null) {
-            throw new RuntimeException("Jorm annotation missing in " + Jorm.class);
+            throw new RuntimeException("Jorm annotation missing in " + clazz);
         }
         if (jorm.table().equals("") ^ jorm.primaryKey().length == 0) {
             throw new RuntimeException("Tables cannot be mapped without primary keys. Either define both table and primary key or none in the Jorm annotation.");
@@ -106,13 +106,5 @@ public class Table {
 
     public String getImmutablePrefix() {
         return immutablePrefix;
-    }
-
-    Query getSelectQuery(Dialect dialect) {
-        if (table != null) {
-            return new Query(dialect, "SELECT * FROM #1# ", this);
-        } else {
-            throw new RuntimeException("Cannot construct select query without either table or sql definition!");
-        }
     }
 }
