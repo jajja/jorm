@@ -84,7 +84,7 @@ public class Composite {
 
         public Object getValue() {
             if (!isSingle()) {
-                throw new RuntimeException("isSingle() == false");
+                throw new RuntimeException("Not a single column key");
             }
             return values[0];
         }

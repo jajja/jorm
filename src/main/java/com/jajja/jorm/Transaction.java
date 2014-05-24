@@ -1494,7 +1494,7 @@ public class Transaction {
         if (iterator.hasNext()) {
             do {
                 Record record = iterator.next();
-                if (record.isChanged()) {
+                if (record.hasChanged()) {
                     if (records == null) {
                         records = new ArrayList<Record>(size);
                     }
@@ -1846,7 +1846,7 @@ public class Transaction {
     public void update(Record record, ResultMode mode) throws SQLException {
         record.ensureNotReadOnly();
 
-        if (!record.isChanged()) {
+        if (!record.hasChanged()) {
             return;
         }
 

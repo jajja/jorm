@@ -149,7 +149,7 @@ public abstract class Record {
         private boolean isChanged = false;
         private Record reference = null;
 
-        private Field() {}
+        Field() {}
 
         void setValue(Object value) {
             this.value = value;
@@ -174,6 +174,11 @@ public abstract class Record {
         public Record getReference() {
             return reference;
         }
+
+        @Override
+        public String toString() {
+            return String.format("Field [value => %s, isChanged => %s, reference => %s]", value, isChanged, reference);
+        }
     }
 
     Field getOrCreateField(Symbol symbol) {
@@ -183,6 +188,11 @@ public abstract class Record {
             fields.put(symbol, field);
         }
         return field;
+    }
+
+    void newFields(int size) {
+        fields = new HashMap<Symbol, Field>(size, 1.0f);
+        stale(false);
     }
 
     /**
@@ -257,19 +267,6 @@ public abstract class Record {
             throw new RuntimeException("Failed to instantiate " + clazz, e);
         }
     }
-
-    /**
-     * Notifies field changes. The default implementation is empty, but provides
-     * the option to override and act upon changes. This method is called
-     * whenever {@link #set(String, Object)} or {@link #set(Symbol, Object)}
-     * changes a field, or {@link #populate(ResultSet)} is called.
-     *
-     * @param symbol
-     *            the symbol of the column.
-     * @param object
-     *            the value of the field after change.
-     */
-    protected void notifyFieldChanged(Symbol symbol, Object object) { }
 
     public Value id() {
         return get(primaryKey());
@@ -1166,7 +1163,7 @@ public abstract class Record {
      *
      * @return true if at least one field has been changed, otherwise false.
      */
-    public boolean isChanged() {
+    public boolean hasChanged() {
         for (Field field : fields.values()) {
             if (field.isChanged()) {
                 return true;
@@ -1411,7 +1408,6 @@ public abstract class Record {
      * the mapped database does not support returning. A record mapped to a
      * table in a Postgres database is thus never stale.
      *
-     *
      * @throws RuntimeException
      *             whenever a SQLException occurs.
      */
@@ -1427,11 +1423,7 @@ public abstract class Record {
         }
     }
 
-    private boolean isChanged(Symbol symbol, Object newValue) {
-        if (isReadOnly() || table.isImmutable(symbol)) {
-            return false;
-        }
-
+    private boolean hasChanged(Symbol symbol, Object newValue) {
         Field field = fields.get(symbol);
         if (field == null) {
             return true;
@@ -1448,40 +1440,31 @@ public abstract class Record {
     void put(Symbol symbol, Object value) {
         refresh();
 
-        boolean isChanged;
         Field field = fields.get(symbol);
         if (field == null) {
             field = new Field();
         }
 
+        boolean hasChanged;
+
         if (value != null && isRecordSubclass(value.getClass())) {
             Record record = (Record)value;
-            if (!record.primaryKey().isSingle()) {
-                throw new UnsupportedOperationException("Composite foreign key references are not supported");
-            }
             Object id = record.id().getValue();
             if (id == null) {
-                throw new NullPointerException("While setting " + record + "." + symbol.getName() + " = " + value + " -- id (primary key) is null -- perhaps you need to save()?");
+                throw new NullPointerException("While setting " + record.getClass() + "." + symbol.getName() + " to " + value + " -- id (primary key) is null -- perhaps you need to save()?");
             }
-            isChanged = isChanged(symbol, id);
-            if (isChanged) {
-                notifyFieldChanged(symbol, value);
-            }
+            hasChanged = hasChanged(symbol, value);
             field.setReference(record);
             field.setValue(id);
         } else {
-            isChanged = isChanged(symbol, value);
-            if (isChanged) {
-                notifyFieldChanged(symbol, value);
-            }
-            if (isChanged) {
+            hasChanged = hasChanged(symbol, value);
+            if (hasChanged) {
                 field.setReference(null); // invalidate cached reference
             }
             field.setValue(value);
         }
 
-        if (isChanged) {
-            // it's OK to mark the id column as changed here
+        if (hasChanged) {
             field.setChanged(true);
         }
 
@@ -1537,13 +1520,10 @@ public abstract class Record {
      */
     public void unset(Symbol symbol) {
         ensureNotReadOnly();
-        Field field;
-
         refresh();
 
-        field = fields.get(symbol);
+        Field field = fields.get(symbol);
         if (field != null) {
-            notifyFieldChanged(symbol, null);
             fields.remove(symbol);
         }
     }
