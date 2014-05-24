@@ -1036,8 +1036,8 @@ public abstract class Record {
         return false;
     }
 
-    boolean isPrimaryKeyNullOrChanged() {
-        for (Symbol symbol : primaryKey().getSymbols()) {
+    public boolean isCompositeKeyNullOrChanged(Composite key) {
+        for (Symbol symbol : key.getSymbols()) {
             Field field = fields.get(symbol);
             if (field == null || field.getValue() == null || field.isChanged()) {
                 return true;
@@ -1046,14 +1046,22 @@ public abstract class Record {
         return false;
     }
 
-    boolean isPrimaryKeyNull() {
-        for (Symbol symbol : primaryKey().getSymbols()) {
+    public boolean isCompositeKeyNull(Composite key) {
+        for (Symbol symbol : key.getSymbols()) {
             Field field = fields.get(symbol);
             if (field == null || field.getValue() == null) {
                 return true;
             }
         }
         return false;
+    }
+
+    public boolean isPrimaryKeyNullOrChanged() {
+        return isCompositeKeyNullOrChanged(primaryKey());
+    }
+
+    public boolean isPrimaryKeyNull() {
+        return isCompositeKeyNull(primaryKey());
     }
 
     void assertPrimaryKeyNotNull() {
