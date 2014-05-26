@@ -1163,7 +1163,7 @@ public abstract class Record {
      *
      * @return true if at least one field has been changed, otherwise false.
      */
-    public boolean hasChanged() {
+    public boolean isChanged() {
         for (Field field : fields.values()) {
             if (field.isChanged()) {
                 return true;
