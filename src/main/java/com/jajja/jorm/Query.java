@@ -184,6 +184,9 @@ public class Query {
         }
 
         int i = Integer.decode(string);
+        if (i - 1 >= params.length) {
+            throw new IllegalStateException(String.format("Placeholder out of range: %d", i));
+        }
         param = params[i-1];
 
         if (modifier == MODIFIER_RAW) {

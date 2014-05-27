@@ -60,7 +60,8 @@ public class Database {
     private Map<String, String> defaultContext = new HashMap<String, String>();
     private Logger log = LoggerFactory.getLogger(Database.class);
     private static volatile Database instance = new Database();
-
+    private static boolean configured;
+    
     private Database() {
     }
 
@@ -157,6 +158,7 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
+        ensureConfigured();
         database = context(database).effectiveName();
         HashMap<String, Transaction> transactions = instance.getTransactions();
         Transaction transaction = transactions.get(database);
@@ -230,10 +232,19 @@ public class Database {
 
     private static Map<String, Configuration> configurations;
 
-    static {
-        configure();
+    private static void ensureConfigured() {
+        if (configured) {
+            return;
+        }
+        synchronized (Database.class) {
+            if (configured) {
+                return;
+            }
+            configure();
+            configured = true;
+        }
     }
-
+    
     /*
      * jorm.properties
      * ---------------
@@ -263,7 +274,6 @@ public class Database {
     private static void configure() {
         try {
             configurations = new HashMap<String, Configuration>();
-
             Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
             URL local = null;
             while (urls.hasMoreElements()) {

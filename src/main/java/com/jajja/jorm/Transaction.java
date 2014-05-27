@@ -1280,7 +1280,7 @@ public class Transaction {
         }
 
         Composite key = new Composite(referredSymbol);
-        Map<Composite.Value, T> map = selectAsMap(clazz, key, false, getSelectQuery(clazz).append("WHERE #2# IN (#3#)", referredSymbol, values));
+        Map<Composite.Value, T> map = selectAsMap(clazz, key, false, getSelectQuery(clazz).append("WHERE #1# IN (#2#)", referredSymbol, values));
 
         for (Record record : records) {
             Field field = record.fields.get(foreignKeySymbol);
