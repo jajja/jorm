@@ -37,6 +37,7 @@ public final class Symbol {
     private static volatile ConcurrentHashMap<String, Symbol> symbols = new ConcurrentHashMap<String, Symbol>(512, 0.75f, 1);
     private final int identity;
     private final String name;
+    private boolean isEval;
 
     /**
      * Gets the equality identity and the hashable value of the symbol.
@@ -65,6 +66,24 @@ public final class Symbol {
      * @return the symbol corresponding to the given name.
      */
     public static Symbol get(String name) {
+        return get(name, false);
+    }
+
+    /**
+     * Gets the single instance of a symbol corresponding to a given name.
+     * Populates the symbol iff not previously accessed.
+     *
+     * @param name
+     *            the name.
+     * @param isEval
+     *            flag indicating the symbol has to be evaluated by the server,
+     *            hence not quoted. True iff the symbol has to be evaluated.
+     *            This can only be specified the first time a symbol is
+     *            accessed, and has no effect if the symbol has already been
+     *            declared by a previous access.
+     * @return the symbol corresponding to the given name.
+     */
+    public static Symbol get(String name, boolean isEval) {
         Symbol symbol = symbols.get(name);
 
         if (symbol == null) {
@@ -72,6 +91,7 @@ public final class Symbol {
                 symbol = symbols.get(name);
                 if (symbol == null) {
                     symbol = new Symbol(symbols.size() + 1, name);
+                    symbol.isEval = isEval;
                     symbols.put(name, symbol);
                 }
             }
@@ -109,5 +129,9 @@ public final class Symbol {
     @Override
     public String toString() {
         return "Symbol " + identity + ":" + name;
+    }
+
+    boolean isEval() {
+        return isEval;
     }
 }

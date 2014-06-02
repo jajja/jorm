@@ -1,7 +1,11 @@
 package com.jajja.jorm;
 
 public class Composite {
-    private Symbol[] symbols;
+    protected Symbol[] symbols;
+
+    protected Composite() {
+        // implicit super constructor
+    }
 
     public Composite(String ... columns) {
         if (columns.length == 0) {

@@ -457,9 +457,17 @@ public class Dialect {
         for (int i = 0; i < columns.length; i++) {
             if (isFirst) {
                 isFirst = false;
-                query.append("#:1# = #2#", columns[i], values[i]);
+                if (columns[i].isEval()) {
+                    query.append("#!1# = #2#", columns[i], values[i]);
+                } else {
+                    query.append("#:1# = #2#", columns[i], values[i]);
+                }
             } else {
-                query.append(" AND #:1# = #2#", columns[i], values[i]);
+                if (columns[i].isEval()) {
+                    query.append(" AND #!1# = #2#", columns[i], values[i]);
+                } else {
+                    query.append(" AND #:1# = #2#", columns[i], values[i]);
+                }
             }
         }
         return query;
