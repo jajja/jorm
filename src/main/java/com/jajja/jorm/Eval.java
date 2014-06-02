@@ -11,4 +11,8 @@ public class Eval extends Composite {
             this.symbols[i] = Symbol.get(columns[i], true);
         }
     }
+
+    public Eval(Symbol ... symbols) {
+        super(symbols);
+    }
 }
