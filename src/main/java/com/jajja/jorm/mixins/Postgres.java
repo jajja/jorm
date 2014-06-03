@@ -154,7 +154,7 @@ public final class Postgres {
         PGobject o = new PGobject();
         o.setType("inet");
         try {
-            o.setValue(inetAddress.toString());
+            o.setValue(inetAddress.getHostAddress());
         } catch (SQLException e) {
             // UNREACHABLE ?
             throw new RuntimeException(e);
