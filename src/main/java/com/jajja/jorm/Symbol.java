@@ -33,9 +33,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
  * @since 1.0.0
  */
-public final class Symbol {
+public final class Symbol implements Comparable<Symbol> {
     private static volatile ConcurrentHashMap<String, Symbol> symbols = new ConcurrentHashMap<String, Symbol>(512, 0.75f, 1);
-    private final int identity;
+    final int identity;
     private final String name;
 
     /**
@@ -104,6 +104,11 @@ public final class Symbol {
             return ((String)object).equals(name);
         }
         return false;
+    }
+
+    @Override
+    public int compareTo(Symbol o) {
+        return Integer.compare(identity, o.identity);
     }
 
     @Override
