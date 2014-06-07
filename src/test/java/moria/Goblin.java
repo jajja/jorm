@@ -41,8 +41,7 @@ public class Goblin extends Record {
 
     // part 2
     public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
-        Composite composite = new Composite("tribe_id", "name");
-        return find(Goblin.class, composite, composite.value(tribe, name));
+        return find(Goblin.class, new Composite("tribe_id", "name").value(tribe, name));
     }
 
     // part 3

@@ -718,8 +718,8 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public boolean populateByComposite(Record record, Composite composite, Value value) throws SQLException {
-        return selectInto(record, getSelectQuery(record.getClass(), composite, value));
+    public boolean populateByCompositeValue(Record record, Value value) throws SQLException {
+        return selectInto(record, getSelectQuery(record.getClass(), value));
     }
 
     /**
@@ -736,27 +736,26 @@ public class Transaction {
      */
     public boolean populateById(Record record, Object id) throws SQLException {
         if (id instanceof Value) {
-            return populateByComposite(record, record.primaryKey(), (Value)id);
+            return populateByCompositeValue(record, (Value)id);
         }
-        return populateByComposite(record, record.primaryKey(), record.primaryKey().value(id));
+        return populateByCompositeValue(record, record.primaryKey().value(id));
     }
 
     private <T extends Record> Query getSelectQuery(Class<T> clazz) {
         return build("SELECT * FROM #1# ", clazz);
     }
 
-    public <T extends Record> Query getSelectQuery(Class<T> clazz, Composite composite, Object value) {
+    public <T extends Record> Query getSelectQuery(Class<T> clazz, Object value) {
         Value v;
         if (value instanceof Value) {
             v = (Value)value;
         } else {
             v = Record.primaryKey(clazz).value(value);
         }
-        composite.assertCompatible(v);
         Dialect dialect = getDialect();
         Query query = getSelectQuery(clazz);
         query.append("WHERE ");
-        query.append(dialect.toSqlExpression(composite, v));
+        query.append(dialect.toSqlExpression(v));
         return query;
     }
 
@@ -799,31 +798,29 @@ public class Transaction {
 
     /**
      * Provides a selected record from the mapped database table, populated with
-     * the first result for which the composite key matches.
+     * the first result for which the primary key value, or composite value, matches.
      *
      * @param clazz
      *            the class defining the table mapping.
-     * @param composite
-     *            the composite key
      * @param value
-     *            the composite key value
+     *            the primary key value, or composite value
      * @return the matched record or null for no match.
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> T find(Class<T> clazz, Composite composite, Object value) throws SQLException {
-        return select(clazz, getSelectQuery(clazz, composite, value));
+    public <T extends Record> T find(Class<T> clazz, Object value) throws SQLException {
+        return select(clazz, getSelectQuery(clazz, value));
     }
 
     /**
      * Provides a selected record from the mapped database table, populated with
-     * the first result for which the simple key matches.
+     * the first result for which the column matches the value.
      *
      * @param clazz
      *            the class defining the table mapping.
-     * @param composite
-     *            simple key
+     * @param column
+     *            the column name
      * @param value
      *            the composite key value
      * @return the matched record or null for no match.
@@ -832,37 +829,36 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> T find(Class<T> clazz, String column, Object value) throws SQLException {
-        Composite composite = new Composite(column);
-        return select(clazz, getSelectQuery(clazz, composite, composite.value(value)));
+        return select(clazz, getSelectQuery(clazz, new Composite(column).value(value)));
     }
 
     /**
      * Provides a complete list of selected records from the mapped database
-     * table, populated with the results for which the composite key matches.
+     * table, populated with the results for which the composite value matches.
      *
      * @param clazz
      *            the class defining the table mapping.
      * @param composite
      *            the composite key
      * @param value
-     *            the composite key value
+     *            the composite value
      * @return the matched records.
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> List<T> findAll(Class<T> clazz, Composite composite, Value value) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz, composite, value));
+    public <T extends Record> List<T> findAll(Class<T> clazz, Value value) throws SQLException {
+        return selectAll(clazz, getSelectQuery(clazz, value));
     }
 
     /**
      * Provides a complete list of selected records from the mapped database
-     * table, populated with the results for which the simple key matches.
+     * table, populated with the results for which the column matches the value.
      *
      * @param clazz
      *            the class defining the table mapping.
      * @param composite
-     *            the composite key
+     *            the column name
      * @param value
      *            the composite key value
      * @return the matched records.
@@ -871,16 +867,15 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> List<T> findAll(Class<T> clazz, String column, Object value) throws SQLException {
-        Composite composite = new Composite(column);
-        return selectAll(clazz, getSelectQuery(clazz, composite, composite.value(value)));
+        return selectAll(clazz, getSelectQuery(clazz, new Composite(column).value(value)));
     }
 
     public <T extends Record> List<T> findAll(Class<T> clazz) throws SQLException {
         return selectAll(clazz, getSelectQuery(clazz));
     }
 
-    public RecordIterator iterate(Class<? extends Record> clazz, Composite composite, Value value) throws SQLException {
-        return selectIterator(clazz, getSelectQuery(clazz, composite, value));
+    public RecordIterator iterate(Class<? extends Record> clazz, Value value) throws SQLException {
+        return selectIterator(clazz, getSelectQuery(clazz, value));
     }
 
     public RecordIterator iterate(Class<? extends Record> clazz) throws SQLException {
@@ -901,7 +896,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
-        return find(clazz, Record.primaryKey(clazz), id);
+        return find(clazz, Record.primaryKey(clazz).value(id));
     }
 
     /**
@@ -1420,7 +1415,7 @@ public class Transaction {
      */
     public void delete(Record record) throws SQLException {
         record.ensureNotReadOnly();
-        Query query = build("DELETE FROM #1# WHERE #2#", record.table(), dialect.toSqlExpression(record.primaryKey(), record.id()));
+        Query query = build("DELETE FROM #1# WHERE #2#", record.table(), dialect.toSqlExpression(record.id()));
 
         PreparedStatement preparedStatement = prepare(query);
         try {
@@ -1480,7 +1475,7 @@ public class Transaction {
             } else {
                 boolean isFirst = true;
                 for (Record record : records) {
-                    query.append(isFirst ? " (#1#)" : " OR (#1#)", dialect.toSqlExpression(primaryKey, record.id()));
+                    query.append(isFirst ? " (#1#)" : " OR (#1#)", dialect.toSqlExpression(record.id()));
                     isFirst = false;
                 }
             }
@@ -1873,7 +1868,7 @@ public class Transaction {
 
         record.assertPrimaryKeyNotNull();
 
-        query.append(" WHERE #1#", getDialect().toSqlExpression(record.primaryKey(), record.id()));
+        query.append(" WHERE #1#", getDialect().toSqlExpression(record.id()));
 
         record.stale(true);
         try {

@@ -481,8 +481,7 @@ public abstract class Record {
     }
 
     /**
-     * Populates the record with the first result for which the given column name
-     * matches the given value.
+     * Populates the record with the first result for which the given value matches.
      *
      * @param symbol
      *            the column symbol.
@@ -494,8 +493,8 @@ public abstract class Record {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public boolean populateByComposite(Composite composite, Value value) throws SQLException {
-        return transaction().populateByComposite(this, composite, value);
+    public boolean populateByCompositeValue(Value value) throws SQLException {
+        return transaction().populateByCompositeValue(this, value);
     }
 
     /**
@@ -573,21 +572,19 @@ public abstract class Record {
 
     /**
      * Provides a selected record from the mapped database table, populated with
-     * the first result for which the composite key matches.
+     * the first result for which the primary key value, or composite value, matches.
      *
      * @param clazz
      *            the class defining the table mapping.
-     * @param composite
-     *            the composite key
      * @param value
-     *            the composite key value
+     *            the primary key value, or a composite value
      * @return the matched record or null for no match.
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> T find(Class<T> clazz, Composite composite, Object value) throws SQLException {
-        return transaction(clazz).find(clazz, composite, value);
+    public static <T extends Record> T find(Class<T> clazz, Object value) throws SQLException {
+        return transaction(clazz).find(clazz, value);
     }
 
     /**
@@ -624,8 +621,8 @@ public abstract class Record {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> List<T> findAll(Class<T> clazz, Composite composite, Value value) throws SQLException {
-        return transaction(clazz).findAll(clazz, composite, value);
+    public static <T extends Record> List<T> findAll(Class<T> clazz, Value value) throws SQLException {
+        return transaction(clazz).findAll(clazz, value);
     }
 
     /**
@@ -651,8 +648,8 @@ public abstract class Record {
         return transaction(clazz).findAll(clazz);
     }
 
-    public static RecordIterator iterate(Class<? extends Record> clazz, Composite composite, Value value) throws SQLException {
-        return transaction(clazz).iterate(clazz, composite, value);
+    public static RecordIterator iterate(Class<? extends Record> clazz, Value value) throws SQLException {
+        return transaction(clazz).iterate(clazz, value);
     }
 
     public static RecordIterator iterate(Class<? extends Record> clazz) throws SQLException {

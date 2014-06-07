@@ -239,10 +239,4 @@ public class Composite {
         sb.append("}");
         return sb.toString();
     }
-
-    public void assertCompatible(Value value) {
-        if (symbols.length != value.values.length) {
-            throw new AssertionError("Composite / Value size mismatch");
-        }
-    }
 }
