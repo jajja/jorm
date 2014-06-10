@@ -16,8 +16,10 @@ public class FixedPGobject extends PGobject {
         setValue(value);
     }
 
-    public static FixedPGobject fromPGobject(PGobject o) throws SQLException {
-        return new FixedPGobject(o.getType(), o.getValue());
+    public FixedPGobject(PGobject pgObject) throws SQLException {
+        super();
+        setType(pgObject.getType());
+        setValue(pgObject.getValue());
     }
 
     @Override
