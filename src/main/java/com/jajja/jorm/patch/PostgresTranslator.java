@@ -7,7 +7,7 @@ public class PostgresTranslator extends Translator {
     @Override
     public Object translate(Object o) {
         try {
-            if (o instanceof PGobject) {
+            if (o instanceof PGobject && !(o instanceof FixedPGobject)) {
                 PGobject pgObject = (PGobject) o;
                 return new FixedPGobject(pgObject.getType(), pgObject.getValue());
             }
