@@ -1,22 +1,21 @@
-package com.jajja.jorm.patch;
+package com.jajja.jorm.patch.postgres;
 
 import java.sql.SQLException;
 
-import org.postgresql.util.PGobject;
 
 @SuppressWarnings("serial")
-public class FixedPGobject extends PGobject {
-    public FixedPGobject() {
+public class PGobject extends org.postgresql.util.PGobject {
+    public PGobject() {
         super();
     }
 
-    public FixedPGobject(String type, String value) throws SQLException {
+    public PGobject(String type, String value) throws SQLException {
         super();
         setType(type);
         setValue(value);
     }
 
-    public FixedPGobject(PGobject pgObject) throws SQLException {
+    public PGobject(org.postgresql.util.PGobject pgObject) throws SQLException {
         super();
         setType(pgObject.getType());
         setValue(pgObject.getValue());
