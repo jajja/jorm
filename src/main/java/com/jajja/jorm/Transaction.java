@@ -1668,7 +1668,7 @@ public class Transaction {
 
         boolean isFirst = true;
         for (Entry<Symbol, Field> entry : record.fields.entrySet()) {
-            if (entry.getValue().isChanged()) {
+            if (entry.getValue().isChanged() && !record.table().isImmutable(entry.getKey())) {
                 query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
                 isFirst = false;
             }
@@ -1683,8 +1683,9 @@ public class Transaction {
         } else {
             query.append(") VALUES (");
             isFirst = true;
-            for (Field field : record.fields.values()) {
-                if (field.isChanged()) {
+            for (Entry<Symbol, Field> e : record.fields.entrySet()) {
+                Field field = e.getValue();
+                if (field.isChanged() && !record.table().isImmutable(e.getKey())) {
                     if (field.getValue() instanceof Query) {
                         query.append(isFirst ? "#1#" : ", #1#", field.getValue());
                     } else {
