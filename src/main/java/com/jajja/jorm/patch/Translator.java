@@ -28,12 +28,12 @@ public abstract class Translator {
     private static class DefaultTranslator extends Translator {
 
         @Override
-        Object translate(Object o) {
+        public Object translate(Object o) {
             return o;
         }
 
     }
 
-    abstract Object translate(Object o);
+    public abstract Object translate(Object o);
 
 }

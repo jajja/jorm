@@ -5,7 +5,7 @@ import org.postgresql.util.PGobject;
 public class PostgresTranslator extends Translator {
 
     @Override
-    Object translate(Object o) {
+    public Object translate(Object o) {
         try {
             if (o instanceof PGobject) {
                 PGobject pgObject = (PGobject) o;

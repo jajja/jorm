@@ -7,6 +7,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 import com.jajja.jorm.Record.Field;
+import com.jajja.jorm.patch.Translator;
 
 public class RecordIterator implements Closeable {
     private Symbol[] symbols;
@@ -38,7 +39,9 @@ public class RecordIterator implements Closeable {
             record.newFields(symbols.length);
             for (int i = 0; i < symbols.length; i++) {
                 Field field = new Record.Field();
-                field.setValue(resultSet.getObject(i + 1));
+                Object o = resultSet.getObject(i + 1);
+                o = Translator.get(o.getClass()).translate(o); // XXX: bug check!
+                field.setValue(o);
                 record.fields.put(symbols[i], field);
             }
         } catch (SQLException sqlException) {
