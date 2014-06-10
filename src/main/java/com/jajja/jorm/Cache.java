@@ -80,8 +80,8 @@ public class Cache<C extends Record> {
         }
     }
 
-    protected boolean fetchInto(Composite composite, Composite.Value value, C record) throws SQLException {
-        return record.populateByComposite(composite, value);
+    protected boolean fetchInto(Composite.Value value, C record) throws SQLException {
+        return record.populateByCompositeValue(value);
     }
 
     public void put(Collection<C> records) {
@@ -143,7 +143,7 @@ public class Cache<C extends Record> {
                     throw new RuntimeException("failed to create new instance", e);
                 }
                 try {
-                    if (!fetchInto(value.getComposite(), value, record)) {
+                    if (!fetchInto(value, record)) {
                         //  TODO negative cache?
                         record = null;
                     }

@@ -1,23 +1,45 @@
 package com.jajja.jorm;
 
+import java.util.Arrays;
+
 public class Composite {
-    private Symbol[] symbols;
+    private final Symbol[] symbols;
+    private int hashCode = 0;
 
     public Composite(String ... columns) {
-        if (columns.length == 0) {
-            throw new IllegalArgumentException("At least 1 column is required");
-        }
-        this.symbols = new Symbol[columns.length];
+        Symbol[] symbols = new Symbol[columns.length];
         for (int i = 0; i < columns.length; i++) {
-            this.symbols[i] = Symbol.get(columns[i]);
+            symbols[i] = Symbol.get(columns[i]);
         }
+        this.symbols = tidy(symbols, false);
     }
 
     public Composite(Symbol ... symbols) {
-        if (symbols.length == 0) {
+        this.symbols = tidy(symbols, true);
+    }
+
+    private Symbol[] tidy(Symbol[] symbols, boolean copy) {
+        int len = symbols.length;
+        if (len == 0) {
             throw new IllegalArgumentException("At least 1 symbol is required");
         }
-        this.symbols = symbols;
+        if (len > 1) {
+            Arrays.sort(symbols);
+            int n = 0;
+            for (int i = 0; i < len; i++) {
+                symbols[n++] = symbols[i];
+                while (i < len - 1 && symbols[i].identity == symbols[i+1].identity) {
+                    i++;
+                }
+            }
+            copy = (len != n);
+            len = n;
+        }
+        if (copy) {
+            System.out.println("copying");
+            symbols = Arrays.copyOf(symbols, len);
+        }
+        return symbols;
     }
 
     public Value valueFrom(Record record) {
@@ -167,9 +189,10 @@ public class Composite {
 
     @Override
     public int hashCode() {
-        int hashCode = 0;
-        for (Symbol symbol : symbols) {
-            hashCode += symbol.hashCode();
+        if (hashCode == 0) {
+            for (Symbol symbol : symbols) {
+                hashCode = hashCode * 31 + symbol.hashCode();
+            }
         }
         return hashCode;
     }
@@ -182,7 +205,7 @@ public class Composite {
                 return false;
             }
             for (int i = 0; i < symbols.length; i++) {
-                if (!symbols[i].equals(c.symbols[i])) {
+                if (symbols[i].identity != c.symbols[i].identity) {
                     return false;
                 }
             }
@@ -215,11 +238,5 @@ public class Composite {
         }
         sb.append("}");
         return sb.toString();
-    }
-
-    public void assertCompatible(Value value) {
-        if (symbols.length != value.values.length) {
-            throw new AssertionError("Composite / Value size mismatch");
-        }
     }
 }

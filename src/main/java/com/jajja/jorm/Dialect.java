@@ -449,9 +449,9 @@ public class Dialect {
 
     }
 
-    public Query toSqlExpression(Composite composite, Value value) {
+    public Query toSqlExpression(Value value) {
         Query query = new Query(this);
-        Symbol[] columns = composite.getSymbols();
+        Symbol[] columns = value.getComposite().getSymbols();
         Object[] values = value.getValues();
         boolean isFirst = true;
         for (int i = 0; i < columns.length; i++) {
