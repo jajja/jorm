@@ -153,7 +153,10 @@ public abstract class Record {
         Field() {}
 
         void setValue(Object value) {
-            this.value = Translator.get(value.getClass()).translate(value); // XXX: bug check!
+            if (value != null) {
+                value = Translator.get(value.getClass()).translate(value);
+            }
+            this.value = value;
         }
 
         public Object getValue() {
