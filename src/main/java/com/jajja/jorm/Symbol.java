@@ -108,7 +108,7 @@ public final class Symbol implements Comparable<Symbol> {
 
     @Override
     public int compareTo(Symbol o) {
-        return Integer.compare(identity, o.identity);
+        return (identity < o.identity) ? -1 : ((identity == o.identity) ? 0 : 1);
     }
 
     @Override
