@@ -745,6 +745,10 @@ public class Transaction {
         return build("SELECT * FROM #1# ", clazz);
     }
 
+    private <T extends Record> Query getDeleteQuery(Class<T> clazz) {
+        return build("DELETE FROM #1# ", clazz);
+    }
+
     public <T extends Record> Query getSelectQuery(Class<T> clazz, Object value) {
         Value v;
         if (value instanceof Value) {
@@ -754,6 +758,20 @@ public class Transaction {
         }
         Dialect dialect = getDialect();
         Query query = getSelectQuery(clazz);
+        query.append("WHERE ");
+        query.append(dialect.toSqlExpression(v));
+        return query;
+    }
+
+    public <T extends Record> Query getDeleteQuery(Class<T> clazz, Object value) {
+        Value v;
+        if (value instanceof Value) {
+            v = (Value)value;
+        } else {
+            v = Record.primaryKey(clazz).value(value);
+        }
+        Dialect dialect = getDialect();
+        Query query = getDeleteQuery(clazz);
         query.append("WHERE ");
         query.append(dialect.toSqlExpression(v));
         return query;
@@ -811,6 +829,10 @@ public class Transaction {
      */
     public <T extends Record> T find(Class<T> clazz, Object value) throws SQLException {
         return select(clazz, getSelectQuery(clazz, value));
+    }
+
+    public int delete(Class<? extends Record> clazz, Object value) throws SQLException {
+        return executeUpdate(getDeleteQuery(clazz, value));
     }
 
     /**
@@ -897,6 +919,10 @@ public class Transaction {
      */
     public <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
         return find(clazz, Record.primaryKey(clazz).value(id));
+    }
+
+    public int deleteById(Class<? extends Record> clazz, Object id) throws SQLException {
+        return delete(clazz, Record.primaryKey(clazz).value(id));
     }
 
     /**

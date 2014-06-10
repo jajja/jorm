@@ -673,6 +673,10 @@ public abstract class Record {
         return transaction(clazz).findById(clazz, id);
     }
 
+    public static int deleteById(Class<? extends Record> clazz, Object id) throws SQLException {
+        return transaction(clazz).deleteById(clazz, id);
+    }
+
     /**
      * Provides a selected record, populated with the first result from the
      * query given by a plain SQL statement and applicable parameters.
