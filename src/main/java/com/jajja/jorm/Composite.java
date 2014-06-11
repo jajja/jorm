@@ -18,7 +18,7 @@ public class Composite {
         this.symbols = tidy(symbols, true);
     }
 
-    private Symbol[] tidy(Symbol[] symbols, boolean copy) {
+    private static Symbol[] tidy(Symbol[] symbols, boolean copy) {
         int len = symbols.length;
         if (len == 0) {
             throw new IllegalArgumentException("At least 1 symbol is required");
