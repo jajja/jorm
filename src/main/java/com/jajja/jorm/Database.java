@@ -225,8 +225,10 @@ public class Database {
     }
 
     public static void destroy() {
-        for (Configuration configuration : configurations.values()) {
-            configuration.destroy();
+        if (configurations != null) {
+            for (Configuration configuration : configurations.values()) {
+                configuration.destroy();
+            }
         }
     }
 
