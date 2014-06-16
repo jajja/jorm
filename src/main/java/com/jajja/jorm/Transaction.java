@@ -45,6 +45,7 @@ import java.util.Set;
 
 import javax.sql.DataSource;
 
+import org.postgresql.util.PGobject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1993,6 +1994,28 @@ public class Transaction {
         }
     }
 
+    private static boolean havePGobject = false;
+    static {
+        try {
+            Class.forName("org.postgresql.util.PGobject");
+            havePGobject = true;
+        } catch (ClassNotFoundException e) {
+        }
+    }
+
+    private static String getPgDataType(Object v) {
+        if (v instanceof java.sql.Timestamp) {
+            return "timestamp";
+        }
+        if (v instanceof java.util.Date) {
+            return "date";
+        }
+        if (havePGobject && v instanceof PGobject) {
+            return ((PGobject)v).getType();
+        }
+        return null;
+    }
+
     private void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
         Table table = batchInfo.template.table();
         Query query = build();
@@ -2019,7 +2042,12 @@ public class Transaction {
                 if (value instanceof Query) {
                     query.append(isFirstColumn ? "#1#" : ", #1#", value);
                 } else {
-                    query.append(isFirstColumn ? "#?1#" : ", #?1#", value);
+                    String pgDataType = getPgDataType(value);
+                    if (pgDataType != null) {
+                        query.append(isFirstColumn ? "cast(#?1# AS #:2#)" : ", cast(#?1# AS #:2#)", value, pgDataType);
+                    } else {
+                        query.append(isFirstColumn ? "#?1#" : ", #?1#", value);
+                    }
                 }
                 isFirstColumn = false;
             }

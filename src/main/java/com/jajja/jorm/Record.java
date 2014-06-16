@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.generator.Generator;
-import com.jajja.jorm.patch.Translator;
+import com.jajja.jorm.patch.Patcher;
 
 /**
  * <p>
@@ -153,10 +153,7 @@ public abstract class Record {
         Field() {}
 
         void setValue(Object value) {
-            if (value != null) {
-                value = Translator.get(value.getClass()).translate(value);
-            }
-            this.value = value;
+            this.value = Patcher.unbork(value);
         }
 
         public Object getValue() {
