@@ -1557,9 +1557,11 @@ public class Transaction {
 
             String immutablePrefix = template.table().getImmutablePrefix();
             if (template != null && immutablePrefix != null) {
-                for (Symbol symbol : columns) {
+                Iterator<Symbol> i = columns.iterator();
+                while (i.hasNext()) {
+                    Symbol symbol = i.next();
                     if (symbol.getName().startsWith(immutablePrefix)) {
-                        columns.remove(symbol);
+                        i.remove();
                     }
                 }
             }
