@@ -36,7 +36,6 @@ public class Composite {
             len = n;
         }
         if (copy) {
-            System.out.println("copying");
             symbols = Arrays.copyOf(symbols, len);
         }
         return symbols;
