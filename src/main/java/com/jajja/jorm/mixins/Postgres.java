@@ -107,42 +107,53 @@ public final class Postgres {
                 );
     }
 
-    public static PGobject toEnum(String type, String value) {
+    public static PGobject pgObject(String type, String value) {
         if (value == null) {
             return null;
         }
 
         PGobject obj = new PGobject();
         obj.setType(type);
-
         try {
             obj.setValue(value);
         } catch (SQLException e) {
-            // UNREACHABLE
             throw new RuntimeException(e);
         }
         return obj;
     }
 
-    public static String get(PGobject o, String expectedType) {
+    @Deprecated
+    public static PGobject toEnum(String type, String value) {
+        return pgObject(type, value);
+    }
+
+    public static String pgObjectValue(PGobject o, String type) {
         if (o == null) {
             return null;
         }
-        if (!o.getType().equals(expectedType)) {
-            throw new IllegalStateException("expected type " + expectedType+ ", found " + o.getType());
+        if (type != null && !o.getType().equals(type)) {
+            throw new IllegalStateException("expected type " + type + ", found " + o.getType());
         }
         return o.getValue();
     }
 
+    public static String pgObjectValue(PGobject o) {
+        return pgObjectValue(o, null);
+    }
+
+    @Deprecated
+    public static String get(PGobject o, String type) {
+        return pgObjectValue(o, type);
+    }
+
     public static InetAddress toInetAddress(PGobject o) {
-        String address = get(o, "inet");
+        String address = pgObjectValue(o, "inet");
         if (address == null) {
             return null;
         }
         try {
             return InetAddress.getByName(address);
         } catch (UnknownHostException e) {
-            // UNREACHABLE ?
             throw new RuntimeException(e);
         }
     }
@@ -151,14 +162,6 @@ public final class Postgres {
         if (inetAddress == null) {
             return null;
         }
-        PGobject o = new PGobject();
-        o.setType("inet");
-        try {
-            o.setValue(inetAddress.getHostAddress());
-        } catch (SQLException e) {
-            // UNREACHABLE ?
-            throw new RuntimeException(e);
-        }
-        return o;
+        return pgObject("inet", inetAddress.getHostAddress());
     }
 }
