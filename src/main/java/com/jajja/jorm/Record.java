@@ -995,14 +995,14 @@ public abstract class Record {
      */
     public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
         if (!records.isEmpty()) {
-            return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
+            return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
         }
         return new HashMap<Composite.Value, T>();
     }
 
     public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
         if (!records.isEmpty()) {
-            return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
+            return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
         }
         return new HashMap<Composite.Value, T>();
     }
