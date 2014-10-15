@@ -191,7 +191,7 @@ public abstract class Record {
         return field;
     }
 
-    void newFields(int size) {
+    void resetFields(int size) {
         fields = new HashMap<Symbol, Field>(size, 1.0f);
         stale(false);
     }

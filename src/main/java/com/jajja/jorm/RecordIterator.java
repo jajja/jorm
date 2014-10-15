@@ -35,7 +35,7 @@ public class RecordIterator implements Closeable {
 
     private void populate(Record record, ResultSet resultSet) throws SQLException {
         try {
-            record.newFields(symbols.length);
+            record.resetFields(symbols.length);
             for (int i = 0; i < symbols.length; i++) {
                 Field field = new Record.Field();
                 field.setValue(resultSet.getObject(i + 1));
