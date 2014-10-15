@@ -1487,7 +1487,7 @@ public class Transaction {
 
         Query query = build("DELETE FROM #1# WHERE", template.getClass());
         Composite primaryKey = template.primaryKey();
-        Dialect dialect = template.transaction().getDialect();
+        Dialect dialect = getDialect();
         if (primaryKey.isSingle()) {
             query.append("#:1# IN (#2:@#)", primaryKey, records);
         } else {
@@ -1507,7 +1507,7 @@ public class Transaction {
                 }
             }
         }
-        template.transaction().execute(query);
+        execute(query);
     }
 
     private static List<? extends Record> batchChunk(Iterator<? extends Record> iterator, int size) {
@@ -1572,9 +1572,8 @@ public class Transaction {
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
         Record template = records.iterator().next();
-        Transaction transaction = template.transaction();
         Composite primaryKey = template.primaryKey();
-        Dialect dialect = transaction.getDialect();
+        Dialect dialect = getDialect();
 
         // XXX UPDATE + REPOPULATE?
         if (mode != ResultMode.NO_RESULT && !primaryKey.isSingle() && !dialect.isReturningSupported()) {
@@ -1587,10 +1586,10 @@ public class Transaction {
 
             if (useReturning) {
                 query.append(" RETURNING *");   // XXX ID_ONLY support
-                preparedStatement = transaction.prepare(query.getSql(), query.getParams());
+                preparedStatement = prepare(query.getSql(), query.getParams());
                 resultSet = preparedStatement.executeQuery();
             } else {
-                preparedStatement = transaction.prepare(query.getSql(), query.getParams(), true);
+                preparedStatement = prepare(query.getSql(), query.getParams(), true);
                 preparedStatement.execute();
                 resultSet = preparedStatement.getGeneratedKeys();
                 if (mode == ResultMode.REPOPULATE) {
@@ -1634,7 +1633,7 @@ public class Transaction {
                 // records must not be stale, or Query will generate SELECTs
                 Query q = getSelectQuery(template.getClass()).append("WHERE #1# IN (#2:@#)", primaryKey.getSymbol(), records);
 
-                preparedStatement = transaction.prepare(q);
+                preparedStatement = prepare(q);
                 resultSet = preparedStatement.executeQuery();
 
                 int idColumn = resultSet.findColumn(primaryKey.getSymbol().getName());
@@ -1868,11 +1867,13 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public void update(Record record, ResultMode mode) throws SQLException {
+    public int update(Record record, ResultMode mode, Composite key) throws SQLException {
+        int rowsUpdated = 0;
+
         record.ensureNotReadOnly();
 
         if (!record.isChanged()) {
-            return;
+            return rowsUpdated;
         }
 
         if (record.isStale()) {
@@ -1896,26 +1897,35 @@ public class Transaction {
             }
         }
 
-        record.assertPrimaryKeyNotNull();
+        if (record.isCompositeKeyNull(key)) {
+            throw new IllegalStateException("Primary/unique key contains NULL value(s)");
+        }
 
-        query.append(" WHERE #1#", getDialect().toSqlExpression(record.id()));
+        query.append(" WHERE #1#", getDialect().toSqlExpression(record.get(key)));
 
         record.stale(true);
         try {
             if (getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
                 query.append(" RETURNING *");
                 record.selectInto(query);
+                rowsUpdated = 1;                        // XXX FIXME not correct
             } else {
-                executeUpdate(query);
+                rowsUpdated = executeUpdate(query);
             }
         } catch (SQLException e) {
             record.stale(false);
             throw(e);
         }
+
+        return rowsUpdated;
     }
 
-    public void update(Record record) throws SQLException {
-        update(record, ResultMode.REPOPULATE);
+    public int update(Record record, ResultMode mode) throws SQLException {
+        return update(record, mode, record.primaryKey());
+    }
+
+    public int update(Record record) throws SQLException {
+        return update(record, ResultMode.REPOPULATE);
     }
 
     /**
@@ -1977,7 +1987,7 @@ public class Transaction {
             throw new IllegalArgumentException("No columns to update");
         }
 
-        Dialect dialect = records.iterator().next().transaction().getDialect();
+        Dialect dialect = getDialect();
         if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
             for (Record record : records) {
                 record.update();
@@ -2034,7 +2044,7 @@ public class Transaction {
 
         boolean isFirstValue = true;
         for (Record record : records) {
-            if (record.isPrimaryKeyNull()) {
+            if (record.isCompositeKeyNull(primaryKey)) {
                 throw new IllegalArgumentException("Record has unset or NULL primary key: " + record);
             }
             isFirstColumn = true;
