@@ -1602,7 +1602,7 @@ public class Transaction {
 
             for (Record record : records) {
                 if (!resultSet.next()) {
-                    throw new IllegalStateException("too few rows returned?");
+                    throw new IllegalStateException(String.format("Too few rows returned? Expected %d rows from query %s", records.size(), query.toString()));
                 }
                 if (useReturning) {
                     // RETURNING rocks!
