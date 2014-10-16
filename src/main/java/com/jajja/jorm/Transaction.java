@@ -446,7 +446,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public Map<Composite.Value, AnonymousRecord> selectAsMap(Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
-        return Record.selectAsMap(AnonymousRecord.class, compositeKey, allowDuplicates, query);
+        return selectAsMap(AnonymousRecord.class, compositeKey, allowDuplicates, query);
     }
 
     public Map<Composite.Value, AnonymousRecord> selectAsMap(Composite compositeKey, boolean allowDuplicates, String sql, Object ... params) throws SQLException {
@@ -465,7 +465,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public Map<Composite.Value, List<AnonymousRecord>> selectAllAsMap(Composite composite, Query query) throws SQLException {
-        return Record.selectAllAsMap(AnonymousRecord.class, composite, query);
+        return selectAllAsMap(AnonymousRecord.class, composite, query);
     }
 
     public Map<Composite.Value, List<AnonymousRecord>> selectAllAsMap(Composite compositeKey, String sql, Object ... params) throws SQLException {
@@ -977,7 +977,7 @@ public class Transaction {
      */
     public <T extends Record> T select(Class<T> clazz, Query query) throws SQLException {
         T record = Record.construct(clazz);
-        if (record.selectInto(query)) {
+        if (selectInto(record, query)) {
             return record;
         }
         return null;
@@ -1386,9 +1386,9 @@ public class Transaction {
     public void save(Record record, ResultMode mode) throws SQLException {
         record.ensureNotReadOnly();
         if (record.isPrimaryKeyNullOrChanged()) {
-            record.insert(mode);
+            insert(record, mode);
         } else {
-            record.update(mode);
+            update(record, mode);
         }
     }
 
@@ -1601,7 +1601,7 @@ public class Transaction {
 
             for (Record record : records) {
                 if (!resultSet.next()) {
-                    throw new IllegalStateException(String.format("Too few rows returned? Expected %d rows from query %s", records.size(), query.toString()));
+                    throw new IllegalStateException(String.format("Too few rows returned? Expected %d rows from query %s", records.size(), query.getSql()));
                 }
                 if (useReturning) {
                     // RETURNING rocks!
@@ -1907,7 +1907,7 @@ public class Transaction {
         try {
             if (getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
                 query.append(" RETURNING *");
-                record.selectInto(query);
+                selectInto(record, query);
                 rowsUpdated = 1;                        // XXX FIXME not correct
             } else {
                 rowsUpdated = executeUpdate(query);
@@ -1990,7 +1990,7 @@ public class Transaction {
         Dialect dialect = getDialect();
         if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
             for (Record record : records) {
-                record.update();
+                update(record);
             }
             return;
         }
@@ -2103,7 +2103,7 @@ public class Transaction {
         if (record.isStale()) {
             try {
                 record.assertPrimaryKeyNotNull();
-                record.populateById(record.primaryKey().valueFrom(record, true));
+                populateById(record, record.primaryKey().valueFrom(record, true));
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to refresh stale record", e);
             }
