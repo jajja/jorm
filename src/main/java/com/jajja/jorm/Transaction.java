@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.sql.DataSource;
 
 import org.postgresql.util.PGobject;
@@ -88,15 +87,15 @@ import com.jajja.jorm.Record.ResultMode;
  */
 public class Transaction {
     private static Logger log = LoggerFactory.getLogger(Transaction.class);
-    private String database;
-    private DataSource dataSource;
+    private final String database;
+    private final DataSource dataSource;
     private Dialect dialect;
     private Timestamp now;
     private Connection connection;
-    private Table anonTable;
+    private final Table anonTable;
     private boolean isDestroyed = false;
     private boolean isLoggingEnabled = false;
-    private Calendar calendar = Calendar.getInstance(); // TODO: fix
+    private final Calendar calendar;
 
     private void tracelog(String message) {
         if (isLoggingEnabled) {
@@ -111,9 +110,10 @@ public class Transaction {
         }
     }
 
-    Transaction(DataSource dataSource, String database) {
+    Transaction(DataSource dataSource, String database, Calendar calendar) {
         this.database = database;
         this.dataSource = dataSource;
+        this.calendar = calendar;
         anonTable = new Table(database);
     }
 

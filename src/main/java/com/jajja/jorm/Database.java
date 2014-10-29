@@ -27,11 +27,13 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.sql.SQLException;
+import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.TimeZone;
 
 import javax.sql.DataSource;
 
@@ -61,7 +63,8 @@ public class Database {
     private Logger log = LoggerFactory.getLogger(Database.class);
     private static volatile Database instance = new Database();
     private static boolean configured;
-    
+    private static Map<String, Configuration> configurations;
+
     private Database() {
     }
 
@@ -167,7 +170,7 @@ public class Database {
             if (dataSource == null) {
                 ensureConfigured(database); // throws!
             }
-            transaction = new Transaction(dataSource, database);
+            transaction = new Transaction(dataSource, database, configurations.get(database).calendar);
             transactions.put(database, transaction);
         }
         return transaction;
@@ -232,8 +235,6 @@ public class Database {
         }
     }
 
-    private static Map<String, Configuration> configurations;
-
     private static void ensureConfigured() {
         if (configured) {
             return;
@@ -246,7 +247,7 @@ public class Database {
             configured = true;
         }
     }
-    
+
     /*
      * jorm.properties
      * ---------------
@@ -357,6 +358,8 @@ public class Database {
                         } else {
                             Database.get().defaultContext.put(database, value);
                         }
+                    } else if (parts[2].equals("timeZone")) {
+                        configuration.calendar = Calendar.getInstance(TimeZone.getTimeZone(value));
                     } else {
                         isMalformed = true;
                     }
@@ -390,6 +393,7 @@ public class Database {
         private Map<String, String> dataSourceProperties = new HashMap<String, String>();
         private DataSource dataSource;
         private Method destroyMethod;
+        private Calendar calendar;
 
         public void inherit(Configuration base) {
             if (dataSourceClassName == null) {
@@ -397,6 +401,9 @@ public class Database {
             }
             if (destroyMethodName == null) {
                 destroyMethodName = base.destroyMethodName;
+            }
+            if (calendar == null) {
+                calendar = base.calendar;
             }
             for (String key : base.dataSourceProperties.keySet()) {
                 if (!dataSourceProperties.containsKey(key)) {
