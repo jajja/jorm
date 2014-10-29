@@ -1,10 +1,14 @@
 package com.jajja.jorm;
 
 import java.io.Closeable;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.Calendar;
 
 import com.jajja.jorm.Record.Field;
 
@@ -13,15 +17,26 @@ public class RecordIterator implements Closeable {
     private PreparedStatement preparedStatement;
     private ResultSet resultSet;
     private boolean autoClose = true;
+    private Calendar calendar;
 
-    public RecordIterator(PreparedStatement preparedStatement) throws SQLException {
+//    public RecordIterator(PreparedStatement preparedStatement) throws SQLException {
+//        this(preparedStatement, Calendar.getInstance());
+//    }
+//
+//    public RecordIterator(ResultSet resultSet) throws SQLException {
+//        this(resultSet, Calendar.getInstance());
+//    }
+
+    public RecordIterator(PreparedStatement preparedStatement, Calendar calendar) throws SQLException {
         this.preparedStatement = preparedStatement;
+        this.calendar = calendar;
         this.resultSet = preparedStatement.executeQuery();
         init();
     }
 
-    public RecordIterator(ResultSet resultSet) throws SQLException {
+    public RecordIterator(ResultSet resultSet, Calendar calendar) throws SQLException {
         this.resultSet = resultSet;
+        this.calendar = calendar;
         init();
     }
 
@@ -38,7 +53,15 @@ public class RecordIterator implements Closeable {
             record.resetFields(symbols.length);
             for (int i = 0; i < symbols.length; i++) {
                 Field field = new Record.Field();
-                field.setValue(resultSet.getObject(i + 1));
+                Object object = resultSet.getObject(i + 1);
+                if (object instanceof Date) {
+                    object = resultSet.getDate(i + 1, calendar);
+                } else if (object instanceof Time) {
+                    object = resultSet.getTime(i + 1, calendar);
+                } else if (object instanceof Timestamp) {
+                    object = resultSet.getTimestamp(i + 1, calendar);
+                }
+                field.setValue(object);
                 record.fields.put(symbols[i], field);
             }
         } catch (SQLException sqlException) {

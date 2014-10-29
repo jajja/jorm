@@ -1021,7 +1021,7 @@ public abstract class Record {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(resultSet);
+                iter = new RecordIterator(resultSet, transaction().getCalendar());
                 if (iter.next()) {
                     iter.record(this);
                     return true;

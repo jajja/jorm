@@ -26,13 +26,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.sql.Statement;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -93,6 +96,7 @@ public class Transaction {
     private Table anonTable;
     private boolean isDestroyed = false;
     private boolean isLoggingEnabled = false;
+    private Calendar calendar = Calendar.getInstance(); // TODO: fix
 
     private void tracelog(String message) {
         if (isLoggingEnabled) {
@@ -353,7 +357,15 @@ public class Transaction {
             if (params != null) {
                 int p = 1;
                 for (Object param : params) {
-                    preparedStatement.setObject(p++, param);
+                    if (param instanceof Date) {
+                        preparedStatement.setDate(p++, (Date) param, calendar);
+                    } else if (param instanceof Time) {
+                        preparedStatement.setTime(p++, (Time) param, calendar);
+                    } else if (param instanceof Timestamp) {
+                        preparedStatement.setTimestamp(p++, (Timestamp) param, calendar);
+                    } else {
+                        preparedStatement.setObject(p++, param);
+                    }
                 }
             }
             return preparedStatement;
@@ -539,7 +551,7 @@ public class Transaction {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query.getSql(), query.getParams()));
+                iter = new RecordIterator(prepare(query.getSql(), query.getParams()), calendar);
                 while (iter.next()) {
                     Record record = new AnonymousRecord(anonTable);
                     iter.record(record);
@@ -565,7 +577,7 @@ public class Transaction {
      *             if a database access error occurs
      */
     public RecordIterator iterate(Query query) throws SQLException {
-        return new RecordIterator(prepare(query.getSql(), query.getParams()));
+        return new RecordIterator(prepare(query.getSql(), query.getParams()), calendar);
     }
 
     /**
@@ -1036,7 +1048,7 @@ public class Transaction {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query));
+                iter = new RecordIterator(prepare(query), calendar);
                 while (iter.next()) {
                     records.add(iter.record(clazz));
                 }
@@ -1099,7 +1111,7 @@ public class Transaction {
      */
     public RecordIterator selectIterator(Class<? extends Record> clazz, Query query) throws SQLException {
         try {
-            return new RecordIterator(prepare(query));
+            return new RecordIterator(prepare(query), calendar);
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
         }
@@ -1125,7 +1137,7 @@ public class Transaction {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query));
+                iter = new RecordIterator(prepare(query), calendar);
                 while (iter.next()) {
                     T record = iter.record(clazz);
                     Composite.Value value = compositeKey.valueFrom(record);
@@ -1170,7 +1182,7 @@ public class Transaction {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query));
+                iter = new RecordIterator(prepare(query), calendar);
                 while (iter.next()) {
                     T record = iter.record(clazz);
                     Composite.Value value = compositeKey.valueFrom(record);
@@ -1250,7 +1262,7 @@ public class Transaction {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query));
+                iter = new RecordIterator(prepare(query), calendar);
                 if (iter.next()) {
                     iter.record(record);
                     return true;
@@ -1606,7 +1618,7 @@ public class Transaction {
                 if (useReturning) {
                     // RETURNING rocks!
                     if (iter == null) {
-                        iter = new RecordIterator(resultSet);
+                        iter = new RecordIterator(resultSet, calendar);
                         iter.setAutoClose(false);
                     }
                     iter.record(record);
@@ -2109,6 +2121,10 @@ public class Transaction {
             }
             record.stale(false);
         }
+    }
+
+    public Calendar getCalendar() {
+        return calendar;
     }
 
 }
