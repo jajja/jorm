@@ -19,13 +19,13 @@ public class RecordIterator implements Closeable {
     private boolean autoClose = true;
     private Calendar calendar;
 
-//    public RecordIterator(PreparedStatement preparedStatement) throws SQLException {
-//        this(preparedStatement, Calendar.getInstance());
-//    }
-//
-//    public RecordIterator(ResultSet resultSet) throws SQLException {
-//        this(resultSet, Calendar.getInstance());
-//    }
+    public RecordIterator(PreparedStatement preparedStatement) throws SQLException {
+        this(preparedStatement, null);
+    }
+
+    public RecordIterator(ResultSet resultSet) throws SQLException {
+        this(resultSet, null);
+    }
 
     public RecordIterator(PreparedStatement preparedStatement, Calendar calendar) throws SQLException {
         this.preparedStatement = preparedStatement;
@@ -54,12 +54,14 @@ public class RecordIterator implements Closeable {
             for (int i = 0; i < symbols.length; i++) {
                 Field field = new Record.Field();
                 Object object = resultSet.getObject(i + 1);
-                if (object instanceof Date) {
-                    object = resultSet.getDate(i + 1, calendar);
-                } else if (object instanceof Time) {
-                    object = resultSet.getTime(i + 1, calendar);
-                } else if (object instanceof Timestamp) {
-                    object = resultSet.getTimestamp(i + 1, calendar);
+                if (calendar != null) {
+                    if (object instanceof Date) {
+                        object = resultSet.getDate(i + 1, calendar);
+                    } else if (object instanceof Time) {
+                        object = resultSet.getTime(i + 1, calendar);
+                    } else if (object instanceof Timestamp) {
+                        object = resultSet.getTimestamp(i + 1, calendar);
+                    }
                 }
                 field.setValue(object);
                 record.fields.put(symbols[i], field);

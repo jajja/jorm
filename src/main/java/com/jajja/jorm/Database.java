@@ -359,7 +359,11 @@ public class Database {
                             Database.get().defaultContext.put(database, value);
                         }
                     } else if (parts[2].equals("timeZone")) {
-                        configuration.calendar = Calendar.getInstance(TimeZone.getTimeZone(value));
+                        if ("default".equalsIgnoreCase(value)) {
+                            configuration.calendar = null;
+                        } else {
+                            configuration.calendar = Calendar.getInstance(TimeZone.getTimeZone(value));
+                        }
                     } else {
                         isMalformed = true;
                     }

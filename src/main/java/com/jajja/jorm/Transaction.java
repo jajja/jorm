@@ -45,6 +45,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TimeZone;
+
 import javax.sql.DataSource;
 
 import org.postgresql.util.PGobject;
@@ -95,7 +97,7 @@ public class Transaction {
     private final Table anonTable;
     private boolean isDestroyed = false;
     private boolean isLoggingEnabled = false;
-    private final Calendar calendar;
+    private Calendar calendar;
 
     private void tracelog(String message) {
         if (isLoggingEnabled) {
@@ -108,6 +110,18 @@ public class Transaction {
                 }
             }
         }
+    }
+
+    public void setCalendar(Calendar calendar) {
+        this.calendar = calendar;
+    }
+
+    public Calendar getCalendar() {
+        return calendar;
+    }
+
+    public void setTimeZone(TimeZone timeZone) {
+        this.calendar = Calendar.getInstance(timeZone);
     }
 
     Transaction(DataSource dataSource, String database, Calendar calendar) {
@@ -357,12 +371,16 @@ public class Transaction {
             if (params != null) {
                 int p = 1;
                 for (Object param : params) {
-                    if (param instanceof Date) {
-                        preparedStatement.setDate(p++, (Date) param, calendar);
-                    } else if (param instanceof Time) {
-                        preparedStatement.setTime(p++, (Time) param, calendar);
-                    } else if (param instanceof Timestamp) {
-                        preparedStatement.setTimestamp(p++, (Timestamp) param, calendar);
+                    if (calendar != null) {
+                        if (param instanceof Date) {
+                            preparedStatement.setDate(p++, (Date)param, calendar);
+                        } else if (param instanceof Time) {
+                            preparedStatement.setTime(p++, (Time)param, calendar);
+                        } else if (param instanceof Timestamp) {
+                            preparedStatement.setTimestamp(p++, (Timestamp)param, calendar);
+                        } else {
+                            preparedStatement.setObject(p++, param);
+                        }
                     } else {
                         preparedStatement.setObject(p++, param);
                     }
@@ -2122,9 +2140,4 @@ public class Transaction {
             record.stale(false);
         }
     }
-
-    public Calendar getCalendar() {
-        return calendar;
-    }
-
 }
