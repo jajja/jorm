@@ -84,9 +84,10 @@ public class DatabaseGenerator implements Lookupable {
         return name;
     }
 
-    public DatabaseGenerator addSchema(String name) {
-        schemas.put(name, new SchemaGenerator(this, name));
-        return this;
+    public SchemaGenerator addSchema(String name) {
+        SchemaGenerator schemaGenerator = new SchemaGenerator(this, name);
+        schemas.put(name, schemaGenerator);
+        return schemaGenerator;
     }
 
 //    public DatabaseGenerator addAllSchemas(String defaultSchemaName) throws SQLException {
@@ -130,15 +131,17 @@ public class DatabaseGenerator implements Lookupable {
     }
 
     // Add tables to default schema
-    public void addTables(String ... tableNames) {
+    public DatabaseGenerator addTables(String ... tableNames) {
         for (String tableName : tableNames) {
             addTable(tableName);
         }
+        return this;
     }
 
     // Add tables from default schema
-    public void addAllTables() throws SQLException {
+    public DatabaseGenerator addAllTables() throws SQLException {
         getDefaultSchema().addAllTables();
+        return this;
     }
 
     // Get table from default schema
@@ -150,9 +153,10 @@ public class DatabaseGenerator implements Lookupable {
         return typeMap.get(databaseTypeName);
     }
 
-    public void mapDataType(String databaseTypeName, String javaTypeName) {
+    public DatabaseGenerator mapDataType(String databaseTypeName, String javaTypeName) {
         getGenerator().assertMetadataNotFetched();
         typeMap.put(databaseTypeName, javaTypeName);
+        return this;
     }
 
     public void fetchMetadata() throws SQLException {

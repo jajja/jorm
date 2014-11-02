@@ -77,16 +77,18 @@ public class TableGenerator implements Lookupable {
         return name;
     }
 
-    public void setName(String name) {
+    public TableGenerator setName(String name) {
         this.name = name;
+        return this;
     }
 
     public ColumnGenerator getPrimaryColumn() {
         return primaryColumn;
     }
 
-    public void setPrimaryColumn(ColumnGenerator primaryColumn) {
+    public TableGenerator setPrimaryColumn(ColumnGenerator primaryColumn) {
         this.primaryColumn = primaryColumn;
+        return this;
     }
 
     public ColumnGenerator getColumn(String name) {
@@ -97,8 +99,9 @@ public class TableGenerator implements Lookupable {
         return column;
     }
 
-    public void addImport(String importName) {
+    public TableGenerator addImport(String importName) {
         imports.add(importName);
+        return this;
     }
 
     public ImportCollection getImports() {
@@ -147,11 +150,11 @@ public class TableGenerator implements Lookupable {
     }
 
     public String getClassName() {
-        return depluralize(camelize(name, true));
+        return depluralize(schema.getTablePrefix() + camelize(name, true));
     }
 
     public String getFullClassName() {
-        return schema.getPackageName() + "." + depluralize(camelize(name, true));
+        return schema.getPackageName() + "." + depluralize(schema.getTablePrefix() + camelize(name, true));
     }
 
     @Override
@@ -263,18 +266,20 @@ public class TableGenerator implements Lookupable {
         os.write(toString().getBytes("UTF-8"));
     }
 
-    public void addUnqiue(ColumnGenerator ... columns) {
+    public TableGenerator addUnqiue(ColumnGenerator ... columns) {
         addImport("java.sql.SQLException");     // find() methods throws SQLExceptions
         uniqueKeys.add(columns);
+        return this;
     }
 
-    public void addUnqiue(String ... columns) {
+    public TableGenerator addUnqiue(String ... columns) {
         ColumnGenerator[] cols = new ColumnGenerator[columns.length];
 
         for (int i = 0; i < columns.length; i++) {
             cols[i] = getColumn(columns[i]);
         }
         addUnqiue(cols);
+        return this;
     }
 
     @Override

@@ -52,6 +52,7 @@ public class SchemaGenerator implements Lookupable {
     private String packageName;
     Map<String, TableGenerator> tables = new LinkedHashMap<String, TableGenerator>();
     private DatabaseGenerator database;
+    private String tablePrefix = "";
 
     static {
         String[] keywords = new String[] {
@@ -99,16 +100,27 @@ public class SchemaGenerator implements Lookupable {
         return name == null;
     }
 
-    public void setName(String name) {
+    public SchemaGenerator setName(String name) {
         this.name = name;
+        return this;
     }
 
     public String getPackageName() {
         return packageName;
     }
 
-    public void setPackageName(String packageName) {
+    public SchemaGenerator setPackageName(String packageName) {
         this.packageName = packageName;
+        return this;
+    }
+
+    public String getTablePrefix() {
+        return tablePrefix;
+    }
+
+    public SchemaGenerator setTablePrefix(String tablePrefix) {
+        this.tablePrefix = tablePrefix;
+        return this;
     }
 
     public TableGenerator getTable(String name) {
@@ -119,17 +131,20 @@ public class SchemaGenerator implements Lookupable {
         return table;
     }
 
-    public void addTable(String tableName) {
-        tables.put(tableName, new TableGenerator(this, tableName));
+    public TableGenerator addTable(String tableName) {
+        TableGenerator tableGenerator = new TableGenerator(this, tableName);
+        tables.put(tableName, tableGenerator);
+        return tableGenerator;
     }
 
-    public void addTables(String ... tableNames) {
+    public SchemaGenerator addTables(String ... tableNames) {
         for (String tableName : tableNames) {
             addTable(tableName);
         }
+        return this;
     }
 
-    public void addAllTables() throws SQLException {
+    public SchemaGenerator addAllTables() throws SQLException {
         Transaction transaction = com.jajja.jorm.Database.open(getDatabase().getName());
         Connection connection = transaction.getConnection();
         DatabaseMetaData metadata = connection.getMetaData();
@@ -146,6 +161,7 @@ public class SchemaGenerator implements Lookupable {
                 rs.close();
             }
         }
+        return this;
     }
 
     public void fetchMetadata(Transaction transaction) throws SQLException {
