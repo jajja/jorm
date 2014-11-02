@@ -1,0 +1,663 @@
+/*
+ * Copyright (C) 2013 Jajja Communications AB
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+package com.jajja.jorm;
+
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import com.jajja.jorm.Composite.Value;
+import com.jajja.jorm.patch.Patcher;
+
+/**
+ * @author dnk
+ *
+ */
+public class Row {
+    public static final byte FLAG_STALE = 0x01;
+    public static final byte FLAG_READ_ONLY = 0x02;
+    private byte flags;
+    Map<Symbol, Column> columns = new HashMap<Symbol, Column>(8, 1.0f);
+
+    public static class Column {
+        private Object value = null;
+        private boolean isChanged = false;
+        private Record reference = null;
+
+        Column() {}
+
+        void setValue(Object value) {
+            this.value = Patcher.unbork(value);
+        }
+
+        public Object getValue() {
+            return value;
+        }
+
+        void setChanged(boolean isChanged) {
+            this.isChanged = isChanged;
+        }
+
+        boolean isChanged() {
+            return isChanged;
+        }
+
+        void setReference(Record reference) {
+            this.reference = reference;
+        }
+
+        public Record getReference() {
+            return reference;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Field [value => %s, isChanged => %s, reference => %s]", value, isChanged, reference);
+        }
+    }
+
+    public Row() {
+    }
+
+    Column getOrCreateColumn(Symbol symbol) {
+        Column column = columns.get(symbol);
+        if (column == null) {
+            column = new Column();
+            columns.put(symbol, column);
+        }
+        return column;
+    }
+
+
+    /**
+     * Reinitializes the Row to optimally hold {@code size} column values.
+     * All column values are cleared, and the row is marked not stale.
+     *
+     * @param size the number of columns
+     */
+    public void resetColumns(int size) {
+        columns = new HashMap<Symbol, Column>(size, 1.0f);
+        stale(false);
+    }
+
+    /**
+     * Provides an immutable view of the columns.
+     *
+     * @return the columns
+     */
+    public Map<Symbol, Column> colums() {
+        return Collections.unmodifiableMap(columns);
+    }
+
+    /**
+     * Checks whether any of the values of the columns specified by the composite key are null or changed.
+     *
+     * @param key a composite key
+     * @return true if any of the column values are null or changed since the last call to populate()
+     */
+    public boolean isCompositeKeyNullOrChanged(Composite key) {
+        assertNotStale();
+        for (Symbol symbol : key.getSymbols()) {
+            Column column = columns.get(symbol);
+            if (column == null || column.getValue() == null || column.isChanged()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks whether any of the values of the columns specified by the composite key are null.
+     *
+     * @param key a composite key
+     * @return true if any of the column values are null
+     */
+    public boolean isCompositeKeyNull(Composite key) {
+        assertNotStale();
+        for (Symbol symbol : key.getSymbols()) {
+            Column column = columns.get(symbol);
+            if (column == null || column.getValue() == null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks whether the column is set or not.
+     *
+     * This is the equivalent of calling isSet(Symbol.get(column))
+     *
+     * @param column the name of the column
+     * @return true if the column is set, false otherwise
+     */
+    public boolean isSet(String column) {
+        return isSet(Symbol.get(column));
+    }
+
+    /**
+     * Checks whether the column is set or not.
+     *
+     * @param symbol the name of the column
+     * @return true if the column is set, false otherwise
+     */
+    public boolean isSet(Symbol symbol) {
+        assertNotStale();
+        return columns.get(symbol) != null;
+    }
+
+    /**
+     * Checks whether the column value has changed since the last call to populate().
+     *
+     * This is the equivalent of calling isChanged(Symbol.get(column))
+     *
+     * @param symbol the column name
+     * @return true if the column value has changed, false otherwise
+     */
+    public boolean isChanged(String column) {
+        return isChanged(Symbol.get(column));
+    }
+
+    /**
+     * Checks whether the column value has changed since the last call to populate().
+     *
+     * @param symbol the column name
+     * @return true if the column value has changed, false otherwise
+     */
+    public boolean isChanged(Symbol symbol) {
+        Column field = columns.get(symbol);
+        if (field == null) {
+            return false;
+        }
+        return field.isChanged();
+    }
+
+    /**
+     * Checks whether any column values have changed since the last call to populate().
+     *
+     * @return true if at least one column value has changed, false otherwise
+     */
+    public boolean isChanged() {
+        for (Column field : columns.values()) {
+            if (field.isChanged()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Marks all fields as changed.
+     */
+    public void taint() {
+        for (Entry<Symbol, Column> entry : columns.entrySet()) {
+            Column field = entry.getValue();
+            field.setChanged(true);
+        }
+    }
+
+    /**
+     * Marks all fields as unchanged.
+     */
+    public void purify() {
+        for (Column field : columns.values()) {
+            field.setChanged(false);
+        }
+    }
+
+    private void flag(int flag, boolean set) {
+        if (set) {
+            flags |= flag;
+        } else {
+            flags &= ~flag;
+        }
+    }
+
+    private boolean flag(int flag) {
+        return (flags &= flag) != 0;
+    }
+
+    /**
+     * Changes the row's staleness.
+     *
+     * @param setStale whether or not the row should be marked stale
+     */
+    public void stale(boolean setStale) {
+        flag(FLAG_STALE, setStale);
+    }
+
+    /**
+     * Checks whether the row is stale.
+     *
+     * @return true if the row is stale, false otherwise.
+     */
+    public boolean isStale() {
+        return flag(FLAG_STALE);
+    }
+
+    /**
+     * Asserts that the row is not stale.
+     */
+    public void assertNotStale() {
+        if (isStale()) {
+            throw new RuntimeException("Row is stale!");
+        }
+    }
+
+    /**
+     * Changes the row's read-onlyness.
+     *
+     * @param setReadOnly whether or not the row should be marked read-only
+     */
+    public void readOnly(boolean setReadOnly) {
+        flag(FLAG_READ_ONLY, setReadOnly);
+    }
+
+    /**
+     * Checks whether the row is read-only.
+     *
+     * @return true if the row is read-only, false otherwise.
+     */
+    boolean isReadOnly() {
+        return flag(FLAG_READ_ONLY);
+    }
+
+    /**
+     * Asserts that the row is not read-only.
+     */
+    public void assertNotReadOnly() {
+        if (isReadOnly()) {
+            throw new RuntimeException("Row is read only!");
+        }
+    }
+
+    private boolean hasChanged(Symbol symbol, Object newValue) {
+        Column field = columns.get(symbol);
+        if (field == null) {
+            return true;
+        }
+
+        Object oldValue = field.getValue();
+        if (oldValue == null && newValue == null) {
+            return false;
+        } else {
+            return oldValue == null || !oldValue.equals(newValue);
+        }
+    }
+
+    void put(Symbol symbol, Object value) {
+        Column column = columns.get(symbol);
+        if (column == null) {
+            column = new Column();
+        }
+
+        boolean hasChanged;
+
+        if (value != null && Record.isRecordSubclass(value.getClass())) {
+            Record record = (Record)value;
+            Object id = record.id().getValue();
+            if (id == null) {
+                throw new NullPointerException("While setting " + record.getClass() + "." + symbol.getName() + " to " + value + " -- id (primary key) is null -- perhaps you need to save()?");
+            }
+            hasChanged = hasChanged(symbol, value);
+            column.setReference(record);
+            column.setValue(id);
+        } else {
+            hasChanged = hasChanged(symbol, value);
+            if (hasChanged) {
+                column.setReference(null); // invalidate cached reference
+            }
+            column.setValue(value);
+        }
+
+        if (hasChanged) {
+            column.setChanged(true);
+        }
+
+        columns.put(symbol, column);
+    }
+
+    /**
+     * Sets the specified column to value.
+     *
+     * If the value refers to a {@link Record} it is stored as a reference,
+     * and the column is assigned the value of the Record's primary key.
+     *
+     * This is the equivalent of calling set(Symbol.get(column), value)
+     *
+     * @param column the column name
+     * @param value  the value
+     */
+    public void set(String column, Object value) {
+        set(Symbol.get(column), value);
+    }
+
+    /**
+     * Sets the specified column to value.
+     *
+     * If the value refers to a {@link Record} it is stored as a reference,
+     * and the column is assigned the value of the Record's primary key.
+     *
+     * @param symbol the column name
+     * @param value  the value
+     */
+    public void set(Symbol symbol, Object value) {
+        assertNotReadOnly();
+        put(symbol, value);
+    }
+
+    /**
+     * Unsets the specified column.
+     *
+     * This is the equivalent of calling unset(Symbol.get(column))
+     *
+     * @param column the column name
+     */
+    public void unset(String column) {
+        unset(Symbol.get(column));
+    }
+
+    /**
+     * Unsets the specified column.
+     *
+     * @param symbol the column name
+     */
+    public void unset(Symbol symbol) {
+        assertNotReadOnly();
+        assertNotStale();
+
+        Column field = columns.get(symbol);
+        if (field != null) {
+            columns.remove(symbol);
+        }
+    }
+
+    /**
+     * Constructs a {@link Value} with the values of the columns specified by the composite key.
+     *
+     * @param composite the composite key
+     * @return a {@link Value} filled with the values of the columns specified by the composite key
+     */
+    public Value get(Composite composite) {
+        return composite.valueFrom(this);
+    }
+
+    /**
+     * Provides the value of a column.
+     *
+     * This is the equivalent of calling get(Symbol.get(column))
+     *
+     * @param column the column name
+     * @return the column value
+     * @throws RuntimeException if the column is not set
+     */
+    public Object get(String column) {
+        return get(Symbol.get(column));
+    }
+
+    /**
+     * Provides the value of a column.
+     *
+     * @param symbol the column name
+     * @return the column value
+     * @throws RuntimeException if the column is not set
+     */
+    public Object get(Symbol symbol) {
+        try {
+            return getColumnValue(symbol, Object.class, false, false, null);
+        } catch (SQLException e) {
+            // UNREACHABLE
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Provides a type-casted value of a column. A runtime exception is thrown if the
+     * column value can not be cast to the specified type.
+     *
+     * This is the equivalent of calling get(Symbol.get(column), clazz)
+     *
+     * @param column the column name.
+     * @param clazz the expected class
+     * @return the type-casted column value
+     * @throws RuntimeException if the column is not set
+     */
+    public <T> T get(String column, Class<T> clazz) {
+        return get(Symbol.get(column), clazz);
+    }
+
+    /**
+     * Provides a type-casted value of a column. A runtime exception is thrown if the
+     * column value can not be cast to the specified type.
+     *
+     * This is the equivalent of calling get(Symbol.get(column), clazz)
+     *
+     * @param column the column name.
+     * @param clazz the expected class
+     * @return the type-casted column value
+     * @throws RuntimeException if the column is not set
+     */
+    public <T> T get(Symbol symbol, Class<T> clazz) {
+        try {
+            return getColumnValue(symbol, clazz, false, false, null);
+        } catch (SQLException e) {
+            // UNREACHABLE
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Provides a column Record reference (foreign key reference). If the reference is cached
+     * (previously fetched), the cached Record object is returned, otherwise a database SELECT
+     * is executed in the Record's default transaction to map the database row to a Record.
+     *
+     * To specify a transaction, use ref(column, clazz, transaction).
+     *
+     * This method is identical to get(column, clazz), except it can throw {@link SQLException}s.
+     * This is the equivalent of calling:
+     *   ref(column, clazz, null)
+     *   ref(Symbol.get(column), clazz)
+     *   ref(Symbol.get(column), clazz, null)
+     *
+     * @param column the column name
+     * @param clazz the Record class to reference
+     * @return a Record reference
+     * @throws RuntimeException if the column is not set
+     * @throws SQLException
+     */
+    public <T extends Record> T ref(String column, Class<T> clazz) throws SQLException {
+        return ref(Symbol.get(column), clazz, null);
+    }
+
+    /**
+     * Provides a column Record reference (foreign key reference). If the reference is cached
+     * (previously fetched), the cached Record object is returned, otherwise a database SELECT
+     * is executed in the Record's default transaction to map the database row to a Record.
+     *
+     * To specify a transaction, use ref(symbol, clazz, transaction).
+     *
+     * This method is identical to get(column, clazz), except it can throw {@link SQLException}s.
+     *
+     * This is the equivalent of calling ref(symbol, clazz, null)
+     *
+     * @param column the column name
+     * @param clazz the Record class to reference
+     * @return a Record reference
+     * @throws RuntimeException if the column is not set
+     * @throws SQLException
+     */
+    public <T extends Record> T ref(Symbol symbol, Class<T> clazz) throws SQLException {
+        return ref(symbol, clazz, null);
+    }
+
+    /**
+     * Provides a column Record reference (foreign key reference). If the reference is cached
+     * (previously fetched), the cached Record object is returned, otherwise a database SELECT
+     * is executed in the specified transaction to map the database row to a Record.
+     *
+     * This method is identical to get(column, clazz), except it can throw {@link SQLException}s.
+     *
+     * This is the equivalent of calling ref(Symbol.get(column), clazz, transaction)
+     *
+     * @param column the column name
+     * @param clazz the Record class to reference
+     * @param transaction the transaction to use for SELECTs, or null to use the Record's default
+     * @return a Record reference
+     * @throws RuntimeException if the column is not set
+     * @throws SQLException
+     */
+    public <T extends Record> T ref(String column, Class<T> clazz, Transaction transaction) throws SQLException {
+        return ref(Symbol.get(column), clazz, transaction);
+    }
+
+    /**
+     * Provides a column Record reference (foreign key reference). If the reference is cached
+     * (previously fetched), the cached Record object is returned, otherwise a database SELECT
+     * is executed in the specified transaction to map the database row to a Record.
+     *
+     * This method is identical to get(column, clazz), except it can throw {@link SQLException}s.
+     *
+     * @param column the column name
+     * @param clazz the Record class to reference
+     * @param transaction the transaction to use for SELECTs, or null to use the Record's default
+     * @return a Record reference
+     * @throws RuntimeException if the column is not set
+     * @throws SQLException
+     */
+    public <T extends Record> T ref(Symbol symbol, Class<T> clazz, Transaction transaction) throws SQLException {
+        return getColumnValue(symbol, clazz, false, true, transaction);
+    }
+
+    /**
+     * Provides a cached (previously fetched) column Record reference (foreign key reference).
+     * Unlike the ref() methods, this method does not attempt to fetch any data from the database.
+     *
+     * This is the equivalent of calling refCached(Symbol.get(column), clazz)
+     *
+     * @param column the column name
+     * @param clazz the Record class to reference
+     * @return a cached Record reference, or null if there is no cached reference
+     * @throws RuntimeException if the column is not set
+     */
+    public <T extends Record> T refCached(String column, Class<T> clazz) {
+        return refCached(column, clazz);
+    }
+
+    /**
+     * Provides a cached (previously fetched) column Record reference (foreign key reference).
+     * Unlike the ref() methods, this method does not attempt to fetch any data from the database.
+     *
+     * @param symbol the column name
+     * @param clazz the Record class to reference
+     * @return a cached Record reference, or null if there is no cached reference
+     * @throws RuntimeException if the column is not set
+     */
+    public <T extends Record> T refCached(Symbol symbol, Class<T> clazz) {
+        try {
+            return getColumnValue(symbol, clazz, true, false, null);
+        } catch (SQLException e) {
+            // UNREACHABLE
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T getColumnValue(Symbol symbol, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
+        assertNotStale();
+
+        Column column = columns.get(symbol);
+        if (column == null) {
+            throw new RuntimeException("Column '" + symbol.getName() + "' does not exist, or has not yet been set");
+        }
+
+        Object value = column.getValue();
+
+        if (value != null) {
+            if (Record.isRecordSubclass(clazz)) {
+                if ((column.getReference() == null) && !isReferenceCacheOnly) {
+                    // Load foreign key
+                    try {
+                        transaction = (transaction != null ? transaction : Record.transaction((Class<? extends Record>)clazz));
+                        Record reference = transaction.findById((Class<? extends Record>)clazz, value);
+                        column.setReference(reference);
+                        value = reference;
+                    } catch (SQLException e) {
+                        if (throwSqlException) {
+                            throw e;
+                        }
+                        throw new RuntimeException("failed to findById(" + clazz + ", " + value + ")", e);
+                    }
+                } else {
+                    value = column.getReference();
+                }
+            } else if (!clazz.isAssignableFrom(value.getClass())) {
+                throw new RuntimeException("column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
+            }
+        }
+
+        return (T)value;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        boolean isFirst = true;
+
+        if (isStale()) {
+            stringBuilder.append("stale ");
+        }
+        if (isReadOnly()) {
+            stringBuilder.append("read-only ");
+        }
+
+        stringBuilder.append(" Row { ");
+
+        for (Entry<Symbol, Column> entry : columns.entrySet()) {
+            if (isFirst) {
+                isFirst = false;
+            } else {
+                stringBuilder.append(", ");
+            }
+            stringBuilder.append(entry.getKey().getName());
+            stringBuilder.append(" => ");
+            stringBuilder.append(entry.getValue().getValue());
+        }
+        stringBuilder.append(" }");
+
+        return stringBuilder.toString();
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (object instanceof Row) {    // XXX more strict checking?
+            return columns.equals(((Row)object).columns);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return columns.hashCode();
+    }
+}
