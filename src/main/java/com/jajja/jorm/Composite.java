@@ -2,6 +2,8 @@ package com.jajja.jorm;
 
 import java.util.Arrays;
 
+import com.jajja.jorm.Row.Column;
+
 public class Composite {
     private final Symbol[] symbols;
     private int hashCode = 0;
@@ -41,21 +43,21 @@ public class Composite {
         return symbols;
     }
 
-    public Value valueFrom(Record record) {
+    public Value valueFrom(Row row) {
         Object[] values = new Object[symbols.length];
         for (int i = 0; i < symbols.length; i++) {
-            values[i] = record.get(symbols[i]);
+            values[i] = row.get(symbols[i]);
         }
         return new Value(this, values);
     }
 
-    public Value valueFrom(Record record, boolean noRefresh) {
+    public Value valueFrom(Row row, boolean noRefresh) {
         if (!noRefresh) {
-            return valueFrom(record);
+            return valueFrom(row);
         }
         Object[] values = new Object[symbols.length];
         for (int i = 0; i < symbols.length; i++) {
-            Record.Field field = record.fields.get(symbols[i]);
+            Column field = row.columns.get(symbols[i]);
             if (field == null) {
                 throw new NullPointerException("Field " + symbols[i].getName() + " is not set");
             }

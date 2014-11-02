@@ -8,35 +8,40 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.util.Calendar;
 
-import com.jajja.jorm.Record.Field;
+import com.jajja.jorm.Row.Column;
 
 public class RecordIterator implements Closeable {
     private Symbol[] symbols;
-    private PreparedStatement preparedStatement;
     private ResultSet resultSet;
-    private boolean autoClose = true;
-    private Calendar calendar;
+    private PreparedStatement preparedStatement;
+    private boolean cascadingClose = true;
+    private Transaction transaction;
 
-    public RecordIterator(PreparedStatement preparedStatement) throws SQLException {
-        this(preparedStatement, null);
-    }
-
-    public RecordIterator(ResultSet resultSet) throws SQLException {
-        this(resultSet, null);
-    }
-
-    public RecordIterator(PreparedStatement preparedStatement, Calendar calendar) throws SQLException {
-        this.preparedStatement = preparedStatement;
-        this.calendar = calendar;
-        this.resultSet = preparedStatement.executeQuery();
+    /**
+     * Instantiates a RecordIterator.
+     *
+     * @param transaction a Jorm Transaction or null (used to re-throw SQLExceptions and perform TimeZone conversion)
+     * @param resultSet a resultSet
+     * @throws SQLException
+     */
+    public RecordIterator(Transaction transaction, ResultSet resultSet) throws SQLException {
+        this.resultSet = resultSet;
+        this.transaction = transaction;
         init();
     }
 
-    public RecordIterator(ResultSet resultSet, Calendar calendar) throws SQLException {
-        this.resultSet = resultSet;
-        this.calendar = calendar;
+    /**
+     * Instantiates a RecordIterator.
+     *
+     * @param transaction a Jorm Transaction or null (used to re-throw SQLExceptions and perform TimeZone conversion)
+     * @param preparedStatement a preparedStatement
+     * @throws SQLException
+     */
+    public RecordIterator(Transaction transaction, PreparedStatement preparedStatement) throws SQLException {
+        this.preparedStatement = preparedStatement;
+        this.resultSet = preparedStatement.executeQuery();
+        this.transaction = transaction;
         init();
     }
 
@@ -48,35 +53,45 @@ public class RecordIterator implements Closeable {
         }
     }
 
-    public PreparedStatement getPreparedStatement() {
-        return preparedStatement;
-    }
-
     public ResultSet getResultSet() {
         return resultSet;
     }
 
-    private void populate(Record record, ResultSet resultSet) throws SQLException {
+    public PreparedStatement getPreparedStatement() {
+        return preparedStatement;
+    }
+
+    public Transaction getTransaction() {
+        return transaction;
+    }
+
+    public void populate(Row row) throws SQLException {
         try {
-            record.resetFields(symbols.length);
+            row.resetColumns(symbols.length);
             for (int i = 0; i < symbols.length; i++) {
-                Field field = new Record.Field();
+                Column field = new Record.Column();
                 Object object = resultSet.getObject(i + 1);
-                if (calendar != null) {
+                if (transaction != null && transaction.getCalendar() != null) {
                     if (object instanceof Date) {
-                        object = resultSet.getDate(i + 1, calendar);
+                        object = resultSet.getDate(i + 1, transaction.getCalendar());
                     } else if (object instanceof Time) {
-                        object = resultSet.getTime(i + 1, calendar);
+                        object = resultSet.getTime(i + 1, transaction.getCalendar());
                     } else if (object instanceof Timestamp) {
-                        object = resultSet.getTimestamp(i + 1, calendar);
+                        object = resultSet.getTimestamp(i + 1, transaction.getCalendar());
                     }
                 }
                 field.setValue(object);
-                record.fields.put(symbols[i], field);
+                row.columns.put(symbols[i], field);
             }
         } catch (SQLException sqlException) {
-            record.stale(true);
-            record.transaction().getDialect().rethrow(sqlException);
+            row.stale(true);
+            if (transaction != null) {
+                transaction.getDialect().rethrow(sqlException);
+            } else if (preparedStatement != null) {
+                throw new Dialect("?", preparedStatement.getConnection()).rethrow(sqlException);
+            } else {
+                throw sqlException;
+            }
         }
     }
 
@@ -86,17 +101,19 @@ public class RecordIterator implements Closeable {
 
     public <T extends Record> T record(Class<T> clazz) throws SQLException {
         T record = Record.construct(clazz);
-        populate(record, resultSet);
+        populate(record);
         return record;
     }
 
-    public void record(Record record) throws SQLException {
-        populate(record, resultSet);
+    public Row row() throws SQLException {
+        Row row = new Row();
+        populate(row);
+        return row;
     }
 
     @Override
     public void close() {
-        if (!autoClose) {
+        if (!cascadingClose) {
             return;
         }
         Exception ex = null;
@@ -123,7 +140,7 @@ public class RecordIterator implements Closeable {
 
     // javadoc: Whether or not to close resultSet + preparedStatement when close() is called
     // (rename to setCascadingClose?)
-    public void setAutoClose(boolean autoClose) {
-        this.autoClose = autoClose;
+    public void setCascadingClose(boolean cascadingClose) {
+        this.cascadingClose = cascadingClose;
     }
 }

@@ -21,10 +21,8 @@
  */
 package com.jajja.jorm;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -37,7 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.generator.Generator;
-import com.jajja.jorm.patch.Patcher;
 
 /**
  * <p>
@@ -128,12 +125,8 @@ import com.jajja.jorm.patch.Patcher;
  * @author Daniel Adolfsson <daniel.adolfsson@jajja.com>
  * @since 1.0.0
  */
-public abstract class Record {
-    public static final byte FLAG_STALE = 0x01;
-    public static final byte FLAG_READ_ONLY = 0x02;
-    Map<Symbol, Field> fields = new HashMap<Symbol, Field>(8, 1.0f);
+public abstract class Record extends Row {
     private Table table;
-    private byte flags;
     private static Map<Class<? extends Record>, Logger> logs = new ConcurrentHashMap<Class<? extends Record>, Logger>(16, 0.75f, 1);
 
     public static enum ResultMode {
@@ -143,57 +136,6 @@ public abstract class Record {
         ID_ONLY,
         /** Fetch nothing, mark record as stale and assume the primary key value is accurate. */
         NO_RESULT;
-    }
-
-    public static class Field {
-        private Object value = null;
-        private boolean isChanged = false;
-        private Record reference = null;
-
-        Field() {}
-
-        void setValue(Object value) {
-            this.value = Patcher.unbork(value);
-        }
-
-        public Object getValue() {
-            return value;
-        }
-
-        void setChanged(boolean isChanged) {
-            this.isChanged = isChanged;
-        }
-
-        boolean isChanged() {
-            return isChanged;
-        }
-
-        void setReference(Record reference) {
-            this.reference = reference;
-        }
-
-        public Record getReference() {
-            return reference;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("Field [value => %s, isChanged => %s, reference => %s]", value, isChanged, reference);
-        }
-    }
-
-    Field getOrCreateField(Symbol symbol) {
-        Field field = fields.get(symbol);
-        if (field == null) {
-            field = new Field();
-            fields.put(symbol, field);
-        }
-        return field;
-    }
-
-    void resetFields(int size) {
-        fields = new HashMap<Symbol, Field>(size, 1.0f);
-        stale(false);
     }
 
     /**
@@ -234,17 +176,15 @@ public abstract class Record {
         throw new IllegalArgumentException("List is empty");
     }
 
-
     /**
-     * Constructs a mapped record. Depends on {@link Jorm} annotation for table
-     * mapping.
+     * Constructs a record. Uses {@link Jorm} annotation for configuration.
      */
     public Record() {
         table = Table.get(getClass());
     }
 
     /**
-     * Constructs a mapped record. Mainly intended for anonymous record
+     * Constructs a record. Mainly intended for anonymous record
      * instantiation such as the results from the transaction select methods
      * {@link Transaction#select(Query)},
      * {@link Transaction#select(String, Object...)},
@@ -281,10 +221,6 @@ public abstract class Record {
         return Table.get(clazz).getPrimaryKey();
     }
 
-    public Value get(Composite composite) {
-        return composite.valueFrom(this);
-    }
-
     /**
      * Provides the table mapping for the record.
      *
@@ -292,38 +228,6 @@ public abstract class Record {
      */
     public Table table() {
         return table;
-    }
-
-    /**
-     * Provides an immutable view of the fields of the record.
-     *
-     * @return the fields.
-     */
-    public Map<Symbol, Field> fields() {
-        return Collections.unmodifiableMap(fields);
-    }
-
-    /**
-     * <p>
-     * Deprecated: Use {@link #transaction(Class)}
-     *
-     * Opens a thread local transaction to the database mapped by the record
-     * class. If an open transaction already exists for the record class, it is
-     * reused. This method is idempotent when called from the same thread.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#open(String)} for the
-     * database named by the class mapping of the record. Requires the given
-     * class to be mapped by {@link Jorm}.
-     * </p>
-     *
-     * @param clazz
-     *            the mapped record class.
-     * @return the open transaction.
-     */
-    @Deprecated
-    public static Transaction open(Class<? extends Record> clazz) {
-        return transaction(clazz);
     }
 
     /**
@@ -348,71 +252,6 @@ public abstract class Record {
 
     /**
      * <p>
-     * Deprecated: Use transaction(Class).commit();
-     *
-     * Commits the thread local transaction to the named database mapped by the
-     * record class, if it has been opened.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#commit(String)} for the
-     * database named by the class mapping of the record. Requires the given
-     * class to be mapped by {@link Jorm}.
-     * </p>
-     *
-     * @param clazz
-     *            the mapped record class.
-     * @return the committed transaction or null for no active transaction.
-     */
-    @Deprecated
-    public static Transaction commit(Class<? extends Record> clazz) throws SQLException {
-        return Database.commit(Table.get(clazz).getDatabase());
-    }
-
-    /**
-     * <p>
-     * Deprecated: Use transaction(Class).close();
-     *
-     * Closes the thread local transaction to the named database mapped by the
-     * record class, if it has been opened. This method is idempotent when
-     * called from the same thread.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#close(String)} for the
-     * database named by the class mapping of the record. Requires the given
-     * class to be mapped by {@link Jorm}.
-     * </p>
-     *
-     * @param clazz
-     *            the mapped record class.
-     * @return the closed transaction or null for no active transaction.
-     */
-    @Deprecated
-    public static Transaction close(Class<? extends Record> clazz) {
-        return Database.close(Table.get(clazz).getDatabase());
-    }
-
-    /**
-     * <p>
-     * Deprecated: Use {@link #transaction()}
-     *
-     * Opens a thread local transaction to the named database mapped by the
-     * record. If an open transaction already exists for the record, it is
-     * reused. This method is idempotent when called from the same thread.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#open(String)} for the
-     * database named by the table mapping of the record.
-     * </p>
-     *
-     * @return the open transaction.
-     */
-    @Deprecated
-    public Transaction open() {
-        return Database.open(table.getDatabase());
-    }
-
-    /**
-     * <p>
      * Opens a thread local transaction to the named database mapped by the
      * record. If an open transaction already exists for the record, it is
      * reused. This method is idempotent when called from the same thread.
@@ -426,59 +265,6 @@ public abstract class Record {
      */
     public Transaction transaction() {
         return Database.open(table.getDatabase());
-    }
-
-    /**
-     * <p>
-     * Deprecated: Use transaction().commit()
-     *
-     * Commits the thread local transaction to the named database mapped by the
-     * record, if it has been opened.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#commit(String)} for the
-     * database named by the table mapping of the record.
-     * </p>
-     * <p>
-     * <strong>Note:</strong> This may cause changes of other records to be
-     * persisted to the mapped database of the record, since all records mapped
-     * to the same named database share transaction in the context of the
-     * current thread.
-     * </p>
-     *
-     * @throws SQLException
-     *             if a database access error occurs.
-     * @return the committed transaction or null for no active transaction.
-     */
-    @Deprecated
-    public Transaction commit() throws SQLException {
-        return Database.commit(table.getDatabase());
-    }
-
-    /**
-     * <p>
-     * Deprecated: Use transaction().close()
-     *
-     * Closes the thread local transaction to the named database mapped by the
-     * record, if it has been opened. This method is idempotent when called from
-     * the same thread.
-     * </p>
-     * <p>
-     * This is corresponds to a call to {@link Database#close(String)} for the
-     * database named by the table mapping of the record.
-     * </p>
-     * <p>
-     * <strong>Note:</strong> This may cause changes of other records to be
-     * discarded in the mapped database of the record, since all records mapped
-     * to the same named database share transaction in the context of the
-     * current thread.
-     * </p>
-     *
-     * @return the closed transaction or null for no active transaction.
-     */
-    @Deprecated
-    public Transaction close() {
-        return Database.close(table.getDatabase());
     }
 
     /**
@@ -1007,54 +793,6 @@ public abstract class Record {
         return new HashMap<Composite.Value, T>();
     }
 
-    /**
-     * Populates the record with the first row of the result. Any values in the
-     * record object are cleared if the record was previously populated. Returns
-     * true if the record was populated, false otherwise (no rows in resultSet).
-     *
-     * @return true if populated, false otherwise.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public boolean populate(ResultSet resultSet) throws SQLException {
-        try {
-            RecordIterator iter = null;
-            try {
-                iter = new RecordIterator(resultSet, transaction().getCalendar());
-                if (iter.next()) {
-                    iter.record(this);
-                    return true;
-                }
-            } finally {
-                 if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw transaction().getDialect().rethrow(e);
-        }
-        return false;
-    }
-
-    public boolean isCompositeKeyNullOrChanged(Composite key) {
-        for (Symbol symbol : key.getSymbols()) {
-            Field field = fields.get(symbol);
-            if (field == null || field.getValue() == null || field.isChanged()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean isCompositeKeyNull(Composite key) {
-        for (Symbol symbol : key.getSymbols()) {
-            Field field = fields.get(symbol);
-            if (field == null || field.getValue() == null) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public boolean isPrimaryKeyNullOrChanged() {
         return isCompositeKeyNullOrChanged(primaryKey());
     }
@@ -1135,123 +873,6 @@ public abstract class Record {
     public static void delete(Collection<? extends Record> records) throws SQLException {
         if (!records.isEmpty()) {
             transaction(genericType(records)).delete(records);
-        }
-    }
-
-    /**
-     * Marks all fields as changed.
-     */
-    public void taint() {
-        for (Entry<Symbol, Field> entry : fields.entrySet()) {
-            Symbol symbol = entry.getKey();
-            Field field = entry.getValue();
-            if (!table.isImmutable(symbol) && !primaryKey().contains(symbol)) {
-                field.setChanged(true);
-            }
-        }
-    }
-
-    /**
-     * Marks all fields as unchanged.
-     */
-    public void purify() {
-        for (Field field : fields.values()) {
-            field.setChanged(false);
-        }
-    }
-
-    /**
-     * Determines whether the record has been changed or not.
-     *
-     * @return true if at least one field has been changed, otherwise false.
-     */
-    public boolean isChanged() {
-        for (Field field : fields.values()) {
-            if (field.isChanged()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void flag(int flag, boolean set) {
-        if (set) {
-            flags |= flag;
-        } else {
-            flags &= ~flag;
-        }
-    }
-
-    private boolean flag(int flag) {
-        return (flags &= flag) != 0;
-    }
-
-    /**
-     * Deprecated: use stale(true)
-     * Marks this record as stale. It will be re-populated on the next call to
-     * {@link #set(String, Object)}, {@link #set(Symbol, Object)},
-     * {@link #get(String)}, {@link #get(Symbol)} or {@link #refresh()},
-     * whichever comes first.
-     */
-    @Deprecated
-    public void markStale() {
-        flag(FLAG_STALE, true);
-    }
-
-    /**
-     * Marks this record as stale or fresh. Stale records are re-populated
-     * with fresh values from the database on the next call to
-     * {@link #set(String, Object)}, {@link #set(Symbol, Object)},
-     * {@link #get(String)}, {@link #get(Symbol)} or {@link #refresh()},
-     * whichever comes first.
-     */
-    public void stale(boolean setStale) {
-        flag(FLAG_STALE, setStale);
-    }
-
-    /**
-     * Determines whether the record is stale or not, i.e. needs to be
-     * re-populated in any upcoming call to {@link #set(String, Object)},
-     * {@link #set(Symbol, Object)}, {@link #get(String)}, {@link #get(Symbol)}
-     * or {@link #refresh()}, whichever comes first.
-     *
-     * @return true if the record is stale otherwise false.
-     */
-    public boolean isStale() {
-        return flag(FLAG_STALE);
-    }
-
-    /**
-     * Sets the record as read only according to given value
-     *
-     * @param setReadOnly
-     *            the value determining read only state of the record.
-     * @throws RuntimeException
-     *             whenever a record is set to read only without table mapping
-     *             provided by an {@link Jorm} annotation, i.e. on anonymous
-     *             records retrieved through calls to
-     *             {@link Transaction#select(Query)},
-     *             {@link Transaction#select(String, Object...)},
-     *             {@link Transaction#selectAll(Query)} and
-     *             {@link Transaction#selectAll(String, Object...)}.
-     */
-    public void readOnly(boolean setReadOnly) {
-        if (primaryKey() == null && setReadOnly) {
-            throw new RuntimeException("Cannot mark anonymous records as read only!");
-        }
-        flag(FLAG_READ_ONLY, setReadOnly);
-    }
-
-    /**
-     * Returns true if this record is read only.
-     */
-    boolean isReadOnly() {
-        return flag(FLAG_READ_ONLY);
-    }
-
-    void ensureNotReadOnly() {
-        if (isReadOnly()) {
-            throw new RuntimeException("Record is read only!");
         }
     }
 
@@ -1382,21 +1003,6 @@ public abstract class Record {
     }
 
     /**
-     * Determines whether a field has been changed or not.
-     *
-     * @param symbol
-     *            the symbol of the column name defining the field.
-     * @return true if the field has been changed, false otherwise.
-     */
-    public boolean isFieldChanged(Symbol symbol) {
-        Field field = fields.get(symbol);
-        if (field == null) {
-            return false;
-        }
-        return field.isChanged();
-    }
-
-    /**
      * Returns true if specified class is a subclass of Record.class.
      */
     public static boolean isRecordSubclass(Class<?> clazz) {
@@ -1413,7 +1019,7 @@ public abstract class Record {
      * @throws RuntimeException
      *             whenever a SQLException occurs.
      */
-    public void refresh() {
+    public Record refresh() {
         if (isStale()) {
             try {
                 assertPrimaryKeyNotNull();
@@ -1423,271 +1029,26 @@ public abstract class Record {
             }
             stale(false);
         }
-    }
-
-    private boolean hasChanged(Symbol symbol, Object newValue) {
-        Field field = fields.get(symbol);
-        if (field == null) {
-            return true;
-        }
-
-        Object oldValue = field.getValue();
-        if (oldValue == null && newValue == null) {
-            return false;
-        } else {
-            return oldValue == null || !oldValue.equals(newValue);
-        }
-    }
-
-    void put(Symbol symbol, Object value) {
-        refresh();
-
-        Field field = fields.get(symbol);
-        if (field == null) {
-            field = new Field();
-        }
-
-        boolean hasChanged;
-
-        if (value != null && isRecordSubclass(value.getClass())) {
-            Record record = (Record)value;
-            Object id = record.id().getValue();
-            if (id == null) {
-                throw new NullPointerException("While setting " + record.getClass() + "." + symbol.getName() + " to " + value + " -- id (primary key) is null -- perhaps you need to save()?");
-            }
-            hasChanged = hasChanged(symbol, value);
-            field.setReference(record);
-            field.setValue(id);
-        } else {
-            hasChanged = hasChanged(symbol, value);
-            if (hasChanged) {
-                field.setReference(null); // invalidate cached reference
-            }
-            field.setValue(value);
-        }
-
-        if (hasChanged) {
-            field.setChanged(true);
-        }
-
-        fields.put(symbol, field);
+        return this;
     }
 
     /**
-     * Sets the specified field corresponding to a column of the mapped record.
-     * Any field values extending {@link Record} are cached until the field is
-     * changed again, and the mapped id of the record is set as field value
-     * instead.
-     *
-     * @param column
-     *            the name of the column corresponding to the field to set.
-     * @param value
-     *            the value.
+     * Marks all fields as changed.
      */
-    public void set(String column, Object value) {
-        set(Symbol.get(column), value);
-    }
-
-    /**
-     * Sets the specified field corresponding to a column of the mapped record.
-     * Any field values extending {@link Record} are cached until the field is
-     * changed again, and the mapped id of the record is set as field value
-     * instead.
-     *
-     * @param symbol
-     *            the symbol of the column corresponding to the field to set.
-     * @param value
-     *            the value.
-     */
-    public void set(Symbol symbol, Object value) {
-        ensureNotReadOnly();
-        put(symbol, value);
-    }
-
-    /**
-     * Unsets the specified field corresponding to a column of the mapped record.
-     *
-     * @param column
-     *            the name of the column corresponding to the field to set.
-     */
-    public void unset(String column) {
-        unset(Symbol.get(column));
-    }
-
-    /**
-     * Unsets the specified field corresponding to a column of the mapped record.
-     *
-     * @param symbol
-     *            the symbol of the column corresponding to the field to set.
-     */
-    public void unset(Symbol symbol) {
-        ensureNotReadOnly();
-        refresh();
-
-        Field field = fields.get(symbol);
-        if (field != null) {
-            fields.remove(symbol);
-        }
-    }
-
-    /**
-     * Determines whether the field corresponding to a given column name is set
-     * or not.
-     *
-     * @param column
-     *            the name of the column corresponding to the field to set.
-     * @return true if the field is set, false otherwise.
-     */
-    public boolean isSet(String column) {
-        return isSet(Symbol.get(column));
-    }
-
-    /**
-     * Determines whether the field corresponding to a given column name is set
-     * or not.
-     *
-     * @param symbol
-     *            the symbol of the column corresponding to the field to set.
-     * @return true if the field is set, false otherwise.
-     */
-    public boolean isSet(Symbol symbol) {
-        refresh();
-        return fields.get(symbol) != null;
-    }
-
-    /**
-     * Provides a cached instance of a record represented by a field defined by
-     * a given column name. If the record has not previously been cached it is
-     * fetched from the database and cached.
-     *
-     * @param column
-     *            the column name.
-     * @param clazz
-     *            the expected class of the cached record.
-     * @return the cached record corresponding to the given symbol.
-     */
-    public <T> T get(String column, Class<T> clazz) {
-        try {
-            return getField(Symbol.get(column), clazz, false, false);
-        } catch (SQLException e) {
-            // UNREACHABLE
-            throw new IllegalStateException(e);
-        }
-    }
-
-    public <T extends Record> T ref(String column, Class<T> clazz) throws SQLException {
-        return getField(Symbol.get(column), clazz, false, true);
-    }
-
-    /**
-     * Provides a cached instance of a record represented by a field defined by
-     * a given symbol for a column name. If the record has not previously been
-     * cached it is fetched from the database and cached.
-     *
-     * @param symbol
-     *            the symbol defining the column name.
-     * @param clazz
-     *            the expected class of the cached record.
-     * @return the cached record corresponding to the given symbol.
-     */
-    public <T> T get(Symbol symbol, Class<T> clazz) {
-        try {
-            return getField(symbol, clazz, false, false);
-        } catch (SQLException e) {
-            // UNREACHABLE
-            throw new IllegalStateException(e);
-        }
-    }
-
-    public <T extends Record> T ref(Symbol symbol, Class<T> clazz) throws SQLException {
-        return getField(symbol, clazz, false, true);
-    }
-
-    /**
-     * Provides a cached instance of a record represented by a field defined by
-     * a given symbol for a column name.
-     *
-     * @param symbol
-     *            the symbol defining the column name.
-     * @param clazz
-     *            the expected class of the cached record.
-     * @param isCacheOnly only retrieves previously cached values.
-     * @return the cached record corresponding to the given symbol.
-     */
-    public <T extends Record> T get(Symbol symbol, Class<T> clazz, boolean isCacheOnly) throws SQLException {
-        return getField(symbol, clazz, isCacheOnly, true);
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T getField(Symbol symbol, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException) throws SQLException {
-        refresh();
-
-        Field field = fields.get(symbol);
-        if (field == null) {
-            return null;
-        }
-
-        Object value = field.getValue();
-
-        if (value != null) {
-            if (isRecordSubclass(clazz)) {
-                // Load foreign key
-                if ((field.getReference() == null) && !isReferenceCacheOnly) {
-                    try {
-                        Record reference = Record.findById((Class<? extends Record>)clazz, value);
-                        field.setReference(reference);
-                        value = reference;
-                    } catch (SQLException e) {
-                        if (throwSqlException) {
-                            throw e;
-                        }
-                        throw new RuntimeException("failed to findById(" + clazz + ", " + value + ")", e);
-                    }
-                } else {
-                    value = field.getReference();
-                }
-            } else if (!clazz.isAssignableFrom(value.getClass())) {
-                throw new RuntimeException("column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
+    @Override
+    public void taint() {
+        for (Entry<Symbol, Column> entry : columns.entrySet()) {
+            Symbol symbol = entry.getKey();
+            Column field = entry.getValue();
+            if (!table.isImmutable(symbol) && !primaryKey().contains(symbol)) {
+                field.setChanged(true);
             }
         }
-        return (T)value;
-    }
-
-    /**
-     * Provides the value of the field defined by a given column name.
-     *
-     * @param column
-     *            the name of the column defining the field.
-     * @throws RuntimeException
-     *             if the column does not exist (or has not been set)
-     */
-    public Object get(String column) {
-        return get(Symbol.get(column));
-    }
-
-    /**
-     * Provides the value of the field defined by a given symbol for a column
-     * name.
-     *
-     * @param symbol
-     *            the symbol of the column defining the field.
-     * @throws RuntimeException
-     *             if the column does not exist (or has not been set)
-     */
-    public Object get(Symbol symbol) {
-        refresh();
-
-        Field field = fields.get(symbol);
-        if (field == null) {
-            throw new RuntimeException("column '" + symbol.getName() + "' does not exist, or has not yet been set");
-        }
-        return field.getValue();
     }
 
     @Override
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder();
-        boolean isFirst = true;
 
         if (table.getSchema() != null) {
             stringBuilder.append(table.getSchema());
@@ -1697,27 +1058,7 @@ public abstract class Record {
             stringBuilder.append(table.getTable());
             stringBuilder.append(' ');
         }
-        if (isStale()) {
-            stringBuilder.append("stale ");
-        }
-        if (isReadOnly()) {
-            stringBuilder.append("read-only ");
-        }
-
-        stringBuilder.append("{ ");
-
-        for (Entry<Symbol, Field> entry : fields.entrySet()) {
-            if (isFirst) {
-                isFirst = false;
-            } else {
-                stringBuilder.append(", ");
-            }
-            stringBuilder.append(entry.getKey().getName());
-            stringBuilder.append(" => ");
-            stringBuilder.append(entry.getValue().getValue());
-        }
-        stringBuilder.append(" }");
-
+        stringBuilder.append(super.toString());
         return stringBuilder.toString();
     }
 

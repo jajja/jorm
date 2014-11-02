@@ -631,7 +631,7 @@ public class Row {
             stringBuilder.append("read-only ");
         }
 
-        stringBuilder.append(" Row { ");
+        stringBuilder.append("Row { ");
 
         for (Entry<Symbol, Column> entry : columns.entrySet()) {
             if (isFirst) {

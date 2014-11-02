@@ -54,8 +54,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.jajja.jorm.Composite.Value;
-import com.jajja.jorm.Record.Field;
 import com.jajja.jorm.Record.ResultMode;
+import com.jajja.jorm.Row.Column;
 
 /**
  * The transaction implementation executing all queries in for {@link Jorm}
@@ -94,7 +94,6 @@ public class Transaction {
     private Dialect dialect;
     private Timestamp now;
     private Connection connection;
-    private final Table anonTable;
     private boolean isDestroyed = false;
     private boolean isLoggingEnabled = false;
     private Calendar calendar;
@@ -128,7 +127,6 @@ public class Transaction {
         this.database = database;
         this.dataSource = dataSource;
         this.calendar = calendar;
-        anonTable = new Table(database);
     }
 
     /**
@@ -475,11 +473,11 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public Map<Composite.Value, AnonymousRecord> selectAsMap(Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
-        return selectAsMap(AnonymousRecord.class, compositeKey, allowDuplicates, query);
+    public Map<Composite.Value, Row> selectAsMap(Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
+        return selectAsMap(Row.class, compositeKey, allowDuplicates, query);
     }
 
-    public Map<Composite.Value, AnonymousRecord> selectAsMap(Composite compositeKey, boolean allowDuplicates, String sql, Object ... params) throws SQLException {
+    public Map<Composite.Value, Row> selectAsMap(Composite compositeKey, boolean allowDuplicates, String sql, Object ... params) throws SQLException {
         return selectAsMap(compositeKey, allowDuplicates, build(sql, params));
     }
 
@@ -494,11 +492,11 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public Map<Composite.Value, List<AnonymousRecord>> selectAllAsMap(Composite composite, Query query) throws SQLException {
-        return selectAllAsMap(AnonymousRecord.class, composite, query);
+    public Map<Composite.Value, List<Row>> selectAllAsMap(Composite composite, Query query) throws SQLException {
+        return selectAllAsMap(Row.class, composite, query);
     }
 
-    public Map<Composite.Value, List<AnonymousRecord>> selectAllAsMap(Composite compositeKey, String sql, Object ... params) throws SQLException {
+    public Map<Composite.Value, List<Row>> selectAllAsMap(Composite compositeKey, String sql, Object ... params) throws SQLException {
         return selectAllAsMap(compositeKey, build(sql, params));
     }
 
@@ -515,7 +513,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public Record select(String sql, Object ... params) throws SQLException {
+    public Row select(String sql, Object ... params) throws SQLException {
         return select(build(sql, params));
     }
 
@@ -529,12 +527,12 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public Record select(Query query) throws SQLException {
-        Record select = new AnonymousRecord(anonTable);
-        if (!select.selectInto(query)) {
-            select = null;
+    public Row select(Query query) throws SQLException {
+        Row row = new Row();
+        if (!selectInto(row, query)) {
+            row = null;
         }
-        return select;
+        return row;
     }
 
     /**
@@ -550,13 +548,12 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public List<Record> selectAll(String sql, Object... params) throws SQLException {
+    public List<Row> selectAll(String sql, Object... params) throws SQLException {
         return selectAll(build(sql, params));
     }
 
     /**
-     * Provides a list of selected anonymous read-only records, populated with
-     * the results from the given query.
+     * Provides a list of {@link Row}s populated with the results from the given query.
      *
      * @param query
      *            the query.
@@ -564,16 +561,14 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public List<Record> selectAll(Query query) throws SQLException {
-        List<Record> records = new LinkedList<Record>();
+    public List<Row> selectAll(Query query) throws SQLException {
+        List<Row> rows = new LinkedList<Row>();
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query.getSql(), query.getParams()), calendar);
+                iter = new RecordIterator(this, prepare(query.getSql(), query.getParams()));
                 while (iter.next()) {
-                    Record record = new AnonymousRecord(anonTable);
-                    iter.record(record);
-                    records.add(record);
+                    rows.add(iter.row());
                 }
             } finally {
                 if (iter != null) iter.close();
@@ -581,12 +576,11 @@ public class Transaction {
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
         }
-        return records;
+        return rows;
     }
 
     /**
-     * Provides an iterator of selected anonymous read-only records, populated with
-     * the results from the given query.
+     * Provides an iterator for the results from the given query.
      *
      * @param query
      *            the query.
@@ -595,12 +589,11 @@ public class Transaction {
      *             if a database access error occurs
      */
     public RecordIterator iterate(Query query) throws SQLException {
-        return new RecordIterator(prepare(query.getSql(), query.getParams()), calendar);
+        return new RecordIterator(this, prepare(query.getSql(), query.getParams()));
     }
 
     /**
-     * Provides an iterator of selected anonymous read-only records, populated with
-     * the results from the given query.
+     * Provides an iterator for the results from the given query.
      *
      * @param query
      *            the query.
@@ -707,31 +700,6 @@ public class Transaction {
             }
         }
     }
-
-
-    /**
-     * Anonymous record for read only queries.
-     */
-    private static class AnonymousRecord extends Record {
-        public AnonymousRecord(Table table) {
-            super(table);
-        }
-    }
-
-    public AnonymousRecord anonymousRecord() {
-        return new AnonymousRecord(anonTable);
-    }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -949,7 +917,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
-        return find(clazz, Record.primaryKey(clazz).value(id));
+        return find(clazz, id);
     }
 
     public int deleteById(Class<? extends Record> clazz, Object id) throws SQLException {
@@ -1066,7 +1034,7 @@ public class Transaction {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query), calendar);
+                iter = new RecordIterator(this, prepare(query));
                 while (iter.next()) {
                     records.add(iter.record(clazz));
                 }
@@ -1129,7 +1097,7 @@ public class Transaction {
      */
     public RecordIterator selectIterator(Class<? extends Record> clazz, Query query) throws SQLException {
         try {
-            return new RecordIterator(prepare(query), calendar);
+            return new RecordIterator(this, prepare(query));
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
         }
@@ -1150,16 +1118,18 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
-        HashMap<Composite.Value, T> records = new HashMap<Composite.Value, T>();
+    public <T extends Row> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
+        HashMap<Composite.Value, T> map = new HashMap<Composite.Value, T>();
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query), calendar);
+                boolean wantRecords = Record.isRecordSubclass(clazz);
+                iter = new RecordIterator(this, prepare(query));
                 while (iter.next()) {
-                    T record = iter.record(clazz);
-                    Composite.Value value = compositeKey.valueFrom(record);
-                    if (records.put(value, record) != null && !allowDuplicates) {
+                    @SuppressWarnings("unchecked")
+                    T row = (T)(wantRecords ? iter.record((Class<? extends Record>)clazz) : iter.row());
+                    Composite.Value value = compositeKey.valueFrom(row);
+                    if (map.put(value, row) != null && !allowDuplicates) {
                         throw new IllegalStateException("Duplicate key " + value);
                     }
                 }
@@ -1169,7 +1139,7 @@ public class Transaction {
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
         }
-        return records;
+        return map;
     }
 
     public <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, String sql, Object... params) throws SQLException {
@@ -1195,21 +1165,23 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
-        HashMap<Composite.Value, List<T>> records = new HashMap<Composite.Value, List<T>>();
+    public <T extends Row> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
+        HashMap<Composite.Value, List<T>> map = new HashMap<Composite.Value, List<T>>();
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query), calendar);
+                boolean wantRecords = Record.isRecordSubclass(clazz);
+                iter = new RecordIterator(this, prepare(query));
                 while (iter.next()) {
-                    T record = iter.record(clazz);
-                    Composite.Value value = compositeKey.valueFrom(record);
-                    List<T> list = records.get(value);
+                    @SuppressWarnings("unchecked")
+                    T row = (T)(wantRecords ? iter.record((Class<? extends Record>)clazz) : iter.row());
+                    Composite.Value value = compositeKey.valueFrom(row);
+                    List<T> list = map.get(value);
                     if (list == null) {
                         list = new LinkedList<T>();
-                        records.put(value, list);
+                        map.put(value, list);
                     }
-                    list.add(record);
+                    list.add(row);
                 }
             } finally {
                 if (iter != null) iter.close();
@@ -1217,7 +1189,7 @@ public class Transaction {
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
         }
-        return records;
+        return map;
     }
 
     public <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, String sql, Object... params) throws SQLException {
@@ -1241,8 +1213,8 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public boolean selectInto(Record record, String sql) throws SQLException {
-        return selectInto(record, build(sql));
+    public boolean selectInto(Row row, String sql) throws SQLException {
+        return selectInto(row, build(sql));
     }
 
     /**
@@ -1260,8 +1232,8 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public boolean selectInto(Record record, String sql, Object... params) throws SQLException {
-        return selectInto(record, build(sql, params));
+    public boolean selectInto(Row row, String sql, Object... params) throws SQLException {
+        return selectInto(row, build(sql, params));
     }
 
     /**
@@ -1276,13 +1248,13 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public boolean selectInto(Record record, Query query) throws SQLException {
+    public boolean selectInto(Row row, Query query) throws SQLException {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(prepare(query), calendar);
+                iter = new RecordIterator(this, prepare(query));
                 if (iter.next()) {
-                    iter.record(record);
+                    iter.populate(row);
                     return true;
                 }
             } finally {
@@ -1321,7 +1293,7 @@ public class Transaction {
         Set<Object> values = new HashSet<Object>();
 
         for (Record record : records) {
-            Field field = record.fields.get(foreignKeySymbol);
+            Column field = record.columns.get(foreignKeySymbol);
             if (field != null && field.getValue() != null && field.getReference() == null) {
                 values.add(field.getValue());
             }
@@ -1335,7 +1307,7 @@ public class Transaction {
         Map<Composite.Value, T> map = selectAsMap(clazz, key, false, getSelectQuery(clazz).append("WHERE #1# IN (#2#)", referredSymbol, values));
 
         for (Record record : records) {
-            Field field = record.fields.get(foreignKeySymbol);
+            Column field = record.columns.get(foreignKeySymbol);
             if (field != null && field.getValue() != null && field.getReference() == null) {
                 Record referenceRecord = map.get(key.value(field.getValue()));
                 if (referenceRecord == null && !ignoreInvalidReferences) {
@@ -1376,34 +1348,6 @@ public class Transaction {
     public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
         return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol), ignoreInvalidReferences);
     }
-//
-//    /**
-//     * Populates the record with the first row of the result. Any values in the
-//     * record object are cleared if the record was previously populated. Returns
-//     * true if the record was populated, false otherwise (no rows in resultSet).
-//     *
-//     * @return true if populated, false otherwise.
-//     * @throws SQLException
-//     *             if a database access error occurs or the generated SQL
-//     *             statement does not return a result set.
-//     */
-//    public boolean populate(Record record, ResultSet resultSet) throws SQLException {
-//        try {
-//            RecordIterator iter = null;
-//            try {
-//                iter = new RecordIterator(resultSet);
-//                if (iter.next()) {
-//                    iter.record(this);
-//                    return true;
-//                }
-//            } finally {
-//                 if (iter != null) iter.close();
-//            }
-//        } catch (SQLException e) {
-//            throw transaction().getDialect().rethrow(e);
-//        }
-//        return false;
-//    }
 
     /**
      * Save the record. This is done by a call to {@link #insert()} if the id
@@ -1414,7 +1358,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public void save(Record record, ResultMode mode) throws SQLException {
-        record.ensureNotReadOnly();
+        record.assertNotReadOnly();
         if (record.isPrimaryKeyNullOrChanged()) {
             insert(record, mode);
         } else {
@@ -1471,7 +1415,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public void delete(Record record) throws SQLException {
-        record.ensureNotReadOnly();
+        record.assertNotReadOnly();
         Query query = build("DELETE FROM #1# WHERE #2#", record.table(), dialect.toSqlExpression(record.id()));
 
         PreparedStatement preparedStatement = prepare(query);
@@ -1508,7 +1452,7 @@ public class Transaction {
                 template = record;
                 database = record.table().getDatabase();
             }
-            record.ensureNotReadOnly();
+            record.assertNotReadOnly();
         }
 
         if (template == null) {
@@ -1565,7 +1509,7 @@ public class Transaction {
 
         private BatchInfo(Collection<? extends Record> records) {
             for (Record record : records) {
-                record.ensureNotReadOnly();
+                record.assertNotReadOnly();
 
                 if (record.isStale()) {
                     throw new IllegalStateException("Attempt to perform batch operation on stale record(s)");
@@ -1582,7 +1526,7 @@ public class Transaction {
                     throw new IllegalArgumentException("all records must be bound to the same Database");
                 }
 
-                columns.addAll(record.fields.keySet());
+                columns.addAll(record.columns.keySet());
             }
 
             String immutablePrefix = template.table().getImmutablePrefix();
@@ -1628,7 +1572,6 @@ public class Transaction {
             }
 
             RecordIterator iter = null;
-
             for (Record record : records) {
                 if (!resultSet.next()) {
                     throw new IllegalStateException(String.format("Too few rows returned? Expected %d rows from query %s", records.size(), query.getSql()));
@@ -1636,12 +1579,12 @@ public class Transaction {
                 if (useReturning) {
                     // RETURNING rocks!
                     if (iter == null) {
-                        iter = new RecordIterator(resultSet, calendar);
-                        iter.setAutoClose(false);
+                        iter = new RecordIterator(this, resultSet);
+                        iter.setCascadingClose(false);
                     }
-                    iter.record(record);
+                    iter.populate(record);
                 } else {
-                    Field field = record.getOrCreateField(primaryKey.getSymbol());
+                    Column field = record.getOrCreateColumn(primaryKey.getSymbol());
                     field.setValue(resultSet.getObject(1));
                     field.setChanged(false);
                     if (mode == ResultMode.REPOPULATE) {
@@ -1665,15 +1608,17 @@ public class Transaction {
 
                 preparedStatement = prepare(q);
                 resultSet = preparedStatement.executeQuery();
+                iter = new RecordIterator(this, resultSet);
+                iter.setCascadingClose(false);
 
                 int idColumn = resultSet.findColumn(primaryKey.getSymbol().getName());
                 if (Dialect.DatabaseProduct.MYSQL.equals(dialect.getDatabaseProduct())) {
                     while (resultSet.next()) {
-                        map.get(resultSet.getLong(idColumn)).populate(resultSet);
+                        iter.populate(map.get(resultSet.getLong(idColumn)));
                     }
                 } else {
                     while (resultSet.next()) {
-                        map.get(resultSet.getObject(idColumn)).populate(resultSet);
+                        iter.populate(map.get(resultSet.getObject(idColumn)));
                     }
                 }
             }
@@ -1705,7 +1650,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public void insert(Record record, ResultMode mode) throws SQLException {
-        record.ensureNotReadOnly();
+        record.assertNotReadOnly();
 
         if (record.isStale()) {
             throw new IllegalStateException("Attempt to insert a stale record!");
@@ -1720,7 +1665,7 @@ public class Transaction {
         query.append("INSERT INTO #1# (", record.table());
 
         boolean isFirst = true;
-        for (Entry<Symbol, Field> entry : record.fields.entrySet()) {
+        for (Entry<Symbol, Column> entry : record.columns.entrySet()) {
             if (entry.getValue().isChanged() && !record.table().isImmutable(entry.getKey())) {
                 query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
                 isFirst = false;
@@ -1736,8 +1681,8 @@ public class Transaction {
         } else {
             query.append(") VALUES (");
             isFirst = true;
-            for (Entry<Symbol, Field> e : record.fields.entrySet()) {
-                Field field = e.getValue();
+            for (Entry<Symbol, Column> e : record.columns.entrySet()) {
+                Column field = e.getValue();
                 if (field.isChanged() && !record.table().isImmutable(e.getKey())) {
                     if (field.getValue() instanceof Query) {
                         query.append(isFirst ? "#1#" : ", #1#", field.getValue());
@@ -1785,7 +1730,7 @@ public class Transaction {
             if (id == null) {
                 throw new RuntimeException("INSERT to " + record.table().toString() + " did not generate a key (AKA insert id): " + query.getSql());
             }
-            Field field = record.getOrCreateField(record.primaryKey().getSymbol());
+            Column field = record.getOrCreateColumn(record.primaryKey().getSymbol());
             field.setValue(id);
             field.setChanged(false);
         }
@@ -1871,7 +1816,7 @@ public class Transaction {
 
             boolean isColumnFirst = true;
             for (Symbol column : batchInfo.columns) {
-                if (record.isFieldChanged(column)) {
+                if (record.isChanged(column)) {
                     Object value = record.get(column);
                     if (value instanceof Query) {
                         query.append(isColumnFirst ? "#1#" : ", #1#", value);
@@ -1900,7 +1845,7 @@ public class Transaction {
     public int update(Record record, ResultMode mode, Composite key) throws SQLException {
         int rowsUpdated = 0;
 
-        record.ensureNotReadOnly();
+        record.assertNotReadOnly();
 
         if (!record.isChanged()) {
             return rowsUpdated;
@@ -1915,8 +1860,8 @@ public class Transaction {
         query.append("UPDATE #1# SET ", record.table());
 
         boolean isFirst = true;
-        for (Entry<Symbol, Field> entry : record.fields.entrySet()) {
-            Field field = entry.getValue();
+        for (Entry<Symbol, Column> entry : record.columns.entrySet()) {
+            Column field = entry.getValue();
             if (field.isChanged()) {
                 if (field.getValue() instanceof Query) {
                     query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), field.getValue());
