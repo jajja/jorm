@@ -1293,9 +1293,9 @@ public class Transaction {
         Set<Object> values = new HashSet<Object>();
 
         for (Record record : records) {
-            Column field = record.columns.get(foreignKeySymbol);
-            if (field != null && field.getValue() != null && field.getReference() == null) {
-                values.add(field.getValue());
+            Column column = record.columns.get(foreignKeySymbol);
+            if (column != null && column.getValue() != null && column.getReference() == null) {
+                values.add(column.getValue());
             }
         }
 
@@ -1307,11 +1307,11 @@ public class Transaction {
         Map<Composite.Value, T> map = selectAsMap(clazz, key, false, getSelectQuery(clazz).append("WHERE #1# IN (#2#)", referredSymbol, values));
 
         for (Record record : records) {
-            Column field = record.columns.get(foreignKeySymbol);
-            if (field != null && field.getValue() != null && field.getReference() == null) {
-                Record referenceRecord = map.get(key.value(field.getValue()));
+            Column column = record.columns.get(foreignKeySymbol);
+            if (column != null && column.getValue() != null && column.getReference() == null) {
+                Record referenceRecord = map.get(key.value(column.getValue()));
                 if (referenceRecord == null && !ignoreInvalidReferences) {
-                    throw new IllegalStateException(field.getValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
+                    throw new IllegalStateException(column.getValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
                 }
                 record.set(foreignKeySymbol, referenceRecord);
             }
@@ -1351,7 +1351,7 @@ public class Transaction {
 
     /**
      * Save the record. This is done by a call to {@link #insert()} if the id
-     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     * column is null, unset or changed, otherwise by a call to {@link #update()}.
      *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
@@ -1372,7 +1372,7 @@ public class Transaction {
 
     /**
      * Batch saves the records. This is done by a call to {@link #insert()} if the id
-     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     * column is null, unset or changed, otherwise by a call to {@link #update()}.
      *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
@@ -1396,7 +1396,7 @@ public class Transaction {
 
     /**
      * Batch saves the records. This is done by a call to {@link #insert()} if the id
-     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     * column is null, unset or changed, otherwise by a call to {@link #update()}.
      *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
@@ -1584,12 +1584,12 @@ public class Transaction {
                     }
                     iter.populate(record);
                 } else {
-                    Column field = record.getOrCreateColumn(primaryKey.getSymbol());
-                    field.setValue(resultSet.getObject(1));
-                    field.setChanged(false);
+                    Column column = record.getOrCreateColumn(primaryKey.getSymbol());
+                    column.setValue(resultSet.getObject(1));
+                    column.setChanged(false);
                     if (mode == ResultMode.REPOPULATE) {
                         if (map == null) throw new IllegalStateException("bug");
-                        map.put(field.getValue(), record);
+                        map.put(column.getValue(), record);
                         record.stale(false);    // actually still stale
                     }
                 }
@@ -1673,7 +1673,7 @@ public class Transaction {
         }
 
         if (isFirst) {
-            // No fields are marked as changed, but we need to insert something... INSERT INTO foo DEFAULT VALUES is not supported on all databases
+            // No columns are marked as changed, but we need to insert something... INSERT INTO foo DEFAULT VALUES is not supported on all databases
             query.append("#1#", record.primaryKey());
             for (int i = 0; i < record.primaryKey().getSymbols().length; i++) {
                 query.append(i == 0 ? ") VALUES (DEFAULT" : ", DEFAULT");
@@ -1682,12 +1682,12 @@ public class Transaction {
             query.append(") VALUES (");
             isFirst = true;
             for (Entry<Symbol, Column> e : record.columns.entrySet()) {
-                Column field = e.getValue();
-                if (field.isChanged() && !record.table().isImmutable(e.getKey())) {
-                    if (field.getValue() instanceof Query) {
-                        query.append(isFirst ? "#1#" : ", #1#", field.getValue());
+                Column column = e.getValue();
+                if (column.isChanged() && !record.table().isImmutable(e.getKey())) {
+                    if (column.getValue() instanceof Query) {
+                        query.append(isFirst ? "#1#" : ", #1#", column.getValue());
                     } else {
-                        query.append(isFirst ? "#?1#" : ", #?1#", field.getValue());
+                        query.append(isFirst ? "#?1#" : ", #?1#", column.getValue());
                     }
                     isFirst = false;
                 }
@@ -1730,9 +1730,9 @@ public class Transaction {
             if (id == null) {
                 throw new RuntimeException("INSERT to " + record.table().toString() + " did not generate a key (AKA insert id): " + query.getSql());
             }
-            Column field = record.getOrCreateColumn(record.primaryKey().getSymbol());
-            field.setValue(id);
-            field.setChanged(false);
+            Column column = record.getOrCreateColumn(record.primaryKey().getSymbol());
+            column.setValue(id);
+            column.setChanged(false);
         }
     }
 
@@ -1761,12 +1761,12 @@ public class Transaction {
      *
      * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
      *
-     * Setting isFullRepopulate to true will re-populate the record fields with fresh values. This will generate
+     * Setting isFullRepopulate to true will re-populate the record columns with fresh values. This will generate
      * an additional SELECT query for every chunk of records for databases that do not support RETURNING.
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param isFullRepopulate Whether or not to fully re-populate the record fields, or just update their primary key value and markStale()
+     * @param isFullRepopulate Whether or not to fully re-populate the record columns, or just update their primary key value and markStale()
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -1861,12 +1861,12 @@ public class Transaction {
 
         boolean isFirst = true;
         for (Entry<Symbol, Column> entry : record.columns.entrySet()) {
-            Column field = entry.getValue();
-            if (field.isChanged()) {
-                if (field.getValue() instanceof Query) {
-                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), field.getValue());
+            Column column = entry.getValue();
+            if (column.isChanged()) {
+                if (column.getValue() instanceof Query) {
+                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), column.getValue());
                 } else {
-                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), field.getValue());
+                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), column.getValue());
                 }
                 isFirst = false;
             }

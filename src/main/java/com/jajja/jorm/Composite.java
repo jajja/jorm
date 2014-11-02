@@ -57,11 +57,11 @@ public class Composite {
         }
         Object[] values = new Object[symbols.length];
         for (int i = 0; i < symbols.length; i++) {
-            Column field = row.columns.get(symbols[i]);
-            if (field == null) {
-                throw new NullPointerException("Field " + symbols[i].getName() + " is not set");
+            Column column = row.columns.get(symbols[i]);
+            if (column == null) {
+                throw new NullPointerException("Column " + symbols[i].getName() + " is not set");
             }
-            values[i] = field.getValue();
+            values[i] = column.getValue();
         }
         return new Value(this, values);
     }

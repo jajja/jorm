@@ -106,7 +106,7 @@ public class Query {
             param = ((Map)param).get(label);
         } else if (param instanceof Record) {
             Record record = (Record)param;
-            if (label == null) throw new IllegalArgumentException("Cannot append record field without a label! (e.g. #1:foo_column#)");
+            if (label == null) throw new IllegalArgumentException("Cannot append record column without a label! (e.g. #1:foo_column#)");
             if ("@".equals(label)) {
                 if (!record.table().getPrimaryKey().isSingle()) {
                     throw new UnsupportedOperationException("@ is not supported on Composite columns");

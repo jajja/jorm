@@ -73,7 +73,7 @@ public class Row {
 
         @Override
         public String toString() {
-            return String.format("Field [value => %s, isChanged => %s, reference => %s]", value, isChanged, reference);
+            return String.format("Column [value => %s, isChanged => %s, reference => %s]", value, isChanged, reference);
         }
     }
 
@@ -186,11 +186,11 @@ public class Row {
      * @return true if the column value has changed, false otherwise
      */
     public boolean isChanged(Symbol symbol) {
-        Column field = columns.get(symbol);
-        if (field == null) {
+        Column column = columns.get(symbol);
+        if (column == null) {
             return false;
         }
-        return field.isChanged();
+        return column.isChanged();
     }
 
     /**
@@ -199,8 +199,8 @@ public class Row {
      * @return true if at least one column value has changed, false otherwise
      */
     public boolean isChanged() {
-        for (Column field : columns.values()) {
-            if (field.isChanged()) {
+        for (Column column : columns.values()) {
+            if (column.isChanged()) {
                 return true;
             }
         }
@@ -208,21 +208,21 @@ public class Row {
     }
 
     /**
-     * Marks all fields as changed.
+     * Marks all columns as changed.
      */
     public void taint() {
         for (Entry<Symbol, Column> entry : columns.entrySet()) {
-            Column field = entry.getValue();
-            field.setChanged(true);
+            Column column = entry.getValue();
+            column.setChanged(true);
         }
     }
 
     /**
-     * Marks all fields as unchanged.
+     * Marks all columns as unchanged.
      */
     public void purify() {
-        for (Column field : columns.values()) {
-            field.setChanged(false);
+        for (Column column : columns.values()) {
+            column.setChanged(false);
         }
     }
 
@@ -293,12 +293,12 @@ public class Row {
     }
 
     private boolean hasChanged(Symbol symbol, Object newValue) {
-        Column field = columns.get(symbol);
-        if (field == null) {
+        Column column = columns.get(symbol);
+        if (column == null) {
             return true;
         }
 
-        Object oldValue = field.getValue();
+        Object oldValue = column.getValue();
         if (oldValue == null && newValue == null) {
             return false;
         } else {
@@ -387,8 +387,8 @@ public class Row {
         assertNotReadOnly();
         assertNotStale();
 
-        Column field = columns.get(symbol);
-        if (field != null) {
+        Column column = columns.get(symbol);
+        if (column != null) {
             columns.remove(symbol);
         }
     }
@@ -606,13 +606,13 @@ public class Row {
                         if (throwSqlException) {
                             throw e;
                         }
-                        throw new RuntimeException("failed to findById(" + clazz + ", " + value + ")", e);
+                        throw new RuntimeException("Failed to findById(" + clazz + ", " + value + ")", e);
                     }
                 } else {
                     value = column.getReference();
                 }
             } else if (!clazz.isAssignableFrom(value.getClass())) {
-                throw new RuntimeException("column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
+                throw new RuntimeException("Column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
             }
         }
 
@@ -650,7 +650,7 @@ public class Row {
 
     @Override
     public boolean equals(Object object) {
-        if (object instanceof Row) {    // XXX more strict checking?
+        if (object instanceof Row) {
             return columns.equals(((Row)object).columns);
         }
         return false;

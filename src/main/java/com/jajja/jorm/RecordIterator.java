@@ -69,7 +69,7 @@ public class RecordIterator implements Closeable {
         try {
             row.resetColumns(symbols.length);
             for (int i = 0; i < symbols.length; i++) {
-                Column field = new Record.Column();
+                Column column = new Record.Column();
                 Object object = resultSet.getObject(i + 1);
                 if (transaction != null && transaction.getCalendar() != null) {
                     if (object instanceof Date) {
@@ -80,8 +80,8 @@ public class RecordIterator implements Closeable {
                         object = resultSet.getTimestamp(i + 1, transaction.getCalendar());
                     }
                 }
-                field.setValue(object);
-                row.columns.put(symbols[i], field);
+                column.setValue(object);
+                row.columns.put(symbols[i], column);
             }
         } catch (SQLException sqlException) {
             row.stale(true);

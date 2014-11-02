@@ -809,7 +809,7 @@ public abstract class Record extends Row {
 
     /**
      * Save the record. This is done by a call to {@link #insert()} if the id
-     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     * column is null, unset or changed, otherwise by a call to {@link #update()}.
      *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
@@ -825,7 +825,7 @@ public abstract class Record extends Row {
 
     /**
      * Batch saves the records. This is done by a call to {@link #insert()} if the id
-     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     * column is null, unset or changed, otherwise by a call to {@link #update()}.
      *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
@@ -839,7 +839,7 @@ public abstract class Record extends Row {
 
     /**
      * Batch saves the records. This is done by a call to {@link #insert()} if the id
-     * field is null, unset or changed, otherwise by a call to {@link #update()}.
+     * column is null, unset or changed, otherwise by a call to {@link #update()}.
      *
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
@@ -917,12 +917,12 @@ public abstract class Record extends Row {
      *
      * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
      *
-     * Setting isFullRepopulate to true will re-populate the record fields with fresh values. This will generate
+     * Setting isFullRepopulate to true will re-populate the record columns with fresh values. This will generate
      * an additional SELECT query for every chunk of records for databases that do not support RETURNING.
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param isFullRepopulate Whether or not to fully re-populate the record fields, or just update their primary key value and markStale()
+     * @param isFullRepopulate Whether or not to fully re-populate the record columns, or just update their primary key value and markStale()
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -1033,15 +1033,15 @@ public abstract class Record extends Row {
     }
 
     /**
-     * Marks all fields as changed.
+     * Marks all columns as changed.
      */
     @Override
     public void taint() {
         for (Entry<Symbol, Column> entry : columns.entrySet()) {
             Symbol symbol = entry.getKey();
-            Column field = entry.getValue();
+            Column column = entry.getValue();
             if (!table.isImmutable(symbol) && !primaryKey().contains(symbol)) {
-                field.setChanged(true);
+                column.setChanged(true);
             }
         }
     }
