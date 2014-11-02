@@ -1285,15 +1285,15 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
-        return prefetch(records, foreignKeySymbol, clazz, referredSymbol, false);
+    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Row> rows, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
+        return prefetch(rows, foreignKeySymbol, clazz, referredSymbol, false);
     }
 
-    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Row> rows, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
         Set<Object> values = new HashSet<Object>();
 
-        for (Record record : records) {
-            Column column = record.columns.get(foreignKeySymbol);
+        for (Row row : rows) {
+            Column column = row.columns.get(foreignKeySymbol);
             if (column != null && column.getValue() != null && column.getReference() == null) {
                 values.add(column.getValue());
             }
@@ -1306,14 +1306,14 @@ public class Transaction {
         Composite key = new Composite(referredSymbol);
         Map<Composite.Value, T> map = selectAsMap(clazz, key, false, getSelectQuery(clazz).append("WHERE #1# IN (#2#)", referredSymbol, values));
 
-        for (Record record : records) {
-            Column column = record.columns.get(foreignKeySymbol);
+        for (Row row : rows) {
+            Column column = row.columns.get(foreignKeySymbol);
             if (column != null && column.getValue() != null && column.getReference() == null) {
                 Record referenceRecord = map.get(key.value(column.getValue()));
                 if (referenceRecord == null && !ignoreInvalidReferences) {
                     throw new IllegalStateException(column.getValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
                 }
-                record.set(foreignKeySymbol, referenceRecord);
+                row.set(foreignKeySymbol, referenceRecord);
             }
         }
 
@@ -1325,7 +1325,7 @@ public class Transaction {
      * prefetched reference of the given record class. Existing cached
      * references are not overwritten.
      *
-     * @param records
+     * @param rows
      *            the records to populate with prefetched references.
      * @param foreignKeySymbol
      *            the column name defining the foreign key to the referenced records.
@@ -1340,13 +1340,13 @@ public class Transaction {
      *             statement does not return a result set.
      */
     // XXX context
-    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
-        return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol));
+    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Row> rows, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
+        return prefetch(rows, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol));
     }
 
     // XXX context
-    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
-        return prefetch(records, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol), ignoreInvalidReferences);
+    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Row> rows, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+        return prefetch(rows, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol), ignoreInvalidReferences);
     }
 
     /**
