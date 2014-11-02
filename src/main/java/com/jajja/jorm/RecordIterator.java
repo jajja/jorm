@@ -48,6 +48,14 @@ public class RecordIterator implements Closeable {
         }
     }
 
+    public PreparedStatement getPreparedStatement() {
+        return preparedStatement;
+    }
+
+    public ResultSet getResultSet() {
+        return resultSet;
+    }
+
     private void populate(Record record, ResultSet resultSet) throws SQLException {
         try {
             record.resetFields(symbols.length);
@@ -113,6 +121,8 @@ public class RecordIterator implements Closeable {
         }
     }
 
+    // javadoc: Whether or not to close resultSet + preparedStatement when close() is called
+    // (rename to setCascadingClose?)
     public void setAutoClose(boolean autoClose) {
         this.autoClose = autoClose;
     }
