@@ -561,7 +561,7 @@ public class Row {
      * @throws RuntimeException if the column is not set
      */
     public <T extends Record> T refCached(String column, Class<T> clazz) {
-        return refCached(column, clazz);
+        return refCached(Symbol.get(column), clazz);
     }
 
     /**
