@@ -244,7 +244,9 @@ The first parameter to the constructor is the capacity of the cache. Unless the 
         System.out.println(goblin.getName() + " : " + goblin.getTribe().getName());
     }
 
-Which is a very likely scenario in a webpage listing object-relational structures from a database in a flattened view. Note that a static cache like the one above is a very likely cause of bugs in a system with multiple clients to the database. You still have to roll your own caching strategy, preferably per transaction!
+Which is a very likely scenario in a webpage listing object-relational structures from a database in a flattened view.
+
+Note that a static cache like the one above is a common cause of bugs systems with multiple clients to the database. You still have to roll your own caching strategy, preferably per transaction!
 
 ### Rebranded SQL exceptions
 
