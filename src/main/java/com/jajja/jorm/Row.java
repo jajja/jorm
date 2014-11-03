@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Jajja Communications AB
+ * Copyright (C) 2014 Jajja Communications AB
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
