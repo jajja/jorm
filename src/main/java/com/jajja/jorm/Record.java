@@ -126,7 +126,6 @@ import com.jajja.jorm.generator.Generator;
  * @since 1.0.0
  */
 public abstract class Record extends Row {
-    private Table table;
     private static Map<Class<? extends Record>, Logger> logs = new ConcurrentHashMap<Class<? extends Record>, Logger>(16, 0.75f, 1);
 
     public static enum ResultMode {
@@ -180,22 +179,17 @@ public abstract class Record extends Row {
      * Constructs a record. Uses {@link Jorm} annotation for configuration.
      */
     public Record() {
-        table = Table.get(getClass());
     }
 
     /**
-     * Constructs a record. Mainly intended for anonymous record
-     * instantiation such as the results from the transaction select methods
-     * {@link Transaction#select(Query)},
-     * {@link Transaction#select(String, Object...)},
-     * {@link Transaction#selectAll(Query)} and
-     * {@link Transaction#selectAll(String, Object...)}.
+     * Constructs a record, using the column values and flags from a Row. Uses {@link Jorm} annotation for configuration.
      *
-     * @param table
-     *            the table mapping.
+     * Note: this simply copies the column value reference; no deep copying is done.
+     * This means the Row and Record will share column values.
      */
-    public Record(Table table) {
-        this.table = table;
+    public Record(Row row) {
+        this.columns = row.columns;
+        this.flags = row.flags;
     }
 
     /**
@@ -214,7 +208,7 @@ public abstract class Record extends Row {
     }
 
     public Composite primaryKey() {
-        return table.getPrimaryKey();
+        return Table.get(getClass()).getPrimaryKey();
     }
 
     public static Composite primaryKey(Class<? extends Record> clazz) {
@@ -227,7 +221,7 @@ public abstract class Record extends Row {
      * @return the table mapping.
      */
     public Table table() {
-        return table;
+        return Table.get(getClass());
     }
 
     /**
@@ -264,7 +258,7 @@ public abstract class Record extends Row {
      * @return the transaction.
      */
     public Transaction transaction() {
-        return Database.open(table.getDatabase());
+        return Database.open(table().getDatabase());
     }
 
     /**
@@ -1040,7 +1034,7 @@ public abstract class Record extends Row {
         for (Entry<Symbol, Column> entry : columns.entrySet()) {
             Symbol symbol = entry.getKey();
             Column column = entry.getValue();
-            if (!table.isImmutable(symbol) && !primaryKey().contains(symbol)) {
+            if (!table().isImmutable(symbol) && !primaryKey().contains(symbol)) {
                 column.setChanged(true);
             }
         }
@@ -1049,6 +1043,7 @@ public abstract class Record extends Row {
     @Override
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder();
+        Table table = table();
 
         if (table.getSchema() != null) {
             stringBuilder.append(table.getSchema());

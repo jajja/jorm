@@ -37,7 +37,7 @@ import com.jajja.jorm.patch.Patcher;
 public class Row {
     public static final byte FLAG_STALE = 0x01;
     public static final byte FLAG_READ_ONLY = 0x02;
-    private byte flags;
+    byte flags;
     Map<Symbol, Column> columns = new HashMap<Symbol, Column>(8, 1.0f);
 
     public static class Column {
