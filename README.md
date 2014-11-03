@@ -14,7 +14,7 @@ Would you like to be able to do the following without writing a single line of b
     Goblin goblin = Record.findById(Goblin.class, 42);
     goblin.setName("Azog");
     goblin.save();
-    goblin.commit();
+    goblin.transaction().commit();
     
 You will be done before you are halfway through _getting started_.
 
@@ -24,7 +24,7 @@ Getting jORM to a public maven repo is one of the items on the timeline of the p
 
     > git clone git://github.com/jajja/jorm.git
     > cd jorm
-    > git checkout 1.0.5
+    > git checkout master
     > mvn install
 
 Then include the dependency to jORM in any project you are working on that needs a lightweight ORM.
@@ -32,7 +32,7 @@ Then include the dependency to jORM in any project you are working on that needs
     <dependency>
         <groupId>com.jajja</groupId>
         <artifactId>jorm</artifactId>
-        <version>1.0.5</version>
+        <version>2.0.0-SNAPSHOT</version>
     </dependency>
 
 Now that you've got the code, let's see if we cannot conjure some cheap tricks!
@@ -46,10 +46,18 @@ The database abstraction in jORM needs a `javax.sql.DataSource` data source. One
     moriaDataSource.setUrl("jdbc:postgresql://localhost:5432/moria");
     moriaDataSource.setUsername("gandalf");
     moriaDataSource.setPassword("mellon");
-    
+
     Database.configure("moria", moriaDataSource);
 
-This will configure the pooled data source as a named database. For all of those who prefer Spring Beans this can be achieved through a singleton factory method.
+This will configure the pooled data source as a named database. You can achieve the same thing through a jorm.properties file with the following contents:
+
+    database.moria.dataSource=org.apache.tomcat.jdbc.pool.DataSource
+    database.moria.dataSource.driverClassName=org.postgresql.Driver
+    database.moria.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria
+    database.moria.dataSource.username=gandalf
+    database.moria.dataSource.password=mellon
+
+For all of those who prefer Spring Beans this can be achieved through a singleton factory method.
 
     <bean id="moriaDataSource" class="org.apache.tomcat.jdbc.pool.DataSource" destroy-method="close">
         <property name="driverClassname" value="org.postgresql.Driver" />
@@ -68,11 +76,11 @@ This will configure the pooled data source as a named database. For all of those
 
 ### Using databases
 
-All database queries in jORM are executed through a thread local transaction. The first query begins the transaction. After that the transaction can be committed or closed, which implicitly rolls back the transaction.
+All database queries in jORM are executed through a thread local transaction. The first query begins the transaction. After that the transaction can be committed or closed (which implicitly rolls back the transaction).
 
-    Transaction transaction = Database.open("moria");
+    Transaction transaction = Database.open("moria");   // Returns the same transaction reference on multiple calls!
     try {
-        transaction.select("UPDATE goblins SET mindset = 'provoked' RETURNING *");
+        int rowsUpdated = transaction.executeUpdate("UPDATE goblins SET mindset = 'provoked'");
         transaction.commit();
     } catch (SQLException e) {
         // handle e
@@ -83,7 +91,7 @@ All database queries in jORM are executed through a thread local transaction. Th
 The database has a shorthand to the thread local transactions. The above can also be expressed as below.
 
     try {
-        Database.open("moria").select("UPDATE goblins SET mindset = 'provoked' RETURNING *");
+        int rowsUpdated = Database.open("moria").executeUpdate("UPDATE goblins SET mindset = 'provoked'");
         Database.commit("moria");
     } catch (SQLException e) {
         // handle e
@@ -94,7 +102,7 @@ The database has a shorthand to the thread local transactions. The above can als
 If you are using multiple databases it may be a good idea to close all thread local transactions at the end of execution. This can be done by a single call.
 
     Database.close();
-    
+
 Maybe you were interested in something more than executing generic queries? Let's map a table!
 
 ### Mapping tables
@@ -112,7 +120,7 @@ In order to map a table we need to get an idea of how it is declared. Imagine a 
 
 Tables are mapped by records with a little help by the `@Jorm` annotation. Records bind to the tread local transactions defined by the `database` attribute. The `table` attribute defines the mapped table, and the `id` attribute provides primary key functionality.
 
-    @Jorm(database="moria", table="goblins", id="id")
+    @Jorm(database="moria", schema="public", table="goblins", id="id")
     public class Goblin extends Record {  
         public Integer getId() {
             return get("id", Integer.class);
@@ -146,9 +154,9 @@ Tables are mapped by records with a little help by the `@Jorm` annotation. Recor
         }
     }
 
-Such records can be automatically generated by the `Generator` class. Note that the `Goblin#getTribe()` and `Goblin#setTribe()` methods refers to the `tribe_id` field of the mapped `Goblin` record, but `Tribe` record is also cached for subsequent references. Thus simple foreign keys can be mapped, but how would a tribe look?
+Such records can be automatically generated/scaffolded by the `Generator` class. Note that the `Goblin#getTribe()` and `Goblin#setTribe()` methods refers to the `tribe_id` field of the mapped `Goblin` record, but `Tribe` record is also cached for subsequent references. Thus simple foreign keys can be mapped, but how would a tribe look?
 
-    @Jorm(database="moria", table="tribes", id="id")
+    @Jorm(database="moria", schema="public", table="tribes", id="id")
     public class Tribe extends Record {
         public Integer getId() {
             return get("id", Integer.class);
@@ -172,12 +180,6 @@ There is no default implementation of `Tribe#setGoblins(List<Goblin>)`. This is 
 Did you notice the `UNIQUE` constraint on goblins? It can be used to provide convenient methods for queries on goblins.
 
     public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
-        return find(Goblin.class, new Column("tribe_id", tribe), new Column("name", name));
-    }
-
-If you prefer the write SQL this can also be achieved through manual queries.
-
-    public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
         return Record.select(Goblin.class, "SELECT * FROM goblins WHERE tribe_id = #1:id# AND name = #2#", tribe, name);
     }
 
@@ -197,7 +199,7 @@ Sometimes a field in a record mapped from a table could just as well be immutabl
 
 Marking immutability for fields can be done by defining the `immutable` attribute in the `@Jorm` mapping. 
 
-    @Jorm(database="moria", table="litters", immutable={"left_at"})
+    @Jorm(database="moria", schema="public", table="litters", immutable={"left_at"})
     public class Litter extends Record { 
         public Integer getId() {
             return get("id", Integer.class);
@@ -241,10 +243,11 @@ There are four specific types of exceptions and one generic base exception. If t
 
 Sometimes it can be convenient to have the ability to set fields of records to database queries. One of the most frequent queries usable in this context is `now()`, but it can be any valid query resulting in one row and one column. Let's extend `Goblin` with some random functionality!
 
-    public void relieve() {
+    public Litter relieve() {
         Litter litter = new Litter();
         litter.set("stench", build("random() * 0.9")) ;
         litter.setGoblin(this);
+        return litter;
     }
 
 The `Record#build(String, Object...)` method provides a query usable as a field value. Note that the goblin instance needs to be saved before the actual value can be accessed!
@@ -255,13 +258,13 @@ The `Record#build(String, Object...)` method provides a query usable as a field 
 Queries are expressed in a SQL with hash-markup. References to parameters are enclosed by two hashses (#), and use numbers to address parameters in order of appearance.
 
     Record.select("SELECT * FROM foo WHERE bar < #1# AND #1# < baz AND baz < #2# ", 10, 100);
-    
-Quaries are implicitly created by `Record#select(String, Object...)`, but can also be explicitly created.
+
+Queries are implicitly created by `Record#select(String, Object...)`, but can also be explicitly created.
 
     Transaction transaction = Database.open("bar");
     Dialect dialect = transaction.getDialect();
     Query query = new Query(dialect, "SELECT * FROM foo WHERE bar < #1# AND #1# < baz AND baz < #2# ", 10, 100);
-    
+
 Instances of `Record` wrap dialect retrieval in `Record#build(String, Object...)`, as a syntactic sugar to build queries shown in the previous section 'Queries as fields'.
 
 ###Tokens
@@ -305,7 +308,7 @@ Hashes (#) can be quoted by double-hashing, i.e ##, ? cannot be escaped properly
 
 ### jORM tables
   
-    Record.select("SELECT * FROM #1# WHERE id = 5", table(Goblin.class));   // Modifier ignored, tables are always quoted as a identifiers
+    Record.select("SELECT * FROM #1# WHERE id = 5", Goblin.class);   // Modifier ignored, tables are always quoted as identifiers
 
 ### jORM symbols
 
