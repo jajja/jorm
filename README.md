@@ -232,7 +232,7 @@ Record-local caching of references might not be the way to go for your performan
 
     private static Cache<Tribe> tribes = new Cache<>(2, Tribe.class);
     static { // optional seed
-        tribes.put(Record.selecAll(Tribe.class, "SELECT * FROM tribes"));
+        tribes.put(Record.selectAll(Tribe.class, "SELECT * FROM tribes"));
     }
     public Tribe getTribe() {
         tribes.get(getTribeId());
