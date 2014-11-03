@@ -228,7 +228,7 @@ The `left_at` column will never change even if an explicit call to `Record#set(S
 
 ### Caching
 
-Record-local caching of references might not be the way to go for your performance attuned persona, but the bundled `Cache` implementing LRU caching of Records could be a step in the right direction. The following extension of the `Goblin` class demonstrates its usage.
+Record-local caching of references might not be the way to go for your performance attuned persona, but the `Cache` class implementing LRU caching could be a step in the right direction. The following extension of the `Goblin` example class demonstrates its usage.
 
     private static Cache<Tribe> tribes = new Cache<>(2, Tribe.class);
     static { // optional seed
