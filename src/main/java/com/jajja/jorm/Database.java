@@ -170,7 +170,8 @@ public class Database {
             if (dataSource == null) {
                 ensureConfigured(database); // throws!
             }
-            transaction = new Transaction(dataSource, database, configurations.get(database).calendar);
+            Configuration configuration = configurations.get(database);
+            transaction = new Transaction(dataSource, database, configuration != null ? configuration.calendar : null);
             transactions.put(database, transaction);
         }
         return transaction;
