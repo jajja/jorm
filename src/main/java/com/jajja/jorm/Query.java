@@ -100,20 +100,21 @@ public class Query {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private void append(char modifier, Object param, String label) {
-        // TODO: refactor
+        // TODO: refactor, plz
         if (param instanceof Map) {
             if (label == null) throw new IllegalArgumentException("Cannot append map without a label! (e.g. #1:map_key#)");
             param = ((Map)param).get(label);
-        } else if (param instanceof Record) {
-            Record record = (Record)param;
-            if (label == null) throw new IllegalArgumentException("Cannot append record column without a label! (e.g. #1:foo_column#)");
-            if ("@".equals(label)) {
+        } else if (param instanceof Row) { // or Record
+            if (label == null) throw new IllegalArgumentException("Cannot append row column without a label! (e.g. #1:foo_column#)");
+            if (param instanceof Record && "@".equals(label)) {
+                Record record = (Record)param;
                 if (!record.table().getPrimaryKey().isSingle()) {
                     throw new UnsupportedOperationException("@ is not supported on Composite columns");
                 }
                 param = record.id().getValue();
             } else {
-                param = record.get(label);
+                Row row = (Row)param;
+                param = row.get(label);
             }
         } else if (param instanceof Class && Record.isRecordSubclass((Class)param)) {
             param = Table.get((Class<? extends Record>)param);
