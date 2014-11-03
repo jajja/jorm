@@ -106,7 +106,7 @@ public class Row {
      *
      * @return the columns
      */
-    public Map<Symbol, Column> colums() {
+    public Map<Symbol, Column> columns() {
         return Collections.unmodifiableMap(columns);
     }
 
