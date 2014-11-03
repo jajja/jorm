@@ -226,6 +226,26 @@ Marking immutability for fields can be done by defining the `immutable` attribut
 
 The `left_at` column will never change even if an explicit call to `Record#set(String, Object)` has been made.
 
+### Caching
+
+Record-local caching of references might not be the way to go for your performance attuned persona, but the bundled `Cache` implementing LRU caching of Records could be a step in the right direction. The following extension of the `Goblin` class demonstrates its usage.
+
+    private static Cache<Tribe> tribes = new Cache<>(2, Tribe.class);
+    static { // optional seed
+        tribes.put(Record.selecAll(Tribe.class, "SELECT * FROM tribes"));
+    }
+    public Tribe getTribe() {
+        tribes.get(getTribeId();
+    }
+
+The first parameter to the constructor is the capacity of the cache. Unless the capacity of  is exceeded there will be atmost one select per requested instance. Now we can easily iterate our goblins without throwing unnessecary selects for referenced tribes onto the database.
+
+    for (Goblin goblin : Record.selectAll(Goblin.class, "SELECT * FROM goblins")) {
+        System.out.println(goblin.getName() + " : " + goblin.getTribe().getName());
+    }
+
+Which is a very likely scenario in a webpage listing object-relational structures from a database in a flattened view. Note that a static cache like the one above is a very likely cause of bugs in a system with multiple clients to the database. You still have to roll your own caching strategy, preferably per transaction!
+
 ### Rebranded SQL exceptions
 
 If you have been wondering why the previous example had a check condition on `stench` in the create statement of `litters`, you are about to find out. The records rebrand `SQLException` through dialect specific adaptions, classifying known errors with specific types.
