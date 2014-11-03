@@ -235,7 +235,7 @@ Record-local caching of references might not be the way to go for your performan
         tribes.put(Record.selecAll(Tribe.class, "SELECT * FROM tribes"));
     }
     public Tribe getTribe() {
-        tribes.get(getTribeId();
+        tribes.get(getTribeId());
     }
 
 The first parameter to the constructor is the capacity of the cache. Unless the capacity of  is exceeded there will be atmost one select per requested instance. Now we can easily iterate our goblins without throwing unnessecary selects for referenced tribes onto the database.
