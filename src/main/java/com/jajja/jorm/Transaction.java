@@ -104,6 +104,7 @@ public class Transaction {
             for (int i = 1; i < stackTrace.length; i++) {
                 StackTraceElement stackTraceElement = stackTrace[i];
                 if (!stackTraceElement.getClassName().startsWith("com.jajja.jorm.")) {
+                    System.out.println(stackTraceElement + ": " + message);
                     log.info(stackTraceElement + ": " + message);
                     break;
                 }
