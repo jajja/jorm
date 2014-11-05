@@ -583,7 +583,7 @@ public class Row {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> T getColumnValue(Symbol symbol, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
+    <T> T getColumnValue(Symbol symbol, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
         assertNotStale();
 
         Column column = columns.get(symbol);

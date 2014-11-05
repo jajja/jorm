@@ -1013,15 +1013,19 @@ public abstract class Record extends Row {
      * @throws RuntimeException
      *             whenever a SQLException occurs.
      */
-    public Record refresh() {
+    public Record refresh() throws SQLException {
         if (isStale()) {
+            stale(false);
             try {
                 assertPrimaryKeyNotNull();
                 populateById(primaryKey().valueFrom(this, true));
+            } catch (RuntimeException e) {
+                stale(true);
+                throw e;
             } catch (SQLException e) {
-                throw new RuntimeException("Failed to refresh stale record", e);
+                stale(true);
+                throw e;
             }
-            stale(false);
         }
         return this;
     }
@@ -1038,6 +1042,52 @@ public abstract class Record extends Row {
                 column.setChanged(true);
             }
         }
+    }
+
+    private void warnIfStale(Object ref) {
+        if (isStale()) {
+            try {
+                throw new IllegalAccessException();
+            } catch (IllegalAccessException e) {
+                log().warn(String.format("Attempt to access %s on a stale record! refresh() will be called for you, but this functionality will be removed in the future. Update your code to call record.refresh() or record.stale(false) before accessing update()d or insert()d records.", ref), e);
+            }
+            try {
+                refresh();
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to refresh stale record", e);
+            }
+        }
+    }
+
+    @Override
+    public boolean isCompositeKeyNullOrChanged(Composite key) {
+        warnIfStale(key);
+        return super.isCompositeKeyNullOrChanged(key);
+    }
+
+    @Override
+    public boolean isCompositeKeyNull(Composite key) {
+        warnIfStale(key);
+        return super.isCompositeKeyNull(key);
+    }
+
+    @Override
+    public boolean isSet(Symbol symbol) {
+        warnIfStale(symbol);
+        return super.isSet(symbol);
+    }
+
+    @Override
+    public void unset(Symbol symbol) {
+        assertNotReadOnly();
+        warnIfStale(symbol);
+        super.unset(symbol);
+    }
+
+    @Override
+    <T> T getColumnValue(Symbol symbol, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
+        warnIfStale(symbol);
+        return super.getColumnValue(symbol, clazz, isReferenceCacheOnly, throwSqlException, transaction);
     }
 
     @Override
