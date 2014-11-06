@@ -1046,11 +1046,10 @@ public abstract class Record extends Row {
 
     private void warnIfStale(Object ref) {
         if (isStale()) {
-            try {
-                throw new IllegalAccessException();
-            } catch (IllegalAccessException e) {
-                log().warn(String.format("Attempt to access %s on a stale record! refresh() will be called for you, but this functionality will be removed in the future. Update your code to call record.refresh() or record.stale(false) before accessing update()d or insert()d records.", ref), e);
-            }
+            log().warn(String.format("Attempt to access %s on stale record %s! refresh() will be called for you, " +
+                        "but this functionality will be removed in the future. Update your code to call record.refresh() " +
+                        "or record.stale(false) before accessing update()d or insert()d records.", ref, toString()),
+                        new IllegalAccessException());
             try {
                 refresh();
             } catch (SQLException e) {
