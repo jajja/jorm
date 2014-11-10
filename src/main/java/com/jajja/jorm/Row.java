@@ -669,7 +669,7 @@ public class Row {
         throw new ArithmeticException(String.format("%s can not hold value %s", clazz.getSimpleName(), n.toString()));
     }
 
-    private static final BigDecimal doubleMinValue = new BigDecimal(-Double.MAX_VALUE);
+    private static final BigDecimal floatMaxValue = new BigDecimal(Float.MAX_VALUE);
     private static final BigDecimal doubleMaxValue = new BigDecimal(Double.MAX_VALUE);
 
     public static Number convertNumber(Number n, Class<?> clazz) {
@@ -700,17 +700,20 @@ public class Row {
             }
             return n.byteValue();
         } else if (Double.class.equals(clazz)) {
-            double val = n.doubleValue();
-            if (Double.isInfinite(val)) {
-                BigDecimal v = new BigDecimal(n.toString());
-                if (v.compareTo(doubleMinValue) < 0 || v.compareTo(doubleMaxValue) > 0) {
-                    convertOverflow(n, clazz);
-                }
+            if (n instanceof BigDecimal && ((BigDecimal)n).abs().compareTo(doubleMaxValue) > 0) {
+                convertOverflow(n, clazz);
+            } else if (n instanceof BigInteger && ((BigDecimal)n).abs().compareTo(doubleMaxValue) > 0) {
+                convertOverflow(n, clazz);
             }
-            return val;
+            return n.doubleValue();
         } else if (Float.class.equals(clazz)) {
+            if (n instanceof BigDecimal && ((BigDecimal)n).abs().compareTo(floatMaxValue) > 0) {
+                convertOverflow(n, clazz);
+            } else if (n instanceof BigInteger && ((BigDecimal)n).abs().compareTo(floatMaxValue) > 0) {
+                convertOverflow(n, clazz);
+            }
             double v = n.doubleValue();
-            if (v < -Float.MAX_VALUE || v > Float.MAX_VALUE) {
+            if (!Double.isInfinite(v) && (v < -Float.MAX_VALUE || v > Float.MAX_VALUE)) {
                 convertOverflow(n, clazz);
             }
             return n.floatValue();
