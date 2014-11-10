@@ -21,6 +21,8 @@
  */
 package com.jajja.jorm;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -611,6 +613,8 @@ public class Row {
                 } else {
                     value = column.getReference();
                 }
+            } else if (Number.class.isAssignableFrom(clazz) && value instanceof Number) {
+                value = convertNumber((Number)value, clazz);
             } else if (!clazz.isAssignableFrom(value.getClass())) {
                 throw new RuntimeException("Column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
             }
@@ -659,5 +663,63 @@ public class Row {
     @Override
     public int hashCode() {
         return columns.hashCode();
+    }
+
+    private static void convertOverflow(Number n, Class<?> clazz) {
+        throw new ArithmeticException(String.format("%s can not hold value %s", clazz.getSimpleName(), n.toString()));
+    }
+
+    private static final BigDecimal doubleMinValue = new BigDecimal(-Double.MAX_VALUE);
+    private static final BigDecimal doubleMaxValue = new BigDecimal(Double.MAX_VALUE);
+
+    public static Number convertNumber(Number n, Class<?> clazz) {
+        if (clazz.isInstance(n)) {
+            return n;
+        } else if (Integer.class.equals(clazz)) {
+            long v = n.longValue();
+            if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
+                convertOverflow(n, clazz);
+            }
+            return n.intValue();
+        } else if (Long.class.equals(clazz)) {
+            double v = n.doubleValue();
+            if (v < Long.MIN_VALUE || v > Long.MAX_VALUE) {
+                convertOverflow(n, clazz);
+            }
+            return n.longValue();
+        } else if (Short.class.equals(clazz)) {
+            int v = n.intValue();
+            if (v < Short.MIN_VALUE || v > Short.MAX_VALUE) {
+                convertOverflow(n, clazz);
+            }
+            return n.intValue();
+        } else if (Byte.class.equals(clazz)) {
+            int v = n.intValue();
+            if (v < Byte.MIN_VALUE || v > Byte.MAX_VALUE) {
+                convertOverflow(n, clazz);
+            }
+            return n.byteValue();
+        } else if (Double.class.equals(clazz)) {
+            double val = n.doubleValue();
+            if (Double.isInfinite(val)) {
+                BigDecimal v = new BigDecimal(n.toString());
+                if (v.compareTo(doubleMinValue) < 0 || v.compareTo(doubleMaxValue) > 0) {
+                    convertOverflow(n, clazz);
+                }
+            }
+            return val;
+        } else if (Float.class.equals(clazz)) {
+            double v = n.doubleValue();
+            if (v < -Float.MAX_VALUE || v > Float.MAX_VALUE) {
+                convertOverflow(n, clazz);
+            }
+            return n.floatValue();
+        } else if (BigDecimal.class.equals(clazz)) {
+            return new BigDecimal(n.toString());
+        } else if (BigInteger.class.equals(clazz)) {
+            return new BigInteger(n.toString());
+        } else {
+            throw new IllegalArgumentException(String.format("Can not convert %s to unsupported class %s", n.getClass(), clazz));
+        }
     }
 }
