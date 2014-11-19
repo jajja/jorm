@@ -1417,7 +1417,7 @@ public class Transaction {
      */
     public void delete(Record record) throws SQLException {
         record.assertNotReadOnly();
-        Query query = build("DELETE FROM #1# WHERE #2#", record.table(), dialect.toSqlExpression(record.id()));
+        Query query = build("DELETE FROM #1# WHERE #2#", record.table(), getDialect().toSqlExpression(record.id()));
 
         PreparedStatement preparedStatement = prepare(query);
         try {
