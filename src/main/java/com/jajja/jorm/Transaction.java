@@ -1305,7 +1305,7 @@ public class Transaction {
         }
 
         Composite key = new Composite(referredSymbol);
-        Map<Composite.Value, T> map = selectAsMap(clazz, key, false, getSelectQuery(clazz).append("WHERE #1# IN (#2#)", referredSymbol, values));
+        Map<Composite.Value, T> map = selectAsMap(clazz, key, ignoreInvalidReferences, getSelectQuery(clazz).append("WHERE #1# IN (#2#)", referredSymbol, values));
 
         for (Row row : rows) {
             Column column = row.columns.get(foreignKeySymbol);
