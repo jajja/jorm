@@ -84,13 +84,7 @@ public class Row {
 
     public void set(Row row) {
         for (Entry<Symbol, Column> entry : row.columns.entrySet()) {
-            Object value = entry.getValue().getValue();
-            if (value != null && !value.equals(get(entry.getKey()))); {
-                Column column = new Column();
-                column.setValue(entry.getValue().getValue());
-                column.setChanged(true);
-                columns.put(entry.getKey(), column);
-            }
+            put(entry.getKey(), entry.getValue());
         }
     }
 
