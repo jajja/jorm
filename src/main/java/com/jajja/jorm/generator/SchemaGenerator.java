@@ -126,7 +126,7 @@ public class SchemaGenerator implements Lookupable {
     public TableGenerator getTable(String name) {
         TableGenerator table = tables.get(name);
         if (table == null) {
-            throw new NullPointerException("Table " + name + " not found");
+            throw new NullPointerException("Table " + name + " not found in schema " + getName());
         }
         return table;
     }
