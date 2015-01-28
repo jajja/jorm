@@ -31,10 +31,10 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.joda.time.Period;
-import org.postgresql.jdbc4.Jdbc4Array;
 import org.postgresql.util.PGInterval;
 import org.postgresql.util.PGobject;
 
+import com.jajja.jorm.Row;
 import com.jajja.jorm.Transaction;
 
 /**
@@ -51,28 +51,20 @@ import com.jajja.jorm.Transaction;
  * @since 1.0.0
  */
 public final class Postgres {
-    public static List<String> stringArray(Jdbc4Array array) {
-        List<String> values = new LinkedList<String>();
-
+    public static <T> List<T> fromArray(Class<T> clazz, Array array) throws SQLException {
+        List<T> values = null;
         if (array != null) {
-            try {
-                ResultSet rs = array.getResultSet();
-                while (rs.next()) {
-                    values.add(rs.getString(2));
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException("wtfbbq?");
+            values = new LinkedList<T>();
+            ResultSet rs = array.getResultSet();
+            while (rs.next()) {
+                values.add(Row.convert(rs.getObject(2), clazz));
             }
         }
         return values;
     }
 
-    public static Array stringArray(Transaction transaction, Collection<String> values) {
-        try {
-            return transaction.getConnection().createArrayOf("varchar", values.toArray());
-        } catch (SQLException e) {
-            throw new RuntimeException("wtfbbq?");
-        }
+    public static Array toArray(Transaction transaction, String sqlDataType, Collection<? extends Object> values) throws SQLException {
+        return values != null ? transaction.getConnection().createArrayOf(sqlDataType, values.toArray()) : null;
     }
 
     public static Period toPeriod(PGInterval interval) {

@@ -619,10 +619,12 @@ public class Row {
                 } else {
                     value = column.getReference();
                 }
-            } else if (Number.class.isAssignableFrom(clazz) && value instanceof Number) {
-                value = convertNumber((Number)value, clazz);
-            } else if (!clazz.isAssignableFrom(value.getClass())) {
-                throw new RuntimeException("Column " + symbol.getName() + " is of type " + value.getClass() + ", but " + clazz + " was requested");
+            } else {
+                try {
+                    value = convert(value, clazz);
+                } catch (IllegalArgumentException e) {
+                    throw new RuntimeException("Column " + symbol.getName() + ": " + e.getMessage());
+                }
             }
         }
 
@@ -728,7 +730,18 @@ public class Row {
         } else if (BigInteger.class.equals(clazz)) {
             return new BigInteger(n.toString());
         } else {
-            throw new IllegalArgumentException(String.format("Can not convert %s to unsupported class %s", n.getClass(), clazz));
+            throw new IllegalArgumentException(String.format("Cannot convert number of type %s to class %s", n.getClass(), clazz));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T convert(Object value, Class<T> clazz) {
+        if (Number.class.isAssignableFrom(clazz) && value instanceof Number) {
+            return (T)Row.convertNumber((Number)value, clazz);
+        } else if (clazz.isAssignableFrom(value.getClass())) {
+            return (T)value;
+        } else {
+            throw new IllegalArgumentException(String.format("Cannot convert object of type %s to class %s", value.getClass(), clazz));
         }
     }
 }
