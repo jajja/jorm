@@ -934,12 +934,23 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public void update(ResultMode mode) throws SQLException {
-        transaction().update(this, mode);
+    public int update(ResultMode mode, Composite primaryKey) throws SQLException {
+        return transaction().update(this, mode, primaryKey);
     }
 
-    public void update() throws SQLException {
-        transaction().update(this);
+    /**
+     * Updates the record's changed column values by executing an SQL UPDATE query.
+     *
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public int update(ResultMode mode) throws SQLException {
+        return transaction().update(this, mode);
+    }
+
+    public int update() throws SQLException {
+        return transaction().update(this);
     }
 
     /**
