@@ -31,6 +31,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 
 import com.jajja.jorm.Row.Column;
+import com.jajja.jorm.dialects.Dialect;
 
 public class RecordIterator implements Closeable {
     private Symbol[] symbols;
@@ -109,7 +110,7 @@ public class RecordIterator implements Closeable {
             if (transaction != null) {
                 transaction.getDialect().rethrow(sqlException);
             } else if (preparedStatement != null) {
-                throw new Dialect("?", preparedStatement.getConnection()).rethrow(sqlException);
+                throw Dialect.get("?", preparedStatement.getConnection()).rethrow(sqlException);
             } else {
                 throw sqlException;
             }

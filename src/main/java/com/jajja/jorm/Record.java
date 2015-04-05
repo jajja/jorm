@@ -912,7 +912,7 @@ public abstract class Record extends Row {
      * For large sets of records, the use of chunkSize is recommended to avoid out-of-memory errors and too long SQL queries.
      *
      * Setting isFullRepopulate to true will re-populate the record columns with fresh values. This will generate
-     * an additional SELECT query for every chunk of records for databases that do not support RETURNING.
+     * an additional SELECT query for every chunk of records for databases that do not support RETURNING/OUTPUT.
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
@@ -1018,7 +1018,7 @@ public abstract class Record extends Row {
      * Re-populates a stale record with fresh database values by a select query.
      * A record is considered stale after a call to either
      * {@link Record#insert()} or {@link Record#insert()}, if the SQL dialect of
-     * the mapped database does not support returning. A record mapped to a
+     * the mapped database does not support RETURNING/OUTPUT. A record mapped to a
      * table in a Postgres database is thus never stale.
      *
      * @throws RuntimeException

@@ -56,6 +56,8 @@ import org.slf4j.LoggerFactory;
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Row.Column;
+import com.jajja.jorm.dialects.Dialect;
+import com.jajja.jorm.dialects.PostgresqlDialect;
 
 /**
  * The transaction implementation executing all queries in for {@link Jorm}
@@ -154,7 +156,7 @@ public class Transaction {
     public Dialect getDialect() {
         if (dialect == null) {
             try {
-                dialect = new Dialect(database, getConnection());
+                dialect = Dialect.get(database, getConnection());
             } catch (SQLException sqlException) {
                 throw new RuntimeException("Failed to get database connection", sqlException);
             }
@@ -1613,14 +1615,8 @@ public class Transaction {
                 iter.setCascadingClose(false);
 
                 int idColumn = resultSet.findColumn(primaryKey.getSymbol().getName());
-                if (Dialect.DatabaseProduct.MYSQL.equals(dialect.getDatabaseProduct())) {
-                    while (resultSet.next()) {
-                        iter.populate(map.get(resultSet.getLong(idColumn)));
-                    }
-                } else {
-                    while (resultSet.next()) {
-                        iter.populate(map.get(resultSet.getObject(idColumn)));
-                    }
+                while (resultSet.next()) {
+                    iter.populate(map.get(dialect.getPrimaryKeyValue(resultSet, idColumn)));
                 }
             }
         } catch (SQLException sqlException) {
@@ -1674,11 +1670,17 @@ public class Transaction {
         }
 
         if (isFirst) {
-            // No columns are marked as changed, but we need to insert something... INSERT INTO foo DEFAULT VALUES is not supported on all databases
-            query.append("#1#", record.primaryKey());
-            for (int i = 0; i < record.primaryKey().getSymbols().length; i++) {
-                query.append(i == 0 ? ") VALUES (DEFAULT" : ", DEFAULT");
+            // No columns are marked as changed, but we need to insert something...
+            // "INSERT INTO foo DEFAULT VALUES" is not supported on all databases
+            query.append("#1#)", record.primaryKey());
+            if (true) {
+                query.append(" OUTPUT INSERTED.* ");
             }
+            query.append(" VALUES ");
+            for (int i = 0; i < record.primaryKey().getSymbols().length; i++) {
+                query.append(i == 0 ? "(DEFAULT" : ", DEFAULT");
+            }
+            query.append(")");
         } else {
             query.append(") VALUES (");
             isFirst = true;
@@ -1964,7 +1966,7 @@ public class Transaction {
         }
 
         Dialect dialect = getDialect();
-        if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
+        if (!(dialect instanceof PostgresqlDialect)) {
             for (Record record : records) {
                 update(record);
             }

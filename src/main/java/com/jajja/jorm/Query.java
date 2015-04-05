@@ -27,6 +27,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import com.jajja.jorm.dialects.Dialect;
+
 /**
  * The implementation for generating SQL statements and mapping parameters to statements for records and transactions.
  *
@@ -66,17 +68,17 @@ public class Query {
     private StringBuilder sql = new StringBuilder(64);
     private List<Object> params;
 
-    Query(Dialect dialect) {
+    public Query(Dialect dialect) {
         this.dialect = dialect;
         params = new LinkedList<Object>();
     }
 
-    Query(Dialect dialect, String sql) {
+    public Query(Dialect dialect, String sql) {
         this(dialect);
         append(sql);
     }
 
-    Query(Dialect dialect, String sql, Object... params) {
+    public Query(Dialect dialect, String sql, Object... params) {
         this(dialect);
         append(sql, params);
     }
