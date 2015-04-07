@@ -9,8 +9,8 @@ public class GenericDialect extends Dialect {
     }
 
     @Override
-    public boolean isReturningSupported() {
-        return false;
+    public ReturnSetSyntax getReturnSetSyntax() {
+        return ReturnSetSyntax.NONE;
     }
 
     @Override

@@ -37,17 +37,31 @@ import com.jajja.jorm.patch.Patcher;
  *
  */
 public class Row {
-    public static final byte FLAG_STALE = 0x01;
-    public static final byte FLAG_READ_ONLY = 0x02;
+    protected static final byte FLAG_STALE = 0x01;
+    protected static final byte FLAG_READ_ONLY = 0x02;
     byte flags;
     Map<Symbol, Column> columns = new HashMap<Symbol, Column>(8, 1.0f);
 
     public static class Column {
+        protected static final byte FLAG_CHANGED = 0x01;
+        protected static final byte FLAG_IMMUTABLE = 0x02;
         private Object value = null;
-        private boolean isChanged = false;
+        private byte flags;
         private Record reference = null;
 
         Column() {}
+
+        private void flag(int flag, boolean set) {
+            if (set) {
+                flags |= flag;
+            } else {
+                flags &= ~flag;
+            }
+        }
+
+        private boolean flag(int flag) {
+            return (flags &= flag) != 0;
+        }
 
         void setValue(Object value) {
             this.value = Patcher.unbork(value);
@@ -58,11 +72,19 @@ public class Row {
         }
 
         void setChanged(boolean isChanged) {
-            this.isChanged = isChanged;
+            flag(FLAG_CHANGED, isChanged);
         }
 
-        boolean isChanged() {
-            return isChanged;
+        public boolean isChanged() {
+            return flag(FLAG_CHANGED) && !flag(FLAG_IMMUTABLE);
+        }
+
+        void setImmutable(boolean isImmutable) {
+            flag(FLAG_IMMUTABLE, isImmutable);
+        }
+
+        public boolean isImmutable() {
+            return flag(FLAG_IMMUTABLE);
         }
 
         void setReference(Record reference) {
@@ -75,7 +97,7 @@ public class Row {
 
         @Override
         public String toString() {
-            return String.format("Column [value => %s, isChanged => %s, reference => %s]", value, isChanged, reference);
+            return String.format("Column [value => %s, isChanged => %s, isImmutable = %s, reference => %s]", value, isChanged(), isImmutable(), reference);
         }
     }
 
@@ -88,11 +110,16 @@ public class Row {
         }
     }
 
+    Column createColumn(Symbol symbol) {
+        Column column = new Column();
+        columns.put(symbol, column);
+        return column;
+    }
+
     Column getOrCreateColumn(Symbol symbol) {
         Column column = columns.get(symbol);
         if (column == null) {
-            column = new Column();
-            columns.put(symbol, column);
+            column = createColumn(symbol);
         }
         return column;
     }
@@ -300,10 +327,14 @@ public class Row {
         }
     }
 
-    private boolean hasChanged(Symbol symbol, Object newValue) {
+    protected boolean hasChanged(Symbol symbol, Object newValue) {
         Column column = columns.get(symbol);
         if (column == null) {
             return true;
+        }
+
+        if (column.isImmutable()) {
+            return false;
         }
 
         Object oldValue = column.getValue();

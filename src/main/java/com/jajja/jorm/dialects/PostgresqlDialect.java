@@ -27,8 +27,8 @@ public class PostgresqlDialect extends Dialect {
     }
 
     @Override
-    public boolean isReturningSupported() {
-        return isReturningSupported;
+    public ReturnSetSyntax getReturnSetSyntax() {
+        return isReturningSupported ? ReturnSetSyntax.RETURNING : ReturnSetSyntax.NONE;
     }
 
     @Override

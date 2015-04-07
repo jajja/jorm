@@ -4,9 +4,14 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map.Entry;
 
+import com.jajja.jorm.Composite;
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Query;
+import com.jajja.jorm.Record;
+import com.jajja.jorm.Record.ResultMode;
+import com.jajja.jorm.Row.Column;
 import com.jajja.jorm.Symbol;
 import com.jajja.jorm.exceptions.CheckViolationException;
 import com.jajja.jorm.exceptions.DeadlockDetectedException;
@@ -27,6 +32,20 @@ public abstract class Dialect {
         CHECK_VIOLATION,
         DEADLOCK_DETECTED,
         LOCK_TIMEOUT;
+    }
+
+    public static enum DatabaseProduct {
+        OTHER,
+        POSTGRESQL,
+        MYSQL,
+        SQL_SERVER,
+        ORACLE;
+    }
+
+    public static enum ReturnSetSyntax {
+        NONE,
+        RETURNING,  // INSERT INTO foo (x, y) VALUES (1, 2) RETURNING *
+        OUTPUT;     // INSERT INTO foo OUTPUT INSERTED.* (x, y) VALUES (1, 2)
     }
 
     /**
@@ -68,14 +87,9 @@ public abstract class Dialect {
     }
 
     /**
-     * Determines if the SQL dialect has support for returning the result set for
-     * inserts and updates.
-     *
-     * @return true if the SQL the <tt>RETURNING</tt> clause for <tt>INSERT</tt>
-     *         and <tt>UPDATE</tt> queries is supported by the database, false
-     *         otherwise.
+     * Returns the return set syntax supported by the database, or NONE if not supported.
      */
-    public abstract boolean isReturningSupported();
+    public abstract ReturnSetSyntax getReturnSetSyntax();
 
     /**
      * Determines if the SQL dialect has support for row-wise comparison, i.e. WHERE (id, name, ...) = (1, 'foo', ...)
@@ -293,6 +307,114 @@ public abstract class Dialect {
                 query.append(" AND #:1# = #2#", columns[i], values[i]);
             }
         }
+        return query;
+    }
+
+    private void appendReturnSetOutput(Query query, Record record, ResultMode mode) {
+        query.append(" OUTPUT");
+        if (mode == ResultMode.ID_ONLY) {
+            Symbol[] symbols = record.table().getPrimaryKey().getSymbols();
+            for (int i = 0; i < symbols.length; i++) {
+                query.append((i == 0) ? " INSERTED.#1#" : ", INSERTED.#1#", symbols[i]);
+            }
+        } else {
+            query.append(" INSERTED.*");
+        }
+    }
+
+    private void appendReturnSetReturning(Query query, Record record, ResultMode mode) {
+        query.append(" RETURNING");
+        if (mode == ResultMode.ID_ONLY) {
+            Symbol[] symbols = record.table().getPrimaryKey().getSymbols();
+            for (int i = 0; i < symbols.length; i++) {
+                query.append((i == 0) ? " #1#" : ", #1#", symbols[i]);
+            }
+        } else {
+            query.append(" *");
+        }
+    }
+
+    public Query buildSingleInsertQuery(Record record, ResultMode mode) {
+        Query query = new Query(this);
+
+        query.append("INSERT INTO #1#", record.table());
+
+        boolean isFirst = true;
+        for (Entry<Symbol, Column> entry : record.columns().entrySet()) {
+            Column column = entry.getValue();
+            if (column.isChanged()) {
+                query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
+                isFirst = false;
+            }
+        }
+
+        if (isFirst) {
+            // No columns are marked as changed, but we need to insert something...
+            // "INSERT INTO foo DEFAULT VALUES" is not supported on all databases
+            query.append("#1#)", record.primaryKey());
+            if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.OUTPUT) {
+                appendReturnSetOutput(query, record, mode);
+            }
+            query.append(" VALUES");
+            for (int i = 0; i < record.primaryKey().getSymbols().length; i++) {
+                query.append(i == 0 ? " (DEFAULT" : ", DEFAULT");
+            }
+            query.append(")");
+        } else {
+            query.append(")");
+            if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.OUTPUT) {
+                appendReturnSetOutput(query, record, mode);
+            }
+            query.append("VALUES (");
+            isFirst = true;
+            for (Entry<Symbol, Column> e : record.columns().entrySet()) {
+                Column column = e.getValue();
+                if (column.isChanged() && !record.table().isImmutable(e.getKey())) {
+                    if (column.getValue() instanceof Query) {
+                        query.append(isFirst ? "#1#" : ", #1#", column.getValue());
+                    } else {
+                        query.append(isFirst ? "#?1#" : ", #?1#", column.getValue());
+                    }
+                    isFirst = false;
+                }
+            }
+            query.append(")");
+        }
+
+        if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.RETURNING) {
+            appendReturnSetReturning(query, record, mode);
+        }
+
+        return query;
+    }
+
+    public Query buildSingleUpdateQuery(Record record, ResultMode mode, Composite key) {
+        Query query = new Query(this);
+        query.append("UPDATE #1#", record.table());
+
+        if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.OUTPUT) {
+            appendReturnSetOutput(query, record, mode);
+        }
+
+        boolean isFirst = true;
+        for (Entry<Symbol, Column> entry : record.columns().entrySet()) {
+            Column column = entry.getValue();
+            if (column.isChanged()) {
+                if (column.getValue() instanceof Query) {
+                    query.append(isFirst ? " SET #:1# = #2#" : ", #:1# = #2#", entry.getKey(), column.getValue());
+                } else {
+                    query.append(isFirst ? " SET #:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), column.getValue());
+                }
+                isFirst = false;
+            }
+        }
+
+        query.append(" WHERE #1#", toSqlExpression(record.get(key)));
+
+        if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.RETURNING) {
+            appendReturnSetReturning(query, record, mode);
+        }
+
         return query;
     }
 }

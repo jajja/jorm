@@ -184,12 +184,17 @@ public abstract class Record extends Row {
     /**
      * Constructs a record, using the column values and flags from a Row. Uses {@link Jorm} annotation for configuration.
      *
-     * Note: this simply copies the column value reference; no deep copying is done.
-     * This means the Row and Record will share column values.
+     * Note #1: this simply copies the column value reference; no deep copying is done. The Row and Record will share column values.
+     * Note #2: immutable columns are flagged as immutable.
      */
     public Record(Row row) {
         this.columns = row.columns;
         this.flags = row.flags;
+        for (Entry<Symbol, Column> e : this.columns.entrySet()) {
+            Symbol symbol = e.getKey();
+            Column column = e.getValue();
+            column.setImmutable(table().isImmutable(symbol));
+        }
     }
 
     /**
@@ -201,6 +206,14 @@ public abstract class Record extends Row {
         } catch (Exception e) {
             throw new RuntimeException("Failed to instantiate " + clazz, e);
         }
+    }
+
+    @Override
+    Column createColumn(Symbol symbol) {
+        Column column = new Column();
+        columns.put(symbol, column);
+        column.setImmutable(table().isImmutable(symbol));
+        return column;
     }
 
     public Value id() {
@@ -1042,14 +1055,14 @@ public abstract class Record extends Row {
     }
 
     /**
-     * Marks all columns as changed.
+     * Marks all columns (except immutable, and the primary key) as changed.
      */
     @Override
     public void taint() {
         for (Entry<Symbol, Column> entry : columns.entrySet()) {
             Symbol symbol = entry.getKey();
             Column column = entry.getValue();
-            if (!table().isImmutable(symbol) && !primaryKey().contains(symbol)) {
+            if (!column.isImmutable() && !primaryKey().contains(symbol)) {
                 column.setChanged(true);
             }
         }

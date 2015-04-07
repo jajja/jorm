@@ -43,7 +43,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TimeZone;
 
@@ -57,6 +56,7 @@ import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Row.Column;
 import com.jajja.jorm.dialects.Dialect;
+import com.jajja.jorm.dialects.Dialect.ReturnSetSyntax;
 import com.jajja.jorm.dialects.PostgresqlDialect;
 
 /**
@@ -1653,60 +1653,17 @@ public class Transaction {
             throw new IllegalStateException("Attempt to insert a stale record!");
         }
 
-        if (mode != ResultMode.NO_RESULT && !record.primaryKey().isSingle() && !getDialect().isReturningSupported()) {
+        if (mode != ResultMode.NO_RESULT && !record.primaryKey().isSingle() && getDialect().getReturnSetSyntax() == ReturnSetSyntax.NONE) {
             throw new UnsupportedOperationException("INSERT with composite primary key not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
         }
 
-        Query query = build();
-
-        query.append("INSERT INTO #1# (", record.table());
-
-        boolean isFirst = true;
-        for (Entry<Symbol, Column> entry : record.columns.entrySet()) {
-            if (entry.getValue().isChanged() && !record.table().isImmutable(entry.getKey())) {
-                query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
-                isFirst = false;
-            }
-        }
-
-        if (isFirst) {
-            // No columns are marked as changed, but we need to insert something...
-            // "INSERT INTO foo DEFAULT VALUES" is not supported on all databases
-            query.append("#1#)", record.primaryKey());
-            if (true) {
-                query.append(" OUTPUT INSERTED.* ");
-            }
-            query.append(" VALUES ");
-            for (int i = 0; i < record.primaryKey().getSymbols().length; i++) {
-                query.append(i == 0 ? "(DEFAULT" : ", DEFAULT");
-            }
-            query.append(")");
-        } else {
-            query.append(") VALUES (");
-            isFirst = true;
-            for (Entry<Symbol, Column> e : record.columns.entrySet()) {
-                Column column = e.getValue();
-                if (column.isChanged() && !record.table().isImmutable(e.getKey())) {
-                    if (column.getValue() instanceof Query) {
-                        query.append(isFirst ? "#1#" : ", #1#", column.getValue());
-                    } else {
-                        query.append(isFirst ? "#?1#" : ", #?1#", column.getValue());
-                    }
-                    isFirst = false;
-                }
-            }
-            query.append(")");
-        }
+        Query query = getDialect().buildSingleInsertQuery(record, mode);
 
         record.stale(true);
 
         if (mode == ResultMode.NO_RESULT) {
             execute(query);
-            return;
-        }
-
-        if (getDialect().isReturningSupported()) {
-            query.append(" RETURNING *");       // XXX ID_ONLY support
+        } else if (getDialect().getReturnSetSyntax() != ReturnSetSyntax.NONE) {
             selectInto(record, query);
         } else {
             PreparedStatement preparedStatement = prepare(query, true);
@@ -1858,33 +1815,14 @@ public class Transaction {
             throw new IllegalStateException("Attempt to update a stale record!");
         }
 
-        Query query = build();
-
-        query.append("UPDATE #1# SET ", record.table());
-
-        boolean isFirst = true;
-        for (Entry<Symbol, Column> entry : record.columns.entrySet()) {
-            Column column = entry.getValue();
-            if (column.isChanged()) {
-                if (column.getValue() instanceof Query) {
-                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), column.getValue());
-                } else {
-                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), column.getValue());
-                }
-                isFirst = false;
-            }
-        }
-
         if (record.isCompositeKeyNull(key)) {
             throw new IllegalStateException("Primary/unique key contains NULL value(s)");
         }
 
-        query.append(" WHERE #1#", getDialect().toSqlExpression(record.get(key)));
-
-        record.stale(true);
         try {
-            if (getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
-                query.append(" RETURNING *");
+            Query query = dialect.buildSingleUpdateQuery(record, mode, key);
+            record.stale(true);
+            if (mode == ResultMode.REPOPULATE) {
                 selectInto(record, query);
                 rowsUpdated = 1;                        // XXX FIXME not correct
             } else {

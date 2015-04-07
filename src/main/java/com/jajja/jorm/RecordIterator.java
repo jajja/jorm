@@ -91,7 +91,6 @@ public class RecordIterator implements Closeable {
         try {
             row.resetColumns(symbols.length);
             for (int i = 0; i < symbols.length; i++) {
-                Column column = new Record.Column();
                 Object object = resultSet.getObject(i + 1);
                 if (transaction != null && transaction.getCalendar() != null) {
                     if (object instanceof Date) {
@@ -102,8 +101,8 @@ public class RecordIterator implements Closeable {
                         object = resultSet.getTimestamp(i + 1, transaction.getCalendar());
                     }
                 }
+                Column column = row.createColumn(symbols[i]);
                 column.setValue(object);
-                row.columns.put(symbols[i], column);
             }
         } catch (SQLException sqlException) {
             row.stale(true);

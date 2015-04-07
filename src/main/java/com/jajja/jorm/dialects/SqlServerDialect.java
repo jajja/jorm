@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 
 public class SqlServerDialect extends Dialect {
     private static final HashMap<Integer, ExceptionType> exceptionMap = new HashMap<Integer, ExceptionType>();
-    private final boolean isReturningSupported;
+    private final boolean isOutputSupported;
 
     static {
         //mssql.addError(547, ExceptionType.FOREIGN_KEY_VIOLATION);       // %ls statement conflicted with %ls %ls constraint '%.*ls'. The conflict occurred in database '%.*ls', table '%.*ls'%ls%.*ls%ls.
@@ -23,12 +23,12 @@ public class SqlServerDialect extends Dialect {
         super(database, connection);
 
         DatabaseMetaData metaData = connection.getMetaData();
-        isReturningSupported = metaData.getDatabaseMajorVersion() >= 2006;
+        isOutputSupported = metaData.getDatabaseMajorVersion() >= 2006;
     }
 
     @Override
-    public boolean isReturningSupported() {
-        return false;   // XXX for now
+    public ReturnSetSyntax getReturnSetSyntax() {
+        return isOutputSupported ? ReturnSetSyntax.OUTPUT : ReturnSetSyntax.NONE;
     }
 
     @Override
