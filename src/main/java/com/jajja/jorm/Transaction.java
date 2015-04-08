@@ -705,6 +705,12 @@ public class Transaction {
     }
 
 
+    private static Value toValue(Class<? extends Record> clazz, Object value) {
+        if (value instanceof Value) {
+            return (Value)value;
+        }
+        return Record.primaryKey(clazz).value(value);
+    }
 
     /**
      * Populates the record with the first result for which the given column name
@@ -721,7 +727,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public boolean populateByCompositeValue(Record record, Value value) throws SQLException {
-        return selectInto(record, getSelectQuery(record.getClass(), value));
+        return selectInto(record, getDialect().buildSelectQuery(record.table(), value));
     }
 
     /**
@@ -737,46 +743,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public boolean populateById(Record record, Object id) throws SQLException {
-        if (id instanceof Value) {
-            return populateByCompositeValue(record, (Value)id);
-        }
-        return populateByCompositeValue(record, record.primaryKey().value(id));
-    }
-
-    private <T extends Record> Query getSelectQuery(Class<T> clazz) {
-        return build("SELECT * FROM #1# ", clazz);
-    }
-
-    private <T extends Record> Query getDeleteQuery(Class<T> clazz) {
-        return build("DELETE FROM #1# ", clazz);
-    }
-
-    public <T extends Record> Query getSelectQuery(Class<T> clazz, Object value) {
-        Value v;
-        if (value instanceof Value) {
-            v = (Value)value;
-        } else {
-            v = Record.primaryKey(clazz).value(value);
-        }
-        Dialect dialect = getDialect();
-        Query query = getSelectQuery(clazz);
-        query.append("WHERE ");
-        query.append(dialect.toSqlExpression(v));
-        return query;
-    }
-
-    public <T extends Record> Query getDeleteQuery(Class<T> clazz, Object value) {
-        Value v;
-        if (value instanceof Value) {
-            v = (Value)value;
-        } else {
-            v = Record.primaryKey(clazz).value(value);
-        }
-        Dialect dialect = getDialect();
-        Query query = getDeleteQuery(clazz);
-        query.append("WHERE ");
-        query.append(dialect.toSqlExpression(v));
-        return query;
+        return populateByCompositeValue(record, toValue(record.getClass(), id));
     }
 
     /**
@@ -830,11 +797,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> T find(Class<T> clazz, Object value) throws SQLException {
-        return select(clazz, getSelectQuery(clazz, value));
-    }
-
-    public int delete(Class<? extends Record> clazz, Object value) throws SQLException {
-        return executeUpdate(getDeleteQuery(clazz, value));
+        return select(clazz, getDialect().buildSelectQuery(Table.get(clazz), toValue(clazz, value)));
     }
 
     /**
@@ -853,7 +816,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> T find(Class<T> clazz, String column, Object value) throws SQLException {
-        return select(clazz, getSelectQuery(clazz, new Composite(column).value(value)));
+        return select(clazz, getDialect().buildSelectQuery(Table.get(clazz), new Composite(column).value(value)));
     }
 
     /**
@@ -871,8 +834,8 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> List<T> findAll(Class<T> clazz, Value value) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz, value));
+    public <T extends Record> List<T> findAll(Class<T> clazz, Object value) throws SQLException {
+        return selectAll(clazz, getDialect().buildSelectQuery(Table.get(clazz), toValue(clazz, value)));
     }
 
     /**
@@ -891,19 +854,19 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> List<T> findAll(Class<T> clazz, String column, Object value) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz, new Composite(column).value(value)));
+        return selectAll(clazz, getDialect().buildSelectQuery(Table.get(clazz), new Composite(column).value(value)));
     }
 
     public <T extends Record> List<T> findAll(Class<T> clazz) throws SQLException {
-        return selectAll(clazz, getSelectQuery(clazz));
+        return selectAll(clazz, getDialect().buildSelectQuery(Table.get(clazz), null));
     }
 
-    public RecordIterator iterate(Class<? extends Record> clazz, Value value) throws SQLException {
-        return selectIterator(clazz, getSelectQuery(clazz, value));
+    public RecordIterator iterate(Class<? extends Record> clazz, Object value) throws SQLException {
+        return selectIterator(clazz, getDialect().buildSelectQuery(Table.get(clazz), toValue(clazz, value)));
     }
 
     public RecordIterator iterate(Class<? extends Record> clazz) throws SQLException {
-        return selectIterator(clazz, getSelectQuery(clazz));
+        return selectIterator(clazz, getDialect().buildSelectQuery(Table.get(clazz), null));
     }
 
     /**
@@ -920,11 +883,15 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
-        return find(clazz, id);
+        return find(clazz, Record.primaryKey(clazz).value(id));
     }
 
     public int deleteById(Class<? extends Record> clazz, Object id) throws SQLException {
         return delete(clazz, Record.primaryKey(clazz).value(id));
+    }
+
+    public int delete(Class<? extends Record> clazz, Object value) throws SQLException {
+        return executeUpdate(getDialect().buildDeleteQuery(Table.get(clazz), toValue(clazz, value)));
     }
 
     /**
@@ -1150,7 +1117,7 @@ public class Transaction {
     }
 
     public <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates) throws SQLException {
-        return selectAsMap(clazz, compositeKey, allowDuplicates, getSelectQuery(clazz));
+        return selectAsMap(clazz, compositeKey, allowDuplicates, getDialect().buildSelectQuery(Table.get(clazz), null));
     }
 
     /**
@@ -1200,7 +1167,7 @@ public class Transaction {
     }
 
     public <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey) throws SQLException {
-        return selectAllAsMap(clazz, compositeKey, getSelectQuery(clazz));
+        return selectAllAsMap(clazz, compositeKey, getDialect().buildSelectQuery(Table.get(clazz), null));
     }
 
     /**
@@ -1307,7 +1274,7 @@ public class Transaction {
         }
 
         Composite key = new Composite(referredSymbol);
-        Map<Composite.Value, T> map = selectAsMap(clazz, key, ignoreInvalidReferences, getSelectQuery(clazz).append("WHERE #1# IN (#2#)", referredSymbol, values));
+        Map<Composite.Value, T> map = selectAsMap(clazz, key, ignoreInvalidReferences, getDialect().buildSelectQuery(Table.get(clazz), key, values));
 
         for (Row row : rows) {
             Column column = row.columns.get(foreignKeySymbol);
@@ -1607,7 +1574,7 @@ public class Transaction {
                 preparedStatement = null;
 
                 // records must not be stale, or Query will generate SELECTs
-                Query q = getSelectQuery(template.getClass()).append("WHERE #1# IN (#2:@#)", primaryKey.getSymbol(), records);
+                Query q = getDialect().buildSelectQuery(template.table(), primaryKey, records);
 
                 preparedStatement = prepare(q);
                 resultSet = preparedStatement.executeQuery();

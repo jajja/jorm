@@ -4,6 +4,9 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import com.jajja.jorm.Composite;
@@ -13,6 +16,7 @@ import com.jajja.jorm.Record;
 import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Row.Column;
 import com.jajja.jorm.Symbol;
+import com.jajja.jorm.Table;
 import com.jajja.jorm.exceptions.CheckViolationException;
 import com.jajja.jorm.exceptions.DeadlockDetectedException;
 import com.jajja.jorm.exceptions.ForeignKeyViolationException;
@@ -35,11 +39,39 @@ public abstract class Dialect {
     }
 
     public static enum DatabaseProduct {
-        OTHER,
-        POSTGRESQL,
-        MYSQL,
-        SQL_SERVER,
-        ORACLE;
+        UNKNOWN(0, "Unknown"),
+        POSTGRESQL(1, "PostgreSQL"),
+        SQL_SERVER(2, "Microsoft SQL Server"),
+        MYSQL(3, "MySQL"),
+        ORACLE(4, "Oracle");
+
+        private Integer id;
+        private String name;
+        private static Map<String, DatabaseProduct> nameMap = new HashMap<String, DatabaseProduct>();
+
+        static {
+            for (DatabaseProduct databaseProduct : DatabaseProduct.values()) {
+                nameMap.put(databaseProduct.getName(), databaseProduct);
+            }
+        }
+
+        DatabaseProduct(int id, String name) {
+            this.id = id;
+            this.name = name;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public static DatabaseProduct getByName(String databaseProductName) {
+            DatabaseProduct dp = nameMap.get(databaseProductName);
+            return dp != null ? dp : UNKNOWN;
+        }
     }
 
     public static enum ReturnSetSyntax {
@@ -74,14 +106,14 @@ public abstract class Dialect {
         DatabaseMetaData metaData = connection.getMetaData();
         String databaseProductName = metaData.getDatabaseProductName();
 
-        if ("PostgreSQL".equals(databaseProductName)) {
-            return new PostgresqlDialect(database, connection);
-        } else if ("Microsoft SQL Server".equals(databaseProductName)) {
-            return new SqlServerDialect(database, connection);
-        } else if ("MySQL".equals(databaseProductName)) {
+        switch (DatabaseProduct.getByName(databaseProductName)) {
+        case MYSQL:
             return new MysqlDialect(database, connection);
-        //} else if ("Oracle".equals(databaseProductName)) {
-        } else {
+        case POSTGRESQL:
+            return new PostgresqlDialect(database, connection);
+        case SQL_SERVER:
+            return new SqlServerDialect(database, connection);
+        default:
             return new GenericDialect(database, connection);
         }
     }
@@ -246,20 +278,22 @@ public abstract class Dialect {
      *             the possibly augmented SQL exception.
      */
     public JormSqlException rethrow(SQLException sqlException, String sql) throws SQLException {
-        // XXX rewrite: switch() on getExceptionType()
         if (sqlException instanceof JormSqlException) {
-            throw (JormSqlException) sqlException;
-        } else if (isForeignKeyViolation(sqlException)) {
-            throw new ForeignKeyViolationException(database, sql, sqlException);
-        } else if (isUniqueViolation(sqlException)) {
-            throw new UniqueViolationException(database, sql, sqlException);
-        } else if (isCheckViolation(sqlException)) {
+            throw (JormSqlException)sqlException;
+        }
+
+        switch (getExceptionType(sqlException)) {
+        case CHECK_VIOLATION:
             throw new CheckViolationException(database, sql, sqlException);
-        } else if (isLockTimeout(sqlException)) {
-            throw new LockTimeoutException(database, sql, sqlException);
-        } else if (isDeadlockDetected(sqlException)) {
+        case DEADLOCK_DETECTED:
             throw new DeadlockDetectedException(database, sql, sqlException);
-        } else {
+        case FOREIGN_KEY_VIOLATION:
+            throw new ForeignKeyViolationException(database, sql, sqlException);
+        case LOCK_TIMEOUT:
+            throw new LockTimeoutException(database, sql, sqlException);
+        case UNIQUE_VIOLATION:
+            throw new UniqueViolationException(database, sql, sqlException);
+        default:
             throw new JormSqlException(database, sql, sqlException);
         }
     }
@@ -302,14 +336,19 @@ public abstract class Dialect {
         for (int i = 0; i < columns.length; i++) {
             if (isFirst) {
                 isFirst = false;
-                query.append("#:1# = #2#", columns[i], values[i]);
             } else {
-                query.append(" AND #:1# = #2#", columns[i], values[i]);
+                query.append(" AND ");
+            }
+            if (values[i] == null) {
+                query.append("#:1# IS NULL", columns[i]);
+            } else {
+                query.append("#:1# = #2#", columns[i], values[i]);
             }
         }
         return query;
     }
 
+    @SuppressWarnings("static-method")
     private void appendReturnSetOutput(Query query, Record record, ResultMode mode) {
         query.append(" OUTPUT");
         if (mode == ResultMode.ID_ONLY) {
@@ -322,6 +361,7 @@ public abstract class Dialect {
         }
     }
 
+    @SuppressWarnings("static-method")
     private void appendReturnSetReturning(Query query, Record record, ResultMode mode) {
         query.append(" RETURNING");
         if (mode == ResultMode.ID_ONLY) {
@@ -332,6 +372,46 @@ public abstract class Dialect {
         } else {
             query.append(" *");
         }
+    }
+
+    public Query buildSelectQuery(Table table, Composite.Value value) {
+        Query query = new Query(this);
+        query.append("SELECT * FROM #1#", table);
+        if (value != null) {
+            query.append(" WHERE #1#", value);
+        }
+        return query;
+    }
+
+    public Query buildSelectQuery(Table table, Composite key, Collection<Object> values) {
+        Query query = new Query(this);
+        if (key.isSingle()) {
+            query.append("SELECT * FROM #1# WHERE #2# IN (#3#)", table, key, values);
+        } else if (isRowWiseComparisonSupported()) {
+            query.append("SELECT * FROM #1# WHERE (#2#) IN (", table, key);
+            boolean isFirst = true;
+            for (Object value : values) {
+                if (isFirst) {
+                    isFirst = false;
+                } else {
+                    query.append(", ");
+                }
+                query.append("(#1#)", value);
+            }
+            query.append(")");
+        } else {
+            throw new IllegalArgumentException("Row wise comparision not supported by the underlying database");
+        }
+        return query;
+    }
+
+    public Query buildDeleteQuery(Table table, Composite.Value value) {
+        Query query = new Query(this);
+        query.append("DELETE FROM #1#", table);
+        if (value != null) {
+            query.append(" WHERE #1#", value);
+        }
+        return query;
     }
 
     public Query buildSingleInsertQuery(Record record, ResultMode mode) {
