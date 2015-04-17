@@ -14,11 +14,6 @@ public class GenericDialect extends Dialect {
     }
 
     @Override
-    public boolean isRowWiseComparisonSupported() {
-        return false;
-    }
-
-    @Override
     public ExceptionType getExceptionType(SQLException sqlException) {
         return ExceptionType.UNKNOWN;
     }

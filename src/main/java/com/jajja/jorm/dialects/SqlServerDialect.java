@@ -24,16 +24,13 @@ public class SqlServerDialect extends Dialect {
 
         DatabaseMetaData metaData = connection.getMetaData();
         isOutputSupported = metaData.getDatabaseMajorVersion() >= 2006;
+
+        feature(Feature.BATCH_INSERTS);
     }
 
     @Override
     public ReturnSetSyntax getReturnSetSyntax() {
         return isOutputSupported ? ReturnSetSyntax.OUTPUT : ReturnSetSyntax.NONE;
-    }
-
-    @Override
-    public boolean isRowWiseComparisonSupported() {
-        return false;
     }
 
     private final static Pattern sqlServerForeignKeyPattern = Pattern.compile("^The [A-Z ]+ statement conflicted with the FOREIGN KEY constraint");

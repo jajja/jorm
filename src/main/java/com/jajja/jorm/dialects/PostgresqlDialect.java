@@ -24,16 +24,15 @@ public class PostgresqlDialect extends Dialect {
         int major = metaData.getDatabaseMajorVersion();
         int minor = metaData.getDatabaseMinorVersion();
         isReturningSupported = (major > 8 || (major == 8 && minor > 1));
+
+        feature(Feature.BATCH_INSERTS);
+        feature(Feature.BATCH_UPDATES);
+        feature(Feature.ROW_WISE_COMPARISONS);
     }
 
     @Override
     public ReturnSetSyntax getReturnSetSyntax() {
         return isReturningSupported ? ReturnSetSyntax.RETURNING : ReturnSetSyntax.NONE;
-    }
-
-    @Override
-    public boolean isRowWiseComparisonSupported() {
-        return true;
     }
 
     @Override

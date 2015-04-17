@@ -4,10 +4,14 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import com.jajja.jorm.Composite;
 import com.jajja.jorm.Composite.Value;
@@ -28,6 +32,13 @@ public abstract class Dialect {
     private String database;
     private final String extraNameChars;
     private final String identifierQuoteString;
+    private final EnumSet<Feature> features = EnumSet.noneOf(Feature.class);
+
+    public static enum Feature {
+        BATCH_INSERTS,
+        BATCH_UPDATES,
+        ROW_WISE_COMPARISONS     // WHERE (id, name, ...) = (1, 'foo', ...) and (id, name) IN ((1, 'foo'), (2, 'bar'))
+    }
 
     public static enum ExceptionType {
         UNKNOWN,
@@ -118,6 +129,10 @@ public abstract class Dialect {
         }
     }
 
+    protected void feature(Feature feature) {
+        features.add(feature);
+    }
+
     /**
      * Returns the return set syntax supported by the database, or NONE if not supported.
      */
@@ -128,7 +143,9 @@ public abstract class Dialect {
      *
      * @return true if the SQL dialect supports row-wise comparison, false otherwise.
      */
-    public abstract boolean isRowWiseComparisonSupported();
+    public boolean supports(Feature feature) {
+        return features.contains(feature);
+    }
 
     public Object getPrimaryKeyValue(ResultSet resultSet, int column) throws SQLException {
         return resultSet.getObject(column);
@@ -387,7 +404,7 @@ public abstract class Dialect {
         Query query = new Query(this);
         if (key.isSingle()) {
             query.append("SELECT * FROM #1# WHERE #2# IN (#3#)", table, key, values);
-        } else if (isRowWiseComparisonSupported()) {
+        } else if (supports(Feature.ROW_WISE_COMPARISONS)) {
             query.append("SELECT * FROM #1# WHERE (#2#) IN (", table, key);
             boolean isFirst = true;
             for (Object value : values) {
@@ -415,57 +432,9 @@ public abstract class Dialect {
     }
 
     public Query buildSingleInsertQuery(Record record, ResultMode mode) {
-        Query query = new Query(this);
-
-        query.append("INSERT INTO #1#", record.table());
-
-        boolean isFirst = true;
-        for (Entry<Symbol, Column> entry : record.columns().entrySet()) {
-            Column column = entry.getValue();
-            if (column.isChanged()) {
-                query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
-                isFirst = false;
-            }
-        }
-
-        if (isFirst) {
-            // No columns are marked as changed, but we need to insert something...
-            // "INSERT INTO foo DEFAULT VALUES" is not supported on all databases
-            query.append("#1#)", record.primaryKey());
-            if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.OUTPUT) {
-                appendReturnSetOutput(query, record, mode);
-            }
-            query.append(" VALUES");
-            for (int i = 0; i < record.primaryKey().getSymbols().length; i++) {
-                query.append(i == 0 ? " (DEFAULT" : ", DEFAULT");
-            }
-            query.append(")");
-        } else {
-            query.append(")");
-            if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.OUTPUT) {
-                appendReturnSetOutput(query, record, mode);
-            }
-            query.append("VALUES (");
-            isFirst = true;
-            for (Entry<Symbol, Column> e : record.columns().entrySet()) {
-                Column column = e.getValue();
-                if (column.isChanged() && !record.table().isImmutable(e.getKey())) {
-                    if (column.getValue() instanceof Query) {
-                        query.append(isFirst ? "#1#" : ", #1#", column.getValue());
-                    } else {
-                        query.append(isFirst ? "#?1#" : ", #?1#", column.getValue());
-                    }
-                    isFirst = false;
-                }
-            }
-            query.append(")");
-        }
-
-        if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.RETURNING) {
-            appendReturnSetReturning(query, record, mode);
-        }
-
-        return query;
+        Collection<Record> records = new ArrayList<Record>(1);
+        records.add(record);
+        return buildMultipleInsertQuery(records, mode);
     }
 
     public Query buildSingleUpdateQuery(Record record, ResultMode mode, Composite key) {
@@ -497,4 +466,80 @@ public abstract class Dialect {
 
         return query;
     }
+
+    public Query buildMultipleInsertQuery(Collection<Record> records, ResultMode mode) {
+        Query query = new Query(this);
+
+        Record template = null;
+        Set<Symbol> symbols = new HashSet<Symbol>();
+
+        for (Record record : records) {
+            if (template == null) {
+                template = record;
+            } else if (record.getClass() != template.getClass()) {
+                throw new IllegalArgumentException("All records must be of the same class");
+            }
+            for (Entry<Symbol, Column> e : record.columns().entrySet()) {
+                if (e.getValue().isChanged()) {
+                    symbols.add(e.getKey());
+                }
+            }
+        }
+
+        if (symbols.isEmpty()) {
+            for (Symbol symbol : template.primaryKey().getSymbols()) {
+                symbols.add(symbol);
+            }
+        }
+
+        query.append("INSERT INTO #1# (", template.table());
+
+        boolean isFirst = true;
+        for (Symbol symbol : symbols) {
+            query.append(isFirst ? "#:1#" : ", #:1#", symbol);
+            isFirst = false;
+        }
+        query.append(")");
+
+        if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.OUTPUT) {
+            appendReturnSetOutput(query, template, mode);
+        }
+
+        query.append(" VALUES (");
+        boolean isFirstRecord = true;
+        for (Record record : records) {
+            if (isFirstRecord) {
+                isFirstRecord = false;
+            } else {
+                query.append(", ");
+            }
+            Map<Symbol, Column> columns = record.columns();
+            boolean isFirstValue = true;
+            for (Symbol symbol : symbols) {
+                if (isFirstValue) {
+                    isFirstValue = false;
+                } else {
+                    query.append(", ");
+                }
+                Column column = columns.get(symbol);
+                if (column != null && column.isChanged()) {
+                    if (column.getValue() instanceof Query) {
+                        query.append("#1#", column.getValue());
+                    } else {
+                        query.append("#?1#", column.getValue());
+                    }
+                } else {
+                    query.append("DEFAULT");
+                }
+            }
+        }
+        query.append(")");
+
+        if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.RETURNING) {
+            appendReturnSetReturning(query, template, mode);
+        }
+
+        return query;
+    }
+
 }

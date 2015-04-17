@@ -20,16 +20,12 @@ public class MysqlDialect extends Dialect {
 
     MysqlDialect(String database, Connection connection) throws SQLException {
         super(database, connection);
+        feature(Feature.BATCH_INSERTS);
     }
 
     @Override
     public ReturnSetSyntax getReturnSetSyntax() {
         return ReturnSetSyntax.NONE;
-    }
-
-    @Override
-    public boolean isRowWiseComparisonSupported() {
-        return false;
     }
 
     @Override
