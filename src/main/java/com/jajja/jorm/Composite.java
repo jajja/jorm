@@ -261,4 +261,8 @@ public class Composite {
         sb.append("}");
         return sb.toString();
     }
+
+    public int size() {
+        return symbols.length;
+    }
 }

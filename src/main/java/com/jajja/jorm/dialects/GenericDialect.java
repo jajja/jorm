@@ -3,6 +3,7 @@ package com.jajja.jorm.dialects;
 import java.sql.Connection;
 import java.sql.SQLException;
 
+
 public class GenericDialect extends Dialect {
     GenericDialect(String database, Connection connection) throws SQLException {
         super(database, connection);
@@ -26,5 +27,10 @@ public class GenericDialect extends Dialect {
     @Override
     public String getNowQuery() {
         return "SELECT now()";
+    }
+
+    @Override
+    public int getMaxParameterMarkers() {
+        return Integer.MAX_VALUE;
     }
 }

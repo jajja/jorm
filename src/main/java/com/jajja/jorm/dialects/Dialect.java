@@ -9,18 +9,19 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
 import com.jajja.jorm.Composite;
-import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Query;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Row.Column;
 import com.jajja.jorm.Symbol;
 import com.jajja.jorm.Table;
+import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.exceptions.CheckViolationException;
 import com.jajja.jorm.exceptions.DeadlockDetectedException;
 import com.jajja.jorm.exceptions.ForeignKeyViolationException;
@@ -540,6 +541,108 @@ public abstract class Dialect {
         }
 
         return query;
+    }
+
+    // draft for Batch.java partitioning of queries
+
+    public abstract int getMaxParameterMarkers();
+
+    public int getInsertParmaterMarkers(Table table, Set<Symbol> symbols) {
+        return symbols.size();
+    }
+
+    public int getUpdateParmaterMarkers(Table table, Set<Symbol> symbols) {
+        return table.getPrimaryKey().size() + symbols.size();
+    }
+
+    public int getDeleteParmaterMarkers(Table table) {
+        return table.getPrimaryKey().size();
+    }
+
+    public Query build(Batch batch, ResultMode mode) {
+        switch(batch.type) {
+        case INSERT:
+            return buildInsert(batch.table, batch.getSymbols(), batch.getRecords(), mode);
+        case UPDATE:
+            return buildUpdate(batch.table, batch.getSymbols(), batch.getRecords(), mode);
+        case DELETE:
+            return buildDelete(batch.table, batch.getSymbols(), batch.getRecords(), mode);
+        default:
+            throw new IllegalStateException(String.format("The batch type %s is unknown!", batch.type));
+        }
+    }
+
+    protected Query buildInsert(Table table, Set<Symbol> symbols, List<Record> records, ResultMode mode) {
+        if (symbols.isEmpty()) { // write DEFAULT to PK columns
+            symbols = new HashSet<Symbol>();
+            for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
+                symbols.add(symbol);
+            }
+        }
+        Query query = new Query(this);
+        appendInsertSpec(query, table, symbols, records, mode);
+        appendInsertHead(query, table, symbols, records, mode);
+        appendInsertBody(query, table, symbols, records, mode);
+        appendInsertTail(query, table, symbols, records, mode);
+        return query;
+    }
+
+    protected void appendInsertSpec(Query query, Table table, Set<Symbol> symbols, List<Record> records, ResultMode mode) {
+        query.append("INSERT INTO #1# (", table);
+        boolean isFirst = true;
+        for (Symbol symbol : symbols) {
+            query.append(isFirst ? "#:1#" : ", #:1#", symbol);
+            isFirst = false;
+        }
+        query.append(")");
+    }
+
+    protected void appendInsertHead(Query query, Table table, Set<Symbol> symbols, List<Record> records, ResultMode mode) {
+        // XXX: overriden (by SqlServer.java)
+    }
+
+    protected void appendInsertBody(Query query, Table table, Set<Symbol> symbols, List<Record> records, ResultMode mode) {
+        query.append(" VALUES (");
+        boolean isFirstRecord = true;
+        for (Record record : records) {
+            if (isFirstRecord) {
+                isFirstRecord = false;
+            } else {
+                query.append(", ");
+            }
+            Map<Symbol, Column> columns = record.columns();
+            boolean isFirstValue = true;
+            for (Symbol symbol : symbols) {
+                if (isFirstValue) {
+                    isFirstValue = false;
+                } else {
+                    query.append(", ");
+                }
+                Column column = columns.get(symbol);
+                if (column != null && column.isChanged()) {
+                    if (column.getValue() instanceof Query) {
+                        query.append("#1#", column.getValue());
+                    } else {
+                        query.append("#?1#", column.getValue());
+                    }
+                } else {
+                    query.append("DEFAULT");
+                }
+            }
+        }
+        query.append(")");
+    }
+
+    protected void appendInsertTail(Query query, Table table, Set<Symbol> symbols, List<Record> records, ResultMode mode) {
+     // XXX: overriden (by Postgresql.java)
+    }
+
+    public Query buildUpdate(Table table, Set<Symbol> symbols, List<Record> records, ResultMode mode) {
+        return null; // XXX: implement
+    }
+
+    public Query buildDelete(Table table, Set<Symbol> symbols, List<Record> records, ResultMode mode) {
+        return null; // XXX: implement
     }
 
 }

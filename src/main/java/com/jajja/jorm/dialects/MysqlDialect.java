@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 
+
 public class MysqlDialect extends Dialect {
     private static final HashMap<Integer, ExceptionType> exceptionMap = new HashMap<Integer, ExceptionType>();
 
@@ -47,5 +48,10 @@ public class MysqlDialect extends Dialect {
     @Override
     public String getNowQuery() {
         return "SELECT now()";
+    }
+
+    @Override
+    public int getMaxParameterMarkers() {
+        return Integer.MAX_VALUE;
     }
 }

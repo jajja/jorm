@@ -4,6 +4,15 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
+
+import com.jajja.jorm.Query;
+import com.jajja.jorm.Record;
+import com.jajja.jorm.Symbol;
+import com.jajja.jorm.Table;
+import com.jajja.jorm.Record.ResultMode;
+
 
 public class PostgresqlDialect extends Dialect {
     private static final HashMap<String, ExceptionType> exceptionMap = new HashMap<String, ExceptionType>();
@@ -50,4 +59,28 @@ public class PostgresqlDialect extends Dialect {
     public String getNowQuery() {
         return "SELECT now()";
     }
+
+    @Override
+    protected void appendInsertTail(Query query, Table table, Set<Symbol> symbols, List<Record> records, ResultMode mode) {
+        query.append(" RETURNING");
+        if (mode == ResultMode.ID_ONLY) {
+            boolean isFirst = true;
+            for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
+                if (isFirst) {
+                    isFirst = false;
+                    query.append(" #1#", symbol);
+                } else {
+                    query.append(", #1#", symbol);
+                }
+            }
+        } else {
+            query.append(" *");
+        }
+    }
+
+    @Override
+    public int getMaxParameterMarkers() {
+        return 32768;
+    }
+
 }

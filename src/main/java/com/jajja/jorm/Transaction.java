@@ -56,8 +56,8 @@ import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Row.Column;
 import com.jajja.jorm.dialects.Dialect;
-import com.jajja.jorm.dialects.Dialect.ReturnSetSyntax;
 import com.jajja.jorm.dialects.PostgresqlDialect;
+import com.jajja.jorm.dialects.Dialect.ReturnSetSyntax;
 
 /**
  * The transaction implementation executing all queries in for {@link Jorm}
