@@ -4,15 +4,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
-
-import com.jajja.jorm.Query;
-import com.jajja.jorm.Record;
-import com.jajja.jorm.Symbol;
-import com.jajja.jorm.Table;
-import com.jajja.jorm.Record.ResultMode;
 
 public class SqlServerDialect extends Dialect {
     private static final HashMap<Integer, ExceptionType> exceptionMap = new HashMap<Integer, ExceptionType>();
@@ -62,29 +54,6 @@ public class SqlServerDialect extends Dialect {
     @Override
     public String getNowQuery() {
         return "SELECT getdate()";
-    }
-
-    @Override
-    protected void appendInsertHead(Query query, Table table, Set<Symbol> symbols, List<Record> records, ResultMode mode) {
-        query.append(" OUTPUT");
-        if (mode == ResultMode.ID_ONLY) {
-            boolean isFirst = true;
-            for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
-                if (isFirst) {
-                    isFirst = false;
-                    query.append(" INSERTED.#1#", symbol);
-                } else {
-                    query.append(", INSERTED.#1#", symbol);
-                }
-            }
-        } else {
-            query.append(" INSERTED.*");
-        }
-    }
-
-    @Override
-    public int getMaxParameterMarkers() {
-        return 2500;
     }
 
 }

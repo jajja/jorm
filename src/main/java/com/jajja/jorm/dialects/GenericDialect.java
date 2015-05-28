@@ -28,9 +28,4 @@ public class GenericDialect extends Dialect {
     public String getNowQuery() {
         return "SELECT now()";
     }
-
-    @Override
-    public int getMaxParameterMarkers() {
-        return Integer.MAX_VALUE;
-    }
 }
