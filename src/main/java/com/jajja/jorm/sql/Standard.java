@@ -11,21 +11,24 @@ import com.jajja.jorm.Row.Column;
 
 public class Standard extends Language {
 
-    public static final Appender INSERT_INTO = new InsertInto();
+    public static final Appender INSERT = new Insert();
     public static final Appender VALUES = new Values();
-    public static final Appender DELETE_FROM = new DeleteFrom();
+    public static final Appender DELETE = new Delete();
     public static final Appender WHERE = new Where();
+    public static final Appender UPDATE = new Update();
 
     private static final Appender[] INSERT_APPENDERS =  new Appender[] {
-        INSERT_INTO,
+        INSERT,
         VALUES
     };
 
     private static final Appender[] UPDATE_APPENDERS =  new Appender[] {
+        UPDATE,
+        WHERE
     };
 
     private static final Appender[] DELETE_APPENDERS =  new Appender[] {
-        DELETE_FROM,
+        DELETE,
         WHERE
     };
 
@@ -84,7 +87,7 @@ public class Standard extends Language {
         return DELETE_APPENDERS;
     }
 
-    private static class InsertInto extends Appender {
+    private static class Insert extends Appender {
         @Override
         public void append(Data data, Query query, ResultMode mode) {
             query.append("INSERT INTO #1# (", data.table);
@@ -136,10 +139,40 @@ public class Standard extends Language {
         }
     }
 
-    private static class DeleteFrom extends Appender {
+    private static class Delete extends Appender {
         @Override
         public void append(Data data, Query query, ResultMode mode) {
             query.append("DELETE FROM #1# ", data.table);
+        }
+    }
+
+    private static class Update extends Appender {
+        @Override
+        public void append(Data data, Query query, ResultMode mode) {
+            query.append("UPDATE #1# SET ", data.table);
+            boolean comma = false;
+            int i = 0;
+            for (Record record : data.records) {
+                if (0 < i) {
+                    throw new IllegalStateException("Attempting to update av batch larger than one row, without merge support!");
+                }
+                for (Symbol symbol : data.changedSymbols) {
+                    if (comma) {
+                        query.append(", ");
+                    } else {
+                        comma = true;
+                    }
+                    Column column = record.columns().get(symbol);
+                    if (!data.pkSymbols.contains(symbol)) {
+                        if (column.getValue() == null) {
+                            query.append("#:1# = NULL");
+                        } else {
+                            query.append("#:1# = #?1#", symbol, column.getValue());
+                        }
+                    }
+                }
+                i++;
+            }
         }
     }
 
@@ -179,16 +212,9 @@ public class Standard extends Language {
         return ExceptionType.UNKNOWN;
     }
 
-//    @Override
-//    public String getNowFunction() {
-//        // TODO Auto-generated method stub
-//        return "now()";
-//    }
-//
-//    @Override
-//    public String getNowQuery() {
-//        // TODO Auto-generated method stub
-//        return null;
-//    }
+    @Override
+    public boolean isBatchUpdateSupported() {
+        return false;
+    }
 
 }

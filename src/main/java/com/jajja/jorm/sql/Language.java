@@ -58,6 +58,7 @@ public abstract class Language {
     public abstract String getCurrentTimeExpression();
     public abstract String getCurrentDatetimeExpression();
     public abstract boolean isReturningSupported();
+    public abstract boolean isBatchUpdateSupported();
 
     protected static enum Operation {
         INSERT,
@@ -346,6 +347,9 @@ public abstract class Language {
     }
 
     private Iterator<Batch> batch(ResultMode mode, int size, Operation operation, Composite composite, Record ... records) {
+        if (operation == Operation.UPDATE && !isBatchUpdateSupported()) {
+            size = 1;
+        }
         List<Batch> batches = new LinkedList<Batch>();
         Data data = new Data(mode);
         int i = 0;
@@ -368,6 +372,9 @@ public abstract class Language {
     }
 
     private Iterator<Batch> batch(ResultMode mode, int size, Operation operation, Composite composite, Collection<? extends Record> records) {
+        if (operation == Operation.UPDATE && !isBatchUpdateSupported()) {
+            size = 1;
+        }
         List<Batch> batches = new LinkedList<Batch>();
         Data data = new Data(mode);
         int i = 0;

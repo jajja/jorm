@@ -25,7 +25,7 @@ public class Transact extends Standard {
     public static Appender OUTPUT = new Output();
 
     private static final Appender[] INSERT_APPENDERS =  new Appender[] {
-        Standard.INSERT_INTO,
+        Standard.INSERT,
         Transact.OUTPUT,
         Standard.VALUES
     };

@@ -24,13 +24,13 @@ public class Postgres extends Standard {
     public static final Appender WHERE = new Where();
 
     private static final Appender[] INSERT_APPENDERS =  new Appender[] {
-        Standard.INSERT_INTO,
+        Standard.INSERT,
         Standard.VALUES,
         Postgres.RETURNING
     };
 
     private static final Appender[] DELETE_APPENDERS =  new Appender[] {
-        Standard.DELETE_FROM,
+        Standard.DELETE,
         Postgres.WHERE,
         Postgres.RETURNING
     };
@@ -79,7 +79,7 @@ public class Postgres extends Standard {
         if (isReturning) {
             return DELETE_APPENDERS;
         } else {
-            return super.getInsertAppenders();
+            return super.getDeleteAppenders();
         }
     }
 
