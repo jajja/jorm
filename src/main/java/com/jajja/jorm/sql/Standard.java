@@ -1,6 +1,5 @@
 package com.jajja.jorm.sql;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Set;
 
@@ -10,7 +9,7 @@ import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Symbol;
 import com.jajja.jorm.Row.Column;
 
-public class Standard extends Sql {
+public class Standard extends Language {
 
     public static final Appender INSERT_INTO = new InsertInto();
     public static final Appender VALUES = new Values();
@@ -30,8 +29,8 @@ public class Standard extends Sql {
         WHERE
     };
 
-    protected Standard(String database, Connection connection) throws SQLException {
-        super(database, connection);
+    public Standard(Product product) {
+        super(product);
     }
 
     @Override
@@ -52,6 +51,11 @@ public class Standard extends Sql {
     @Override
     public String getCurrentDatetimeExpression() {
         return "CURRENT_TIMESTAMP";
+    }
+
+    @Override
+    public boolean isReturningSupported() {
+        return false;
     }
 
     @Override
@@ -172,20 +176,19 @@ public class Standard extends Sql {
 
     @Override
     public ExceptionType getExceptionType(SQLException sqlException) {
-        // TODO Auto-generated method stub
-        return null;
+        return ExceptionType.UNKNOWN;
     }
 
-    @Override
-    public String getNowFunction() {
-        // TODO Auto-generated method stub
-        return "now()";
-    }
-
-    @Override
-    public String getNowQuery() {
-        // TODO Auto-generated method stub
-        return null;
-    }
+//    @Override
+//    public String getNowFunction() {
+//        // TODO Auto-generated method stub
+//        return "now()";
+//    }
+//
+//    @Override
+//    public String getNowQuery() {
+//        // TODO Auto-generated method stub
+//        return null;
+//    }
 
 }

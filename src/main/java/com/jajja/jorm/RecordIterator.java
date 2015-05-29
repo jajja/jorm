@@ -107,7 +107,7 @@ public class RecordIterator implements Closeable {
         } catch (SQLException sqlException) {
             row.stale(true);
             if (transaction != null) {
-                transaction.getDialect().rethrow(sqlException);
+                transaction.getLanguage().rethrow(sqlException);
             } else if (preparedStatement != null) {
                 throw Dialect.get("?", preparedStatement.getConnection()).rethrow(sqlException);
             } else {

@@ -1,7 +1,8 @@
 package com.jajja.jorm.sql;
 
-import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.HashMap;
+
 import com.jajja.jorm.Query;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Symbol;
@@ -9,6 +10,15 @@ import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Row.Column;
 
 public class Postgres extends Standard {
+
+    private static final HashMap<String, ExceptionType> EXCEPTIONS = new HashMap<String, ExceptionType>();
+    static {
+        EXCEPTIONS.put("23503", ExceptionType.FOREIGN_KEY_VIOLATION);     // foreign_key_violation
+        EXCEPTIONS.put("23505", ExceptionType.UNIQUE_VIOLATION);          // unique_violation
+        EXCEPTIONS.put("23514", ExceptionType.CHECK_VIOLATION);           // check_violation
+        EXCEPTIONS.put("40P01", ExceptionType.DEADLOCK_DETECTED);         // deadlock_detected
+        EXCEPTIONS.put("55P03", ExceptionType.LOCK_TIMEOUT);              // lock_not_available
+    }
 
     public static final Appender RETURNING = new Returning();
     public static final Appender WHERE = new Where();
@@ -25,8 +35,13 @@ public class Postgres extends Standard {
         Postgres.RETURNING
     };
 
-    protected Postgres(String database, Connection connection) throws SQLException {
-        super(database, connection);
+    private final boolean isReturning;
+
+    protected Postgres(Product product) {
+        super(product);
+        int major = product.getMajor();
+        int minor = product.getMinor();
+        isReturning = major > 8 || (major == 8 && minor > 1);
     }
 
     @Override
@@ -40,13 +55,32 @@ public class Postgres extends Standard {
     }
 
     @Override
+    public boolean isReturningSupported() {
+        return isReturning;
+    }
+
+    @Override
+    public ExceptionType getExceptionType(SQLException sqlException) {
+        ExceptionType type = EXCEPTIONS.get(sqlException.getSQLState());
+        return type != null ? type : ExceptionType.UNKNOWN;
+    }
+
+    @Override
     public Appender[] getInsertAppenders() {
-        return INSERT_APPENDERS;
+        if (isReturning) {
+            return INSERT_APPENDERS;
+        } else {
+            return super.getInsertAppenders();
+        }
     }
 
     @Override
     public Appender[] getDeleteAppenders() {
-        return DELETE_APPENDERS;
+        if (isReturning) {
+            return DELETE_APPENDERS;
+        } else {
+            return super.getInsertAppenders();
+        }
     }
 
     public static class Returning extends Appender {

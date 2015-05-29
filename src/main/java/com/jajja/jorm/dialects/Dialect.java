@@ -29,7 +29,6 @@ import com.jajja.jorm.exceptions.LockTimeoutException;
 import com.jajja.jorm.exceptions.UniqueViolationException;
 
 public abstract class Dialect {
-    private String database;
     private final String extraNameChars;
     private final String identifierQuoteString;
     private final EnumSet<Feature> features = EnumSet.noneOf(Feature.class);
@@ -110,7 +109,6 @@ public abstract class Dialect {
         }
         this.identifierQuoteString = identifierQuoteString;
         this.extraNameChars = metaData.getExtraNameCharacters();
-        this.database = database;
     }
 
     public static Dialect get(String database, Connection connection) throws SQLException {
@@ -208,65 +206,65 @@ public abstract class Dialect {
         return quotedValue.toString();
     }
 
-    /**
-     * SQL exception predicate for foreign key violation.
-     *
-     * @param sqlException
-     *            the SQL exception to evaluate.
-     * @return true if the SQL exception can be identified as a foreign key
-     *         violation, false otherwise.
-     */
-    public boolean isForeignKeyViolation(SQLException sqlException) {
-        return ExceptionType.FOREIGN_KEY_VIOLATION.equals(getExceptionType(sqlException));
-    }
-
-    /**
-     * SQL exception predicate for unique violation.
-     *
-     * @param sqlException
-     *            the SQL exception to evaluate.
-     * @return true if the SQL exception can be identified as a unique
-     *         violation.
-     */
-    public boolean isUniqueViolation(SQLException sqlException) {
-        return ExceptionType.UNIQUE_VIOLATION.equals(getExceptionType(sqlException));
-    }
-
-    /**
-     * SQL exception predicate for check violation.
-     *
-     * @param sqlException
-     *            the SQL exception to evaluate.
-     * @return true if the SQL exception can be identified as a check violation,
-     *         false otherwise.
-     */
-    public boolean isCheckViolation(SQLException sqlException) {
-        return ExceptionType.CHECK_VIOLATION.equals(getExceptionType(sqlException));
-    }
-
-    /**
-     * SQL exception predicate for foreign key detected deadlock.
-     *
-     * @param sqlException
-     *            the SQL exception to evaluate.
-     * @return true if the SQL exception can be identified as a detected
-     *         deadlock, false otherwise.
-     */
-    public boolean isDeadlockDetected(SQLException sqlException) {
-        return ExceptionType.DEADLOCK_DETECTED.equals(getExceptionType(sqlException));
-    }
-
-    /**
-     * SQL exception predicate for lock timeout.
-     *
-     * @param sqlException
-     *            the SQL exception to evaluate.
-     * @return true if the SQL exception can be identified as a lock timeout,
-     *         false otherwise.
-     */
-    public boolean isLockTimeout(SQLException sqlException) {
-        return ExceptionType.LOCK_TIMEOUT.equals(getExceptionType(sqlException));
-    }
+//    /**
+//     * SQL exception predicate for foreign key violation.
+//     *
+//     * @param sqlException
+//     *            the SQL exception to evaluate.
+//     * @return true if the SQL exception can be identified as a foreign key
+//     *         violation, false otherwise.
+//     */
+//    public boolean isForeignKeyViolation(SQLException sqlException) {
+//        return ExceptionType.FOREIGN_KEY_VIOLATION.equals(getExceptionType(sqlException));
+//    }
+//
+//    /**
+//     * SQL exception predicate for unique violation.
+//     *
+//     * @param sqlException
+//     *            the SQL exception to evaluate.
+//     * @return true if the SQL exception can be identified as a unique
+//     *         violation.
+//     */
+//    public boolean isUniqueViolation(SQLException sqlException) {
+//        return ExceptionType.UNIQUE_VIOLATION.equals(getExceptionType(sqlException));
+//    }
+//
+//    /**
+//     * SQL exception predicate for check violation.
+//     *
+//     * @param sqlException
+//     *            the SQL exception to evaluate.
+//     * @return true if the SQL exception can be identified as a check violation,
+//     *         false otherwise.
+//     */
+//    public boolean isCheckViolation(SQLException sqlException) {
+//        return ExceptionType.CHECK_VIOLATION.equals(getExceptionType(sqlException));
+//    }
+//
+//    /**
+//     * SQL exception predicate for foreign key detected deadlock.
+//     *
+//     * @param sqlException
+//     *            the SQL exception to evaluate.
+//     * @return true if the SQL exception can be identified as a detected
+//     *         deadlock, false otherwise.
+//     */
+//    public boolean isDeadlockDetected(SQLException sqlException) {
+//        return ExceptionType.DEADLOCK_DETECTED.equals(getExceptionType(sqlException));
+//    }
+//
+//    /**
+//     * SQL exception predicate for lock timeout.
+//     *
+//     * @param sqlException
+//     *            the SQL exception to evaluate.
+//     * @return true if the SQL exception can be identified as a lock timeout,
+//     *         false otherwise.
+//     */
+//    public boolean isLockTimeout(SQLException sqlException) {
+//        return ExceptionType.LOCK_TIMEOUT.equals(getExceptionType(sqlException));
+//    }
 
     /**
      * Classifies SQL exceptions by SQL states and error codes. In the current
@@ -301,17 +299,17 @@ public abstract class Dialect {
 
         switch (getExceptionType(sqlException)) {
         case CHECK_VIOLATION:
-            throw new CheckViolationException(database, sql, sqlException);
+            throw new CheckViolationException(sql, sqlException);
         case DEADLOCK_DETECTED:
-            throw new DeadlockDetectedException(database, sql, sqlException);
+            throw new DeadlockDetectedException(sql, sqlException);
         case FOREIGN_KEY_VIOLATION:
-            throw new ForeignKeyViolationException(database, sql, sqlException);
+            throw new ForeignKeyViolationException(sql, sqlException);
         case LOCK_TIMEOUT:
-            throw new LockTimeoutException(database, sql, sqlException);
+            throw new LockTimeoutException(sql, sqlException);
         case UNIQUE_VIOLATION:
-            throw new UniqueViolationException(database, sql, sqlException);
+            throw new UniqueViolationException(sql, sqlException);
         default:
-            throw new JormSqlException(database, sql, sqlException);
+            throw new JormSqlException(sql, sqlException);
         }
     }
 
@@ -345,8 +343,13 @@ public abstract class Dialect {
      */
     public abstract String getNowQuery();
 
+    @Deprecated
+    private Query getQuery() {
+        throw new IllegalStateException("Class is pending deletion!");
+    }
+
     public Query toSqlExpression(Value value) {
-        Query query = new Query(this);
+        Query query = getQuery() ;
         Symbol[] columns = value.getComposite().getSymbols();
         Object[] values = value.getValues();
         boolean isFirst = true;
@@ -392,7 +395,7 @@ public abstract class Dialect {
     }
 
     public Query buildSelectQuery(Table table, Composite.Value value) {
-        Query query = new Query(this);
+        Query query = getQuery() ;
         query.append("SELECT * FROM #1#", table);
         if (value != null) {
             query.append(" WHERE #1#", value);
@@ -401,7 +404,7 @@ public abstract class Dialect {
     }
 
     public Query buildSelectQuery(Table table, Composite key, Collection<?> values) {
-        Query query = new Query(this);
+        Query query = getQuery() ;
         if (key.isSingle()) {
             query.append("SELECT * FROM #1# WHERE #2# IN (#3#)", table, key, values);
         } else if (supports(Feature.ROW_WISE_COMPARISONS)) {
@@ -423,7 +426,7 @@ public abstract class Dialect {
     }
 
     public Query buildDeleteQuery(Table table, Composite.Value value) {
-        Query query = new Query(this);
+        Query query = getQuery() ;
         query.append("DELETE FROM #1#", table);
         if (value != null) {
             query.append(" WHERE #1#", value);
@@ -438,7 +441,7 @@ public abstract class Dialect {
     }
 
     public Query buildSingleUpdateQuery(Record record, ResultMode mode, Composite key) {
-        Query query = new Query(this);
+        Query query = getQuery() ;
         query.append("UPDATE #1#", record.table());
 
         if (mode != ResultMode.NO_RESULT && getReturnSetSyntax() == ReturnSetSyntax.OUTPUT) {
@@ -468,7 +471,7 @@ public abstract class Dialect {
     }
 
     public Query buildMultipleInsertQuery(Collection<Record> records, ResultMode mode) {
-        Query query = new Query(this);
+        Query query = getQuery() ;
 
         Record template = null;
         Set<Symbol> symbols = new HashSet<Symbol>();

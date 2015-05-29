@@ -27,7 +27,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import com.jajja.jorm.dialects.Dialect;
+import com.jajja.jorm.sql.Language;
 
 
 /**
@@ -65,35 +65,35 @@ public class Query {
     public static final char MODIFIER_IDENTIFIER = ':';
     public static final char MODIFIER_RAW = '?';
     private static final String ALL_MODIFIERS = "!:?";
-    private Dialect dialect;
+    private Language dialect;
     private StringBuilder sql = new StringBuilder(64);
     private List<Object> params;
 
-    public Query(Dialect dialect) {
+    public Query(Language dialect) {
         this.dialect = dialect;
         params = new LinkedList<Object>();
     }
 
-    public Query(Dialect dialect, String sql) {
+    public Query(Language dialect, String sql) {
         this(dialect);
         append(sql);
     }
 
-    public Query(Dialect dialect, String sql, Object... params) {
+    public Query(Language dialect, String sql, Object... params) {
         this(dialect);
         append(sql, params);
     }
 
     public Query(Transaction transaction) {
-        this(transaction.getDialect());
+        this(transaction.getLanguage());
     }
 
     public Query(Transaction transaction, String sql) {
-        this(transaction.getDialect(), sql);
+        this(transaction.getLanguage(), sql);
     }
 
     public Query(Transaction transaction, String sql, Object ... params) {
-        this(transaction.getDialect(), sql, params);
+        this(transaction.getLanguage(), sql, params);
     }
 
     public Query(Query query) {

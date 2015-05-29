@@ -1,6 +1,5 @@
 package com.jajja.jorm.sql;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Set;
 
@@ -18,8 +17,8 @@ public class Oracle extends Standard {
         Oracle.INSERT_ALL
     };
 
-    protected Oracle(String database, Connection connection) throws SQLException {
-        super(database, connection);
+    protected Oracle(Product product) throws SQLException {
+        super(product);
     }
 
     @Override

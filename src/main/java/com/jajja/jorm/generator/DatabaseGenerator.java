@@ -34,8 +34,8 @@ import com.jajja.jorm.Database;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Transaction;
-import com.jajja.jorm.dialects.MysqlDialect;
-import com.jajja.jorm.dialects.PostgresqlDialect;
+import com.jajja.jorm.sql.Mysql;
+import com.jajja.jorm.sql.Postgres;
 
 
 /**
@@ -64,7 +64,7 @@ public class DatabaseGenerator implements Lookupable {
         this.packageName = packageName;
         Transaction transaction = Database.open(name);
         try {
-            if (transaction.getDialect() instanceof PostgresqlDialect) {
+            if (transaction.getLanguage() instanceof Postgres) {
                 defaultSchemaName = "public";
             }
             addSchema(defaultSchemaName);
@@ -164,11 +164,11 @@ public class DatabaseGenerator implements Lookupable {
         Transaction transaction = Database.open(name);
 
         try {
-            if (transaction.getDialect() instanceof MysqlDialect) {
+            if (transaction.getLanguage() instanceof Mysql) {
                 mapDataType("INT UNSIGNED", "java.lang.Long");
                 mapDataType("BIGINT UNSIGNED", "java.math.BigInteger");
             }
-            if (transaction.getDialect() instanceof PostgresqlDialect) {
+            if (transaction.getLanguage() instanceof Postgres) {
                 mapDataType("box", "org.postgresql.geometric.PGbox");
                 mapDataType("circle", "org.postgresql.geometric.PGcircle");
                 mapDataType("interval", "org.postgresql.util.PGInterval");

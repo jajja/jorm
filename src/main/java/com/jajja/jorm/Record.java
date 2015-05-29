@@ -128,7 +128,7 @@ import com.jajja.jorm.generator.Generator;
 public abstract class Record extends Row {
     private static Map<Class<? extends Record>, Logger> logs = new ConcurrentHashMap<Class<? extends Record>, Logger>(16, 0.75f, 1);
 
-    public static enum ResultMode {
+    public static enum ResultMode { // TODO: find a better place for this!
         /** For both INSERTs and UPDATEs, fully repopulate record(s). This is the default. */
         REPOPULATE,
         /** For INSERTs, fetch only generated keys, mark record(s) as stale. For UPDATEs, this is equivalent to NO_RESULT. */

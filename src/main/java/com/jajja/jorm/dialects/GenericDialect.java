@@ -28,4 +28,5 @@ public class GenericDialect extends Dialect {
     public String getNowQuery() {
         return "SELECT now()";
     }
+
 }
