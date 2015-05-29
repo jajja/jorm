@@ -28,6 +28,21 @@ public class Oracle extends Standard {
     }
 
     @Override
+    public String getCurrentDateExpression() {
+        return "curdate()";
+    }
+
+    @Override
+    public String getCurrentTimeExpression() {
+        return "curtime()";
+    }
+
+    @Override
+    public String getCurrentDatetimeExpression() {
+        return "now()";
+    }
+
+    @Override
     public Appender[] getInsertAppenders() {
         return INSERT_APPENDERS;
     }

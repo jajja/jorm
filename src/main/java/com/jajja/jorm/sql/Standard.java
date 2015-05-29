@@ -40,6 +40,21 @@ public class Standard extends Sql {
     }
 
     @Override
+    public String getCurrentDateExpression() {
+        return "CURRENT_DATE";
+    }
+
+    @Override
+    public String getCurrentTimeExpression() {
+        return "CURRENT_TIME";
+    }
+
+    @Override
+    public String getCurrentDatetimeExpression() {
+        return "CURRENT_TIMESTAMP";
+    }
+
+    @Override
     public Appender[] getAppenders(Operation operation) {
         switch(operation) {
         case INSERT:
@@ -155,16 +170,6 @@ public class Standard extends Sql {
         }
     }
 
-
-
-    // XXX remove?
-
-    @Override
-    public ReturnSetSyntax getReturnSetSyntax() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
     @Override
     public ExceptionType getExceptionType(SQLException sqlException) {
         // TODO Auto-generated method stub
@@ -174,7 +179,7 @@ public class Standard extends Sql {
     @Override
     public String getNowFunction() {
         // TODO Auto-generated method stub
-        return null;
+        return "now()";
     }
 
     @Override

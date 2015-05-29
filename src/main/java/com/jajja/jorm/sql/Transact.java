@@ -25,6 +25,23 @@ public class Transact extends Standard {
         return 2500;
     }
 
+    // https://msdn.microsoft.com/en-us/library/ms188751.aspx
+
+    @Override
+    public String getCurrentDateExpression() {
+        return "CAST(getdate() AS date)";
+    }
+
+    @Override
+    public String getCurrentTimeExpression() {
+        return "CAST(getdate() AS time)";
+    }
+
+    @Override
+    public String getCurrentDatetimeExpression() {
+        return "getdate()";
+    }
+
     @Override
     public Appender[] getInsertAppenders() {
         return INSERT_APPENDERS;

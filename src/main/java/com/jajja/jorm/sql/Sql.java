@@ -21,6 +21,9 @@ public abstract class Sql extends Dialect {
 
     public abstract int getMaxParameters();
     public abstract Appender[] getAppenders(Operation operation);
+    public abstract String getCurrentDateExpression();
+    public abstract String getCurrentTimeExpression();
+    public abstract String getCurrentDatetimeExpression();
 
     protected Sql(String database, Connection connection) throws SQLException {
         super(database, connection);
@@ -181,6 +184,12 @@ public abstract class Sql extends Dialect {
             }
         }
         return symbols;
+    }
+
+    @Override // XXX remove?
+    public ReturnSetSyntax getReturnSetSyntax() {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

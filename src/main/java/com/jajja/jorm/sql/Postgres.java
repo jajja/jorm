@@ -35,6 +35,11 @@ public class Postgres extends Standard {
     }
 
     @Override
+    public String getCurrentDatetimeExpression() {
+        return "now()";
+    }
+
+    @Override
     public Appender[] getInsertAppenders() {
         return INSERT_APPENDERS;
     }
