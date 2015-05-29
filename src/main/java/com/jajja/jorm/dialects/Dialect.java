@@ -400,7 +400,7 @@ public abstract class Dialect {
         return query;
     }
 
-    public Query buildSelectQuery(Table table, Composite key, Collection<Object> values) {
+    public Query buildSelectQuery(Table table, Composite key, Collection<?> values) {
         Query query = new Query(this);
         if (key.isSingle()) {
             query.append("SELECT * FROM #1# WHERE #2# IN (#3#)", table, key, values);

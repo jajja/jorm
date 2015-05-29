@@ -1520,12 +1520,12 @@ public class Transaction {
         Dialect dialect = getDialect();
 
         // XXX UPDATE + REPOPULATE?
-        if (mode != ResultMode.NO_RESULT && !primaryKey.isSingle() && !dialect.isReturningSupported()) {
+        if (mode != ResultMode.NO_RESULT && !primaryKey.isSingle() && !(dialect instanceof PostgresqlDialect)) {
             throw new UnsupportedOperationException("Batch operations on composite primary keys not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
         }
 
         try {
-            boolean useReturning = (mode == ResultMode.REPOPULATE) && dialect.isReturningSupported();
+            boolean useReturning = (mode == ResultMode.REPOPULATE) && dialect instanceof PostgresqlDialect;
             Map<Object, Record> map = null;
 
             if (useReturning) {
