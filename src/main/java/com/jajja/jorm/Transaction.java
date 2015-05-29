@@ -1435,7 +1435,7 @@ public class Transaction {
         if (primaryKey.isSingle()) {
             query.append("#:1# IN (#2:@#)", primaryKey, records);
         } else {
-            if (dialect.isRowWiseComparisonSupported()) {
+            if (dialect instanceof PostgresqlDialect) {
                 query.append(" (#:1#) IN (", primaryKey);
                 boolean isFirst = true;
                 for (Record record : records) {

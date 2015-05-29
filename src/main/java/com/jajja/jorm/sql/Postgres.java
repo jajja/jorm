@@ -3,12 +3,15 @@ package com.jajja.jorm.sql;
 import java.sql.Connection;
 import java.sql.SQLException;
 import com.jajja.jorm.Query;
+import com.jajja.jorm.Record;
 import com.jajja.jorm.Symbol;
 import com.jajja.jorm.Record.ResultMode;
+import com.jajja.jorm.Row.Column;
 
-public class Postgres extends Sql {
-    
+public class Postgres extends Standard {
+
     public static final Appender RETURNING = new Returning();
+    public static final Appender WHERE = new Where();
 
     private static final Appender[] INSERT_APPENDERS =  new Appender[] {
         Standard.INSERT_INTO,
@@ -16,10 +19,10 @@ public class Postgres extends Sql {
         Postgres.RETURNING
     };
 
-    private static final Appender[] UPDATE_APPENDERS =  new Appender[] {
-    };
-
     private static final Appender[] DELETE_APPENDERS =  new Appender[] {
+        Standard.DELETE_FROM,
+        Postgres.WHERE,
+        Postgres.RETURNING
     };
 
     protected Postgres(String database, Connection connection) throws SQLException {
@@ -32,17 +35,13 @@ public class Postgres extends Sql {
     }
 
     @Override
-    public Appender[] getAppenders(Operation operation) {
-        switch(operation) {
-        case INSERT:
-            return INSERT_APPENDERS;
-        case UPDATE:
-            return UPDATE_APPENDERS;
-        case DELETE:
-            return DELETE_APPENDERS;
-        default:
-            throw new IllegalStateException(String.format("The batch operation %s is unknown!", operation));
-        }
+    public Appender[] getInsertAppenders() {
+        return INSERT_APPENDERS;
+    }
+
+    @Override
+    public Appender[] getDeleteAppenders() {
+        return DELETE_APPENDERS;
     }
 
     public static class Returning extends Appender {
@@ -72,32 +71,45 @@ public class Postgres extends Sql {
         }
     }
 
-    // lols
-
-    @Override
-    public ReturnSetSyntax getReturnSetSyntax() {
-        // TODO Auto-generated method stub
-        return null;
+    private static class Where extends Appender {
+        @Override
+        public void append(Data data, Query query, ResultMode mode) {
+            query.append("WHERE ");
+            boolean comma = false;
+            query.append("(");
+            for (Symbol symbol : data.pkSymbols) {
+                if (comma) {
+                    query.append(", ");
+                } else {
+                    comma = true;
+                }
+                query.append("#:1#", symbol);
+            }
+            query.append(") IN (");
+            comma = false;
+            for (Record record : data.records) {
+                if (comma) {
+                    query.append(", ");
+                }
+                query.append("(");
+                comma = false;
+                for (Symbol symbol : data.pkSymbols) {
+                    if (comma) {
+                        query.append(", ");
+                    } else {
+                        comma = true;
+                    }
+                    Column column = record.columns().get(symbol);
+                    if (column == null || column.getValue() == null) {
+                        throw new IllegalStateException(String.format("Primary key (part) not set! (%s)", symbol));
+                    } else {
+                        query.append("#?1#", symbol, column.getValue());
+                    }
+                }
+                query.append(")");
+                comma = true;
+            }
+        }
     }
-
-    @Override
-    public ExceptionType getExceptionType(SQLException sqlException) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public String getNowFunction() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public String getNowQuery() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-
 
 }

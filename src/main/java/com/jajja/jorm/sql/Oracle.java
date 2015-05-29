@@ -10,18 +10,12 @@ import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Symbol;
 import com.jajja.jorm.Row.Column;
 
-public class Oracle extends Sql {
+public class Oracle extends Standard {
 
     public static final Appender INSERT_ALL = new InsertAll();
 
     private static final Appender[] INSERT_APPENDERS =  new Appender[] {
         Oracle.INSERT_ALL
-    };
-
-    private static final Appender[] UPDATE_APPENDERS =  new Appender[] {
-    };
-
-    private static final Appender[] DELETE_APPENDERS =  new Appender[] {
     };
 
     protected Oracle(String database, Connection connection) throws SQLException {
@@ -34,17 +28,8 @@ public class Oracle extends Sql {
     }
 
     @Override
-    public Appender[] getAppenders(Operation operation) {
-        switch(operation) {
-        case INSERT:
-            return INSERT_APPENDERS;
-        case UPDATE:
-            return UPDATE_APPENDERS;
-        case DELETE:
-            return DELETE_APPENDERS;
-        default:
-            throw new IllegalStateException(String.format("The batch operation %s is unknown!", operation));
-        }
+    public Appender[] getInsertAppenders() {
+        return INSERT_APPENDERS;
     }
 
     private static class InsertAll extends Appender {
@@ -86,32 +71,6 @@ public class Oracle extends Sql {
             }
             query.append(" SELECT * FROM dual");
         }
-    }
-
-    // XXX remove?
-
-    @Override
-    public ReturnSetSyntax getReturnSetSyntax() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public ExceptionType getExceptionType(SQLException sqlException) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public String getNowFunction() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public String getNowQuery() {
-        // TODO Auto-generated method stub
-        return null;
     }
 
 }

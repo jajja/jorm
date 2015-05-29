@@ -14,6 +14,8 @@ public class Standard extends Sql {
 
     public static final Appender INSERT_INTO = new InsertInto();
     public static final Appender VALUES = new Values();
+    public static final Appender DELETE_FROM = new DeleteFrom();
+    public static final Appender WHERE = new Where();
 
     private static final Appender[] INSERT_APPENDERS =  new Appender[] {
         INSERT_INTO,
@@ -24,6 +26,8 @@ public class Standard extends Sql {
     };
 
     private static final Appender[] DELETE_APPENDERS =  new Appender[] {
+        DELETE_FROM,
+        WHERE
     };
 
     protected Standard(String database, Connection connection) throws SQLException {
@@ -39,24 +43,40 @@ public class Standard extends Sql {
     public Appender[] getAppenders(Operation operation) {
         switch(operation) {
         case INSERT:
-            return INSERT_APPENDERS;
+            return getInsertAppenders();
         case UPDATE:
-            return UPDATE_APPENDERS;
+            return getUpdateAppenders();
         case DELETE:
-            return DELETE_APPENDERS;
+            return getDeleteAppenders();
         default:
             throw new IllegalStateException(String.format("The batch operation %s is unknown!", operation));
         }
+    }
+
+    protected Appender[] getInsertAppenders() {
+        return INSERT_APPENDERS;
+    }
+
+    protected Appender[] getUpdateAppenders() {
+        return UPDATE_APPENDERS;
+    }
+
+    protected Appender[] getDeleteAppenders() {
+        return DELETE_APPENDERS;
     }
 
     private static class InsertInto extends Appender {
         @Override
         public void append(Data data, Query query, ResultMode mode) {
             query.append("INSERT INTO #1# (", data.table);
-            boolean isFirst = true;
+            boolean comma = false;
             for (Symbol symbol : data.changedSymbols) {
-                query.append(isFirst ? "#:1#" : ", #:1#", symbol);
-                isFirst = false;
+                if (comma) {
+                    query.append(", ");
+                } else {
+                    comma = true;
+                }
+                query.append("#:1#", symbol);
             }
             query.append(")");
         }
@@ -93,6 +113,44 @@ public class Standard extends Sql {
                 }
                 query.append(")");
                 comma = true;
+            }
+        }
+    }
+
+    private static class DeleteFrom extends Appender {
+        @Override
+        public void append(Data data, Query query, ResultMode mode) {
+            query.append("DELETE FROM #1# ", data.table);
+        }
+    }
+
+    private static class Where extends Appender {
+        @Override
+        public void append(Data data, Query query, ResultMode mode) {
+            query.append("WHERE ");
+            boolean or = false;
+            for (Record record : data.records) {
+                if (or) {
+                    query.append(" OR ");
+                } else {
+                    or = true;
+                }
+                query.append("(");
+                boolean and = false;
+                for (Symbol symbol : data.pkSymbols) {
+                    if (and) {
+                        query.append(" AND ");
+                    } else {
+                        and = true;
+                    }
+                    Column column = record.columns().get(symbol);
+                    if (column == null || column.getValue() == null) {
+                        throw new IllegalStateException(String.format("Primary key (part) not set! (%s)", symbol));
+                    } else {
+                        query.append("#:1# = #?1#", symbol, column.getValue());
+                    }
+                }
+                query.append(")");
             }
         }
     }

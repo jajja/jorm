@@ -6,7 +6,7 @@ import com.jajja.jorm.Query;
 import com.jajja.jorm.Symbol;
 import com.jajja.jorm.Record.ResultMode;
 
-public class Transact extends Sql {
+public class Transact extends Standard {
 
     public static Appender OUTPUT = new Output();
 
@@ -14,12 +14,6 @@ public class Transact extends Sql {
         Standard.INSERT_INTO,
         Transact.OUTPUT,
         Standard.VALUES
-    };
-
-    private static final Appender[] UPDATE_APPENDERS =  new Appender[] {
-    };
-
-    private static final Appender[] DELETE_APPENDERS =  new Appender[] {
     };
 
     protected Transact(String database, Connection connection) throws SQLException {
@@ -32,17 +26,8 @@ public class Transact extends Sql {
     }
 
     @Override
-    public Appender[] getAppenders(Operation operation) {
-        switch(operation) {
-        case INSERT:
-            return INSERT_APPENDERS;
-        case UPDATE:
-            return UPDATE_APPENDERS;
-        case DELETE:
-            return DELETE_APPENDERS;
-        default:
-            throw new IllegalStateException(String.format("The batch operation %s is unknown!", operation));
-        }
+    public Appender[] getInsertAppenders() {
+        return INSERT_APPENDERS;
     }
 
     public static class Output extends Appender {
