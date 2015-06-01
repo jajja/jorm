@@ -196,11 +196,11 @@ public class Standard extends Language {
                         and = true;
                     }
                     Column column = record.columns().get(symbol);
-                    if (column == null || column.getValue() == null) {
-                        throw new IllegalStateException(String.format("Primary key (part) not set! (%s)", symbol));
-                    } else {
+//                    if (column == null || column.getValue() == null) {  // XXX: validate elsewhere!
+//                        throw new IllegalStateException(String.format("Primary key (part) not set! (%s)", symbol));
+//                    } else {
                         query.append("#:1# = #?1#", symbol, column.getValue());
-                    }
+//                    }
                 }
                 query.append(")");
             }

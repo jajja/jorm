@@ -193,6 +193,10 @@ public abstract class Language {
             return records.isEmpty();
         }
 
+        public boolean isScalar() {
+            return records.size() == 1;
+        }
+
     }
 
     public static class Batch {

@@ -3,6 +3,8 @@ package com.jajja.jorm.sql;
 import java.sql.SQLException;
 import java.util.HashMap;
 
+import org.postgresql.util.PGobject;
+
 import com.jajja.jorm.Query;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Symbol;
@@ -10,6 +12,15 @@ import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Row.Column;
 
 public class Postgres extends Standard {
+
+    private static boolean PG = false;
+    static {
+        try {
+            Class.forName("org.postgresql.util.PGobject");
+            PG = true;
+        } catch (ClassNotFoundException e) {
+        }
+    }
 
     private static final HashMap<String, ExceptionType> EXCEPTIONS = new HashMap<String, ExceptionType>();
     static {
@@ -22,10 +33,16 @@ public class Postgres extends Standard {
 
     public static final Appender RETURNING = new Returning();
     public static final Appender WHERE = new Where();
+    public static final Appender UPDATE_WHERE = new UpdateWhere();
 
     private static final Appender[] INSERT_APPENDERS =  new Appender[] {
         Standard.INSERT,
         Standard.VALUES,
+        Postgres.RETURNING
+    };
+
+    private static final Appender[] UPDATE_APPENDERS =  new Appender[] {
+        Postgres.UPDATE_WHERE,
         Postgres.RETURNING
     };
 
@@ -75,11 +92,130 @@ public class Postgres extends Standard {
     }
 
     @Override
+    public Appender[] getUpdateAppenders() {
+        if (isReturning) {
+            return UPDATE_APPENDERS;
+        } else {
+            return super.getInsertAppenders();
+        }
+    }
+
+    @Override
     public Appender[] getDeleteAppenders() {
         if (isReturning) {
             return DELETE_APPENDERS;
         } else {
             return super.getDeleteAppenders();
+        }
+    }
+
+    private static String getTypeName(Object object) {
+        if (object instanceof java.sql.Timestamp) {
+            return "timestamp";
+        }
+        if (object instanceof java.util.Date) {
+            return "date";
+        }
+        if (PG && object instanceof PGobject) {
+            return ((PGobject)object).getType();
+        }
+        return null;
+    }
+
+    public static class UpdateWhere extends Appender {
+        @Override
+        public void append(Data data, Query query, ResultMode mode) {
+            if (data.isScalar()) {
+                appendScalar(data, query, mode);
+            } else {
+                appendVector(data, query, mode);
+            }
+        }
+
+        private void appendVector(Data data, Query query, ResultMode mode) {
+          String virtual = data.table.getTable().equals("v") ? "v2" : "v";
+
+          query.append("UPDATE #1# SET ", data.table);
+          boolean comma = false;
+          for (Symbol column : data.changedSymbols) {
+              query.append(comma ? ", #1# = #!2#.#1#" : "#1# = #!2#.#1#", column, virtual);
+              comma = true;
+          }
+
+          query.append(" FROM (VALUES ");
+          comma = false;
+          for (Record record : data.records) {
+//              if (record.isCompositeKeyNull(primaryKey)) { // XXX: validate elsewhere!
+//                  throw new IllegalArgumentException("Record has unset or NULL primary key: " + record);
+//              }
+              query.append(comma ? ", (" : "(");
+              comma = false;
+              for (Symbol column : data.changedSymbols) {
+                  Object value = record.get(column);
+                  if (value instanceof Query) {
+                      query.append(comma ? "#1#" : ", #1#", value);
+                  } else {
+                      String pgDataType = getTypeName(value);
+                      if (pgDataType != null) {
+                          query.append(comma ? "cast(#?1# AS #:2#)" : ", cast(#?1# AS #:2#)", value, pgDataType);
+                      } else {
+                          query.append(comma ? "#?1#" : ", #?1#", value);
+                      }
+                  }
+                  comma = true;
+              }
+              query.append(")");
+              comma = true;
+          }
+
+          query.append(") #!1# (", virtual);
+          comma = false;
+          for (Symbol column : data.changedSymbols) {
+              query.append(comma ? ", #1#" : "#1#", column);
+              comma = true;
+          }
+          query.append(") WHERE");
+
+          boolean and = false;
+          for (Symbol symbol : data.pkSymbols) {
+              query.append(and ? " AND #1#.#2# = #:3#.#2#" : " #1#.#2# = #:3#.#2#", data.table, symbol, virtual);
+              and = true;
+          }
+        }
+
+        private void appendScalar(Data data, Query query, ResultMode mode) {
+            Record record = data.records.get(0);
+            query.append("UPDATE #1# SET ", data.table);
+            boolean comma = false;
+            for (Symbol symbol : data.changedSymbols) {
+                if (comma) {
+                    query.append(", ");
+                } else {
+                    comma = true;
+                }
+                Column column = record.columns().get(symbol);
+                if (!data.pkSymbols.contains(symbol)) {
+                    if (column.getValue() == null) {
+                        query.append("#:1# = NULL");
+                    } else {
+                        query.append("#:1# = #?1#", symbol, column.getValue());
+                    }
+                }
+            }
+            boolean and = false;
+            for (Symbol symbol : data.pkSymbols) {
+                if (and) {
+                    query.append(" AND ");
+                } else {
+                    and = true;
+                }
+                Column column = record.columns().get(symbol);
+//                if (column == null || column.getValue() == null) { // XXX: validate elsewhere!
+//                    throw new IllegalStateException(String.format("Primary key (part) not set! (%s)", symbol));
+//                } else {
+                    query.append("#:1# = #?1#", symbol, column.getValue());
+//                }
+            }
         }
     }
 
