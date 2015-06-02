@@ -155,7 +155,7 @@ public class Moria {
     @Test
     public void t09_compositeKey() {
         try {
-            Locale locale = Locale.findById(Locale.class, Record.primaryKey(Locale.class).value("sv", "SE"));
+            Locale locale = Locale.find(Locale.class, Record.primaryKey(Locale.class).value("sv", "SE"));
             locale.setName("Swedish");
             locale.save();
             locale = new Locale();
