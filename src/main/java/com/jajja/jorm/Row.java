@@ -638,7 +638,7 @@ public class Row {
                     // Load foreign key
                     try {
                         transaction = (transaction != null ? transaction : Record.transaction((Class<? extends Record>)clazz));
-                        Record reference = transaction.findById((Class<? extends Record>)clazz, value);
+                        Record reference = transaction.find((Class<? extends Record>)clazz, value);
                         column.setReference(reference);
                         value = reference;
                     } catch (SQLException e) {

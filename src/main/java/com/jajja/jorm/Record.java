@@ -374,8 +374,8 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
-        return transaction(clazz).findById(clazz, id);
+    public static <T extends Record> T find(Class<T> clazz, Object id) throws SQLException {
+        return transaction(clazz).find(clazz, id);
     }
 
     /**
