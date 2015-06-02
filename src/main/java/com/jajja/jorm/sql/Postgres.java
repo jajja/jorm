@@ -58,7 +58,7 @@ public class Postgres extends Standard {
         super(product);
         int major = product.getMajor();
         int minor = product.getMinor();
-        isReturning = major > 8 || (major == 8 && minor > 1);
+        isReturning = major > 8 || (major == 8 && minor > 1); // returning clause & select from values
     }
 
     @Override
@@ -133,54 +133,54 @@ public class Postgres extends Standard {
         }
 
         private void appendVector(Data data, Query query, ResultMode mode) {
-          String virtual = data.table.getTable().equals("v") ? "v2" : "v";
+            String virtual = data.table.getTable().equals("v") ? "v2" : "v";
 
-          query.append("UPDATE #1# SET ", data.table);
-          boolean comma = false;
-          for (Symbol column : data.changedSymbols) {
-              query.append(comma ? ", #1# = #!2#.#1#" : "#1# = #!2#.#1#", column, virtual);
-              comma = true;
-          }
+            query.append("UPDATE #1# SET ", data.table);
+            boolean comma = false;
+            for (Symbol column : data.changedSymbols) {
+                query.append(comma ? ", #1# = #!2#.#1#" : "#1# = #!2#.#1#", column, virtual);
+                comma = true;
+            }
 
-          query.append(" FROM (VALUES ");
-          comma = false;
-          for (Record record : data.records) {
+            query.append(" FROM (VALUES ");
+            comma = false;
+            for (Record record : data.records) {
 //              if (record.isCompositeKeyNull(primaryKey)) { // XXX: validate elsewhere!
 //                  throw new IllegalArgumentException("Record has unset or NULL primary key: " + record);
 //              }
-              query.append(comma ? ", (" : "(");
-              comma = false;
-              for (Symbol column : data.changedSymbols) {
-                  Object value = record.get(column);
-                  if (value instanceof Query) {
-                      query.append(comma ? "#1#" : ", #1#", value);
-                  } else {
-                      String pgDataType = getTypeName(value);
-                      if (pgDataType != null) {
-                          query.append(comma ? "cast(#?1# AS #:2#)" : ", cast(#?1# AS #:2#)", value, pgDataType);
-                      } else {
-                          query.append(comma ? "#?1#" : ", #?1#", value);
-                      }
-                  }
-                  comma = true;
-              }
-              query.append(")");
-              comma = true;
-          }
+                query.append(comma ? ", (" : "(");
+                comma = false;
+                for (Symbol column : data.changedSymbols) {
+                    Object value = record.get(column);
+                    if (value instanceof Query) {
+                        query.append(comma ? "#1#" : ", #1#", value);
+                    } else {
+                        String pgDataType = getTypeName(value);
+                        if (pgDataType != null) {
+                            query.append(comma ? "cast(#?1# AS #:2#)" : ", cast(#?1# AS #:2#)", value, pgDataType);
+                        } else {
+                            query.append(comma ? "#?1#" : ", #?1#", value);
+                        }
+                    }
+                    comma = true;
+                }
+                query.append(")");
+                comma = true;
+            }
 
-          query.append(") #!1# (", virtual);
-          comma = false;
-          for (Symbol column : data.changedSymbols) {
-              query.append(comma ? ", #1#" : "#1#", column);
-              comma = true;
-          }
-          query.append(") WHERE");
+            query.append(") #!1# (", virtual);
+            comma = false;
+            for (Symbol column : data.changedSymbols) {
+                query.append(comma ? ", #1#" : "#1#", column);
+                comma = true;
+            }
+            query.append(") WHERE");
 
-          boolean and = false;
-          for (Symbol symbol : data.pkSymbols) {
-              query.append(and ? " AND #1#.#2# = #:3#.#2#" : " #1#.#2# = #:3#.#2#", data.table, symbol, virtual);
-              and = true;
-          }
+            boolean and = false;
+            for (Symbol symbol : data.pkSymbols) {
+                query.append(and ? " AND #1#.#2# = #:3#.#2#" : " #1#.#2# = #:3#.#2#", data.table, symbol, virtual);
+                and = true;
+            }
         }
 
         private void appendScalar(Data data, Query query, ResultMode mode) {

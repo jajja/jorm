@@ -291,68 +291,57 @@ public abstract class Language {
     }
 
     public Iterator<Batch> insert(ResultMode mode, Record ... records) {
-        return batch(mode, 0, Operation.INSERT, null, records);
+        return batch(mode, Operation.INSERT, null, records);
     }
 
     public Iterator<Batch> update(ResultMode mode, Record ... records) {
-        return batch(mode, 0, Operation.UPDATE, null, records);
+        return batch(mode, Operation.UPDATE, null, records);
     }
 
     public Iterator<Batch> delete(ResultMode mode, Record ... records) {
-        return batch(mode, 0, Operation.DELETE, null, records);
+        return batch(mode, Operation.DELETE, null, records);
     }
 
     public Iterator<Batch> insert(ResultMode mode, Composite composite, Record ... records) {
-        return batch(mode, 0, Operation.INSERT, composite, records);
+        return batch(mode, Operation.INSERT, composite, records);
     }
 
     public Iterator<Batch> update(ResultMode mode, Composite composite, Record ... records) {
-        return batch(mode, 0, Operation.UPDATE, composite, records);
+        return batch(mode, Operation.UPDATE, composite, records);
     }
 
     public Iterator<Batch> delete(ResultMode mode, Composite composite, Record ... records) {
-        return batch(mode, 0, Operation.DELETE, composite, records);
+        return batch(mode, Operation.DELETE, composite, records);
     }
 
     public Iterator<Batch> insert(ResultMode mode, Collection<? extends Record> records) {
-        return batch(mode, 0, Operation.INSERT, null, records);
+        return batch(mode, Operation.INSERT, null, records);
     }
 
     public Iterator<Batch> update(ResultMode mode, Collection<? extends Record> records) {
-        return batch(mode, 0, Operation.UPDATE, null, records);
+        return batch(mode, Operation.UPDATE, null, records);
     }
 
     public Iterator<Batch> delete(ResultMode mode, Collection<? extends Record> records) {
-        return batch(mode, 0, Operation.DELETE, null, records);
+        return batch(mode, Operation.DELETE, null, records);
     }
 
-    public Iterator<Batch> insert(ResultMode mode, int size, Collection<? extends Record> records) {
-        return batch(mode, size, Operation.INSERT, null, records);
+    public Iterator<Batch> insert(ResultMode mode, Composite composite, Collection<? extends Record> records) {
+        return batch(mode, Operation.INSERT, composite, records);
     }
 
-    public Iterator<Batch> update(ResultMode mode, int size, Collection<? extends Record> records) {
-        return batch(mode, size, Operation.UPDATE, null, records);
+    public Iterator<Batch> update(ResultMode mode, Composite composite, Collection<? extends Record> records) {
+        return batch(mode, Operation.UPDATE, composite, records);
     }
 
-    public Iterator<Batch> delete(ResultMode mode, int size, Collection<? extends Record> records) {
-        return batch(mode, size, Operation.DELETE, null, records);
+    public Iterator<Batch> delete(ResultMode mode, Composite composite, Collection<? extends Record> records) {
+        return batch(mode, Operation.DELETE, composite, records);
     }
 
-    public Iterator<Batch> insert(ResultMode mode, int size, Composite composite, Collection<? extends Record> records) {
-        return batch(mode, size, Operation.INSERT, composite, records);
-    }
-
-    public Iterator<Batch> update(ResultMode mode, int size, Composite composite, Collection<? extends Record> records) {
-        return batch(mode, size, Operation.UPDATE, composite, records);
-    }
-
-    public Iterator<Batch> delete(ResultMode mode, int size, Composite composite, Collection<? extends Record> records) {
-        return batch(mode, size, Operation.DELETE, composite, records);
-    }
-
-    private Iterator<Batch> batch(ResultMode mode, int size, Operation operation, Composite composite, Record ... records) {
+    private Iterator<Batch> batch(ResultMode mode, Operation operation, Composite composite, Record ... records) {
+        int size = 0;
         if (operation == Operation.UPDATE && !isBatchUpdateSupported()) {
-            size = 1;
+            size = 1; // XXX: use structure to implement this
         }
         List<Batch> batches = new LinkedList<Batch>();
         Data data = new Data(mode);
@@ -375,9 +364,10 @@ public abstract class Language {
         return batches.iterator();
     }
 
-    private Iterator<Batch> batch(ResultMode mode, int size, Operation operation, Composite composite, Collection<? extends Record> records) {
+    private Iterator<Batch> batch(ResultMode mode, Operation operation, Composite composite, Collection<? extends Record> records) {
+        int size = 0;
         if (operation == Operation.UPDATE && !isBatchUpdateSupported()) {
-            size = 1;
+            size = 1; // XXX: use structure to implement this
         }
         List<Batch> batches = new LinkedList<Batch>();
         Data data = new Data(mode);

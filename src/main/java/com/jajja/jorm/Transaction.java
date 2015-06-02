@@ -91,7 +91,6 @@ public class Transaction {
     private final String database;
     private final DataSource dataSource;
     private Language language;
-    private Timestamp now;
     private Connection connection;
     private boolean isDestroyed = false;
     private boolean isLoggingEnabled = false;
@@ -166,50 +165,6 @@ public class Transaction {
      */
     public void setLoggingEnabled(boolean loggingEnabled) {
         this.isLoggingEnabled = loggingEnabled;
-    }
-
-    /**
-     * Provides the start time of the current transaction. The result is cached
-     * until the end of the transaction.
-     *
-     * @return the start time of the current transaction.
-     * @throws RuntimeException
-     *             if a database access error occurs.
-     */
-    public Timestamp now() {
-        if (now != null) {
-            return now;
-        }
-
-        PreparedStatement preparedStatement = null;
-        ResultSet resultSet = null;
-        try {
-            Connection connection = getConnection();
-            preparedStatement = connection.prepareStatement(getLanguage().getCurrentDatetimeExpression());
-            resultSet = preparedStatement.executeQuery();
-            resultSet.next();
-            now = resultSet.getTimestamp(1);
-        } catch (SQLException sqlException) {
-            throw new RuntimeException("Failed to execute: " + getLanguage().getCurrentDatetimeExpression(), sqlException);
-        } finally {
-            try {
-                if (resultSet != null) {
-                    resultSet.close();
-                }
-            } catch (SQLException exception) {
-                throw new RuntimeException("Failed closing the result set", exception);
-            } finally {
-                if (preparedStatement != null) {
-                    try {
-                        preparedStatement.close();
-                    } catch (SQLException exception) {
-                        throw new RuntimeException("Failed closing the prepared statment", exception);
-                    }
-                }
-            }
-        }
-
-        return now;
     }
 
     /**
@@ -306,7 +261,6 @@ public class Transaction {
             } catch (SQLException e) {
                 log.error("Failed to close connection", e);
             }
-            now = null;
             language = null;
             connection = null;
         }
@@ -347,7 +301,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public PreparedStatement prepare(String sql, List<Object> params) throws SQLException {
+    public PreparedStatement prepare(String sql, Collection<Object> params) throws SQLException {
         return prepare(sql, params, false);
     }
 
@@ -362,7 +316,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public PreparedStatement prepare(String sql, List<Object> params, boolean returnGeneratedKeys) throws SQLException {
+    public PreparedStatement prepare(String sql, Collection<Object> params, boolean returnGeneratedKeys) throws SQLException {
         tracelog(sql);
         try {
             PreparedStatement preparedStatement = getConnection().prepareStatement(sql, returnGeneratedKeys ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS);
@@ -437,7 +391,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public int executeUpdate(String sql, Object... params) throws SQLException {
+    public int executeUpdate(String sql, Object ... params) throws SQLException {
         return executeUpdate(build(sql, params));
     }
 
@@ -548,7 +502,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public List<Row> selectAll(String sql, Object... params) throws SQLException {
+    public List<Row> selectAll(String sql, Object ... params) throws SQLException {
         return selectAll(build(sql, params));
     }
 
@@ -601,7 +555,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public RecordIterator iterate(String sql, Object... params) throws SQLException {
+    public RecordIterator iterate(String sql, Object ... params) throws SQLException {
         return iterate(build(sql, params));
     }
 
@@ -614,7 +568,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public Savepoint save() throws SQLException {
+    public Savepoint savepoint() throws SQLException {
         return getConnection().setSavepoint();
     }
 
@@ -629,7 +583,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public Savepoint save(String name) throws SQLException {
+    public Savepoint savepoint(String name) throws SQLException {
         return getConnection().setSavepoint(name);
     }
 
@@ -701,14 +655,6 @@ public class Transaction {
         }
     }
 
-
-    private static Value toValue(Class<? extends Record> clazz, Object value) {
-        if (value instanceof Value) {
-            return (Value)value;
-        }
-        return Record.primaryKey(clazz).value(value);
-    }
-
     /**
      * Populates the record with the first result for which the given column name
      * matches the given value.
@@ -740,7 +686,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public boolean populateById(Record record, Object id) throws SQLException {
-        return populateByCompositeValue(record, toValue(record.getClass(), id));
+        return populateByCompositeValue(record, Record.primaryKey(record.getClass()).value(id));
     }
 
     /**
@@ -793,27 +739,8 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> T find(Class<T> clazz, Object value) throws SQLException {
-        return select(clazz, getLanguage().buildSelectQuery(Table.get(clazz), toValue(clazz, value)));
-    }
-
-    /**
-     * Provides a selected record from the mapped database table, populated with
-     * the first result for which the column matches the value.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param column
-     *            the column name
-     * @param value
-     *            the composite key value
-     * @return the matched record or null for no match.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public <T extends Record> T find(Class<T> clazz, String column, Object value) throws SQLException {
-        return select(clazz, getLanguage().buildSelectQuery(Table.get(clazz), new Composite(column).value(value)));
+    public <T extends Record> T find(Class<T> clazz, Value value) throws SQLException {
+        return select(clazz, getLanguage().buildSelectQuery(Table.get(clazz), value));
     }
 
     /**
@@ -831,35 +758,16 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> List<T> findAll(Class<T> clazz, Object value) throws SQLException {
-        return selectAll(clazz, getLanguage().buildSelectQuery(Table.get(clazz), toValue(clazz, value)));
-    }
-
-    /**
-     * Provides a complete list of selected records from the mapped database
-     * table, populated with the results for which the column matches the value.
-     *
-     * @param clazz
-     *            the class defining the table mapping.
-     * @param composite
-     *            the column name
-     * @param value
-     *            the composite key value
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public <T extends Record> List<T> findAll(Class<T> clazz, String column, Object value) throws SQLException {
-        return selectAll(clazz, getLanguage().buildSelectQuery(Table.get(clazz), new Composite(column).value(value)));
+    public <T extends Record> List<T> findAll(Class<T> clazz, Value value) throws SQLException {
+        return selectAll(clazz, getLanguage().buildSelectQuery(Table.get(clazz), value));
     }
 
     public <T extends Record> List<T> findAll(Class<T> clazz) throws SQLException {
         return selectAll(clazz, getLanguage().buildSelectQuery(Table.get(clazz), null));
     }
 
-    public RecordIterator iterate(Class<? extends Record> clazz, Object value) throws SQLException {
-        return selectIterator(clazz, getLanguage().buildSelectQuery(Table.get(clazz), toValue(clazz, value)));
+    public RecordIterator iterate(Class<? extends Record> clazz, Value value) throws SQLException {
+        return selectIterator(clazz, getLanguage().buildSelectQuery(Table.get(clazz), value));
     }
 
     public RecordIterator iterate(Class<? extends Record> clazz) throws SQLException {
@@ -880,16 +788,23 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
-        return find(clazz, Record.primaryKey(clazz).value(id));
+        if (id instanceof Value) {
+            return find(clazz, (Value)id);
+        } else {
+            return find(clazz, Record.primaryKey(clazz).value(id));
+        }
     }
 
     public int deleteById(Class<? extends Record> clazz, Object id) throws SQLException {
-        return delete(clazz, Record.primaryKey(clazz).value(id));
+        if (id instanceof Value) {
+            return delete(clazz, (Value)id);
+        } else {
+            return delete(clazz, Record.primaryKey(clazz).value(id));
+        }
     }
 
-
-    public int delete(Class<? extends Record> clazz, Object value) throws SQLException {
-        return executeUpdate(getLanguage().buildDeleteQuery(Table.get(clazz), toValue(clazz, value)));
+    public int delete(Class<? extends Record> clazz, Value value) throws SQLException {
+        return executeUpdate(getLanguage().buildDeleteQuery(Table.get(clazz), value));
     }
 
     /**
@@ -1346,7 +1261,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public void save(Collection<? extends Record> records, int batchSize, ResultMode mode) throws SQLException {
+    public void save(Collection<? extends Record> records, ResultMode mode) throws SQLException {
         List<Record> insertRecords = new LinkedList<Record>();
         List<Record> updateRecords = new LinkedList<Record>();
 
@@ -1358,8 +1273,8 @@ public class Transaction {
             }
         }
 
-        insert(insertRecords, batchSize, mode);
-        update(updateRecords, batchSize, mode);
+        insert(insertRecords, mode);
+        update(updateRecords, mode);
     }
 
     /**
@@ -1371,7 +1286,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public void save(Collection<? extends Record> records) throws SQLException {
-        save(records, 0, ResultMode.REPOPULATE);
+        save(records, ResultMode.REPOPULATE);
     }
 
     /**
@@ -1383,9 +1298,13 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public void delete(Record record) throws SQLException {
+        delete(record, ResultMode.NO_RESULT);
+    }
+
+    public void delete(Record record, ResultMode mode) throws SQLException {
         record.assertNotReadOnly();
 
-        execute(getLanguage().delete(ResultMode.NO_RESULT, record));
+        execute(getLanguage().delete(mode, record));
     }
 
     /**
@@ -1402,157 +1321,6 @@ public class Transaction {
 
         execute(getLanguage().delete(ResultMode.NO_RESULT, records));
     }
-
-//    private static List<? extends Record> batchChunk(Iterator<? extends Record> iterator, int size) {
-//        List<Record> records = null;
-//
-//        if (iterator.hasNext()) {
-//            do {
-//                Record record = iterator.next();
-//                if (record.isChanged()) {
-//                    if (records == null) {
-//                        records = new ArrayList<Record>(size);
-//                    }
-//                    records.add(record);
-//                    size--;
-//                }
-//            } while (size > 0 && iterator.hasNext());
-//        }
-//
-//        return records;
-//    }
-//
-//    private static class BatchInfo {
-//        private Set<Symbol> columns = new HashSet<Symbol>();
-//        private Record template = null;
-//
-//        private BatchInfo(Collection<? extends Record> records) {
-//            for (Record record : records) {
-//                record.assertNotReadOnly();
-//
-//                if (record.isStale()) {
-//                    throw new IllegalStateException("Attempt to perform batch operation on stale record(s)");
-//                }
-//
-//                if (template == null) {
-//                    template = record;
-//                }
-//
-//                if (!template.getClass().equals(record.getClass())) {
-//                    throw new IllegalArgumentException("all records must be of the same class");
-//                }
-//                if (!template.table().getDatabase().equals(record.table().getDatabase())) {
-//                    throw new IllegalArgumentException("all records must be bound to the same Database");
-//                }
-//
-//                columns.addAll(record.columns.keySet());
-//            }
-//
-//            String immutablePrefix = template.table().getImmutablePrefix();
-//            if (template != null && immutablePrefix != null) {
-//                Iterator<Symbol> i = columns.iterator();
-//                while (i.hasNext()) {
-//                    Symbol symbol = i.next();
-//                    if (symbol.getName().startsWith(immutablePrefix)) {
-//                        i.remove();
-//                    }
-//                }
-//            }
-//        }
-//    }
-//
-//    private void batchExecute(Query query, Collection<? extends Record> records, ResultMode mode) throws SQLException {
-//        PreparedStatement preparedStatement = null;
-//        ResultSet resultSet = null;
-//        Record template = records.iterator().next();
-//        Composite primaryKey = template.primaryKey();
-//        Language dialect = getLanguage();
-//
-//        // XXX UPDATE + REPOPULATE?
-//        if (mode != ResultMode.NO_RESULT && !primaryKey.isSingle() && !(dialect instanceof Postgres)) {
-//            throw new UnsupportedOperationException("Batch operations on composite primary keys not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
-//        }
-//
-//        try {
-//            boolean useReturning = (mode == ResultMode.REPOPULATE) && dialect instanceof Postgres;
-//            Map<Object, Record> map = null;
-//
-//            if (useReturning) {
-//                query.append(" RETURNING *");   // XXX ID_ONLY support
-//                preparedStatement = prepare(query.getSql(), query.getParams());
-//                resultSet = preparedStatement.executeQuery();
-//            } else {
-//                preparedStatement = prepare(query.getSql(), query.getParams(), true);
-//                preparedStatement.execute();
-//                resultSet = preparedStatement.getGeneratedKeys();
-//                if (mode == ResultMode.REPOPULATE) {
-//                    map = new HashMap<Object, Record>();
-//                }
-//            }
-//
-//            RecordIterator iter = null;
-//            for (Record record : records) {
-//                if (!resultSet.next()) {
-//                    throw new IllegalStateException(String.format("Too few rows returned? Expected %d rows from query %s", records.size(), query.getSql()));
-//                }
-//                if (useReturning) {
-//                    // RETURNING rocks!
-//                    if (iter == null) {
-//                        iter = new RecordIterator(this, resultSet);
-//                        iter.setCascadingClose(false);
-//                    }
-//                    iter.populate(record);
-//                } else {
-//                    Column column = record.getOrCreateColumn(primaryKey.getSymbol());
-//                    column.setValue(resultSet.getObject(1));
-//                    column.setChanged(false);
-//                    if (mode == ResultMode.REPOPULATE) {
-//                        if (map == null) throw new IllegalStateException("bug");
-//                        map.put(column.getValue(), record);
-//                        record.stale(false);    // actually still stale
-//                    }
-//                }
-//            }
-//
-//            if (!useReturning && mode == ResultMode.REPOPULATE) {
-//                if (map == null) throw new IllegalStateException("bug");
-//
-//                resultSet.close();
-//                resultSet = null;
-//                preparedStatement.close();
-//                preparedStatement = null;
-//
-//                // records must not be stale, or Query will generate SELECTs
-//                Query q = getLanguage().buildSelectQuery(template.table(), primaryKey, records);
-//
-//                preparedStatement = prepare(q);
-//                resultSet = preparedStatement.executeQuery();
-//                iter = new RecordIterator(this, resultSet);
-//                iter.setCascadingClose(false);
-//
-//                int idColumn = resultSet.findColumn(primaryKey.getSymbol().getName());
-//                while (resultSet.next()) {
-//                    iter.populate(map.get(resultSet.getObject(idColumn)));
-//                }
-//            }
-//        } catch (SQLException sqlException) {
-//            // records are in an unknown state, mark them stale
-//            for (Record record : records) {
-//                record.stale(true);
-//            }
-//            throw dialect.rethrow(sqlException);
-//        } finally {
-//            try {
-//                if (resultSet != null) {
-//                    resultSet.close();
-//                }
-//            } finally {
-//                if (preparedStatement != null) {
-//                    preparedStatement.close();
-//                }
-//            }
-//        }
-//    }
 
     /**
      * Inserts the record's changed values into the database by executing an SQL INSERT query.
@@ -1576,20 +1344,8 @@ public class Transaction {
         insert(record, ResultMode.REPOPULATE);
     }
 
-    /**
-     * Executes a batch INSERT (INSERT INTO ... (columns...) VALUES (row1), (row2), (row3), ...) and repopulates the list with stored entities.
-     *
-     * @param records List of records to insert (must be of the same class, and bound to the same Database)
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public void insert(Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        insert(records, 0, mode);
-    }
-
     public void insert(Collection<? extends Record> records) throws SQLException {
-        insert(records, 0, ResultMode.REPOPULATE);
+        insert(records, ResultMode.REPOPULATE);
     }
 
     /**
@@ -1601,17 +1357,16 @@ public class Transaction {
      * an additional SELECT query for every chunk of records for databases that do not support RETURNING.
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
-     * @param chunkSize Splits the records into chunks, <= 0 disables
      * @param isFullRepopulate Whether or not to fully re-populate the record columns, or just update their primary key value and markStale()
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public void insert(Collection<? extends Record> records, int size, ResultMode mode) throws SQLException {
+    public void insert(Collection<? extends Record> records, ResultMode mode) throws SQLException {
         if (records.isEmpty()) {
             return;
         }
-        execute(language.insert(mode, size, records));
+        execute(language.insert(mode, records));
     }
 
     private void execute(Iterator<Batch> iterator) throws SQLException {
@@ -1704,52 +1459,6 @@ public class Transaction {
         }
     }
 
-//    private void batchInsert(BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode) throws SQLException {
-//        Table table = batchInfo.template.table();
-//        Query query = build();
-//
-//        for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
-//            batchInfo.columns.add(symbol);
-//        }
-//
-//        query.append("INSERT INTO #1# (", table);
-//
-//        boolean isFirst = true;
-//        for (Symbol column : batchInfo.columns) {
-//            query.append(isFirst ? "#:1#" : ", #:1#", column);
-//            isFirst = false;
-//        }
-//        if (isFirst) {
-//            throw new RuntimeException("zero columns to insert!");
-//        }
-//        query.append(") VALUES ");
-//
-//        isFirst = true;
-//        for (Record record : records) {
-//            query.append(isFirst ? "(" : ", (");
-//            isFirst = false;
-//
-//            boolean isColumnFirst = true;
-//            for (Symbol column : batchInfo.columns) {
-//                if (record.isChanged(column)) {
-//                    Object value = record.get(column);
-//                    if (value instanceof Query) {
-//                        query.append(isColumnFirst ? "#1#" : ", #1#", value);
-//                    } else {
-//                        query.append(isColumnFirst ? "#?1#" : ", #?1#", value);
-//                    }
-//                } else {
-//                    query.append(isColumnFirst ? "DEFAULT" : ", DEFAULT");
-//                }
-//                isColumnFirst = false;
-//            }
-//            query.append(")");
-//            record.stale(true);
-//        }
-//
-//        batchExecute(query, records, mode);
-//    }
-
     /**
      * Updates the record's changed column values by executing an SQL UPDATE query.
      *
@@ -1779,6 +1488,10 @@ public class Transaction {
         return rowsUpdated;
     }
 
+    public int update(Record record, Composite key) throws SQLException {
+        return update(record, ResultMode.REPOPULATE, record.primaryKey());
+    }
+
     public int update(Record record, ResultMode mode) throws SQLException {
         return update(record, mode, record.primaryKey());
     }
@@ -1797,7 +1510,7 @@ public class Transaction {
      *             if a database access error occurs
      */
     public void update(Collection<? extends Record> records) throws SQLException {
-        update(records, 0, ResultMode.REPOPULATE);
+        update(records, ResultMode.REPOPULATE);
     }
 
     /**
@@ -1813,8 +1526,8 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        update(records, chunkSize, mode, null);
+    public void update(Collection<? extends Record> records, ResultMode mode) throws SQLException {
+        update(records, mode, null);
     }
 
     /**
@@ -1827,95 +1540,13 @@ public class Transaction {
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param size Splits the records into chunks, <= 0 disables
      * @param mode
-     * @param primaryKey
+     * @param composite composite key
      * @throws SQLException
      *             if a database access error occurs
      */
-    public void update(Collection<? extends Record> records, int size, ResultMode mode, Composite primaryKey) throws SQLException {
-        execute(getLanguage().update(mode, size, records));
+    public void update(Collection<? extends Record> records, ResultMode mode, Composite composite) throws SQLException {
+        execute(getLanguage().update(mode, composite, records));
     }
-
-//    private static boolean havePGobject = false;
-//    static {
-//        try {
-//            Class.forName("org.postgresql.util.PGobject");
-//            havePGobject = true;
-//        } catch (ClassNotFoundException e) {
-//        }
-//    }
-//
-//    private static String getPgDataType(Object v) {
-//        if (v instanceof java.sql.Timestamp) {
-//            return "timestamp";
-//        }
-//        if (v instanceof java.util.Date) {
-//            return "date";
-//        }
-//        if (havePGobject && v instanceof PGobject) {
-//            return ((PGobject)v).getType();
-//        }
-//        return null;
-//    }
-//
-//    private void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
-//        Table table = batchInfo.template.table();
-//        Query query = build();
-//        String vTable = table.getTable().equals("v") ? "v2" : "v";
-//
-//        query.append("UPDATE #1# SET ", table);
-//        boolean isFirstColumn = true;
-//        for (Symbol column : batchInfo.columns) {
-//            query.append(isFirstColumn ? "#1# = #!2#.#1#" : ", #1# = #!2#.#1#", column, vTable);
-//            isFirstColumn = false;
-//        }
-//
-//        query.append(" FROM (VALUES ");
-//
-//        boolean isFirstValue = true;
-//        for (Record record : records) {
-//            if (record.isCompositeKeyNull(primaryKey)) {
-//                throw new IllegalArgumentException("Record has unset or NULL primary key: " + record);
-//            }
-//            isFirstColumn = true;
-//            query.append(isFirstValue ? "(" : ", (");
-//            for (Symbol column : batchInfo.columns) {
-//                Object value = record.get(column);
-//                if (value instanceof Query) {
-//                    query.append(isFirstColumn ? "#1#" : ", #1#", value);
-//                } else {
-//                    String pgDataType = getPgDataType(value);
-//                    if (pgDataType != null) {
-//                        query.append(isFirstColumn ? "cast(#?1# AS #:2#)" : ", cast(#?1# AS #:2#)", value, pgDataType);
-//                    } else {
-//                        query.append(isFirstColumn ? "#?1#" : ", #?1#", value);
-//                    }
-//                }
-//                isFirstColumn = false;
-//            }
-//            query.append(")");
-//            isFirstValue = false;
-//        }
-//
-//        query.append(") #!1# (", vTable);
-//        isFirstColumn = true;
-//        for (Symbol column : batchInfo.columns) {
-//            query.append(isFirstColumn ? "#1#" : ", #1#", column);
-//            isFirstColumn = false;
-//        }
-//
-//        query.append(") WHERE");
-//        boolean isFirst = true;
-//        for (Symbol symbol : primaryKey.getSymbols()) {
-//            if (isFirst) {
-//                isFirst = false;
-//            } else {
-//                query.append(" AND");
-//            }
-//            query.append(" #1#.#2# = #:3#.#2#", table, symbol, vTable);
-//        }
-//
-//        batchExecute(query, records, mode);
-//    }
 
     /**
      * Re-populates a stale record with fresh database values by a select query.
