@@ -787,7 +787,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> T findById(Class<T> clazz, Object id) throws SQLException {
+    public <T extends Record> T find(Class<T> clazz, Object id) throws SQLException {
         if (id instanceof Value) {
             return find(clazz, (Value)id);
         } else {
@@ -795,7 +795,7 @@ public class Transaction {
         }
     }
 
-    public int deleteById(Class<? extends Record> clazz, Object id) throws SQLException {
+    public int delete(Class<? extends Record> clazz, Object id) throws SQLException {
         if (id instanceof Value) {
             return delete(clazz, (Value)id);
         } else {
