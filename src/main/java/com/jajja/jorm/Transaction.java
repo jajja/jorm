@@ -47,7 +47,6 @@ import java.util.TimeZone;
 
 import javax.sql.DataSource;
 
-import org.postgresql.util.PGobject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1836,28 +1835,28 @@ public class Transaction {
         execute(getLanguage().update(mode, size, records));
     }
 
-    private static boolean havePGobject = false;
-    static {
-        try {
-            Class.forName("org.postgresql.util.PGobject");
-            havePGobject = true;
-        } catch (ClassNotFoundException e) {
-        }
-    }
-
-    private static String getPgDataType(Object v) {
-        if (v instanceof java.sql.Timestamp) {
-            return "timestamp";
-        }
-        if (v instanceof java.util.Date) {
-            return "date";
-        }
-        if (havePGobject && v instanceof PGobject) {
-            return ((PGobject)v).getType();
-        }
-        return null;
-    }
-
+//    private static boolean havePGobject = false;
+//    static {
+//        try {
+//            Class.forName("org.postgresql.util.PGobject");
+//            havePGobject = true;
+//        } catch (ClassNotFoundException e) {
+//        }
+//    }
+//
+//    private static String getPgDataType(Object v) {
+//        if (v instanceof java.sql.Timestamp) {
+//            return "timestamp";
+//        }
+//        if (v instanceof java.util.Date) {
+//            return "date";
+//        }
+//        if (havePGobject && v instanceof PGobject) {
+//            return ((PGobject)v).getType();
+//        }
+//        return null;
+//    }
+//
 //    private void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
 //        Table table = batchInfo.template.table();
 //        Query query = build();
