@@ -496,6 +496,8 @@ public abstract class Language {
         return rethrow(sqlException, null);
     }
 
+    public abstract Query select(Table table);
+
 
     @Deprecated
     public Query buildSelectQuery(Table table, Composite.Value value) {

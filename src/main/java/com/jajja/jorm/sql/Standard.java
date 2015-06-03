@@ -8,6 +8,7 @@ import com.jajja.jorm.Record;
 import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.Symbol;
 import com.jajja.jorm.Row.Column;
+import com.jajja.jorm.Table;
 
 public class Standard extends Language {
 
@@ -215,6 +216,13 @@ public class Standard extends Language {
     @Override
     public boolean isBatchUpdateSupported() {
         return false;
+    }
+
+    @Override
+    public Query select(Table table) {
+        Query query = new Query(this);
+        query.append("SELECT * FROM #1#", table);
+        return query;
     }
 
 }

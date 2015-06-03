@@ -839,7 +839,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> T select(Class<T> clazz, String sql, Object... params) throws SQLException {
+    public <T extends Record> T select(Class<T> clazz, String sql, Object ... params) throws SQLException {
         return select(clazz, build(sql, params));
     }
 
@@ -881,6 +881,10 @@ public class Transaction {
         return selectAll(clazz, build(sql));
     }
 
+    public <T extends Record> List<T> findAll(Class<T> clazz, String sql) throws SQLException {
+        return findAll(clazz, build(sql));
+    }
+
     /**
      * Provides a list of selected records, populated with the results from the
      * query given by a Jorm SQL statement and applicable parameters.
@@ -896,8 +900,12 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> List<T> selectAll(Class<T> clazz, String sql, Object... params) throws SQLException {
+    public <T extends Record> List<T> selectAll(Class<T> clazz, String sql, Object ... params) throws SQLException {
         return selectAll(clazz, build(sql, params));
+    }
+
+    public <T extends Record> List<T> findAll(Class<T> clazz, String sql, Object ... params) throws SQLException {
+        return findAll(clazz, build(sql, params));
     }
 
     /**
@@ -928,6 +936,12 @@ public class Transaction {
             throw getLanguage().rethrow(e, query.getSql());
         }
         return records;
+    }
+
+    public <T extends Record> List<T> findAll(Class<T> clazz, Query query) throws SQLException {
+        Table table = Table.get(clazz);
+        Query select = getLanguage().select(table);
+        return selectAll(clazz, select.append(query));
     }
 
     /**
@@ -962,7 +976,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public RecordIterator selectIterator(Class<? extends Record> clazz, String sql, Object... params) throws SQLException {
+    public RecordIterator selectIterator(Class<? extends Record> clazz, String sql, Object ... params) throws SQLException {
         return selectIterator(clazz, build(sql, params));
     }
 

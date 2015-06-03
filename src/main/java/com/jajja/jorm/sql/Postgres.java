@@ -52,13 +52,13 @@ public class Postgres extends Standard {
         Postgres.RETURNING
     };
 
-    private final boolean isReturning;
+    private final boolean is82;
 
     protected Postgres(Product product) {
         super(product);
         int major = product.getMajor();
         int minor = product.getMinor();
-        isReturning = major > 8 || (major == 8 && minor > 1); // returning clause & select from values
+        is82 = major > 8 || (major == 8 && minor > 1); // returning clause & select from values
     }
 
     @Override
@@ -73,7 +73,12 @@ public class Postgres extends Standard {
 
     @Override
     public boolean isReturningSupported() {
-        return isReturning;
+        return is82;
+    }
+
+    @Override
+    public boolean isBatchUpdateSupported() {
+        return is82;
     }
 
     @Override
@@ -84,7 +89,7 @@ public class Postgres extends Standard {
 
     @Override
     public Appender[] getInsertAppenders() {
-        if (isReturning) {
+        if (is82) {
             return INSERT_APPENDERS;
         } else {
             return super.getInsertAppenders();
@@ -93,7 +98,7 @@ public class Postgres extends Standard {
 
     @Override
     public Appender[] getUpdateAppenders() {
-        if (isReturning) {
+        if (is82) {
             return UPDATE_APPENDERS;
         } else {
             return super.getInsertAppenders();
@@ -102,7 +107,7 @@ public class Postgres extends Standard {
 
     @Override
     public Appender[] getDeleteAppenders() {
-        if (isReturning) {
+        if (is82) {
             return DELETE_APPENDERS;
         } else {
             return super.getDeleteAppenders();
