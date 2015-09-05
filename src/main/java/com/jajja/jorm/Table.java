@@ -35,11 +35,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Table {
     private static Map<Class<?>, Table> map = new ConcurrentHashMap<Class<?>, Table>(16, 0.75f, 1);
-    private String database;
-    private String schema;
-    private String table;
-    private Composite primaryKey;
-    private String immutablePrefix;
+    private final String database;
+    private final String schema;
+    private final String table;
+    private final Composite primaryKey;
+    private final String immutablePrefix;
 
     public static Table get(Class<? extends Record> clazz) {
         Table table = map.get(clazz);
@@ -55,8 +55,12 @@ public class Table {
         return table;
     }
 
-    public Table(String database) {
+    public Table(String database, String schema, String table, Composite primaryKey, String immutablePrefix) {
         this.database = database;
+        this.schema = schema;
+        this.table = table;
+        this.primaryKey = primaryKey;
+        this.immutablePrefix = immutablePrefix;
     }
 
     private Table(Class<? extends Record> clazz) {
@@ -72,6 +76,8 @@ public class Table {
         table = nullify(jorm.table());
         if (table != null) {
             primaryKey = new Composite(jorm.primaryKey());
+        } else {
+            primaryKey = null;
         }
         if (jorm.immutablePrefix().length() > 0) {
             this.immutablePrefix = jorm.immutablePrefix();

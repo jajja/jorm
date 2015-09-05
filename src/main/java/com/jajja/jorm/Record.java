@@ -208,7 +208,7 @@ public abstract class Record extends Row {
     }
 
     public Composite primaryKey() {
-        return Table.get(getClass()).getPrimaryKey();
+        return table().getPrimaryKey();
     }
 
     public static Composite primaryKey(Class<? extends Record> clazz) {
