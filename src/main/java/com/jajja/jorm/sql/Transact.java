@@ -30,11 +30,17 @@ public class Transact extends Standard {
         Standard.VALUES
     };
 
-    private final boolean isReturning;
+    private static final Appender[] UPDATE_APPENDERS =  new Appender[] {
+//        Standard.INSERT,
+//        Transact.OUTPUT,
+//        Standard.VALUES
+    };
+
+    private final boolean is2006;
 
     protected Transact(Product product) throws SQLException {
         super(product);
-        isReturning = product.getMajor() >= 2006;
+        is2006 = product.getMajor() >= 2006;
     }
 
     @Override
@@ -43,8 +49,13 @@ public class Transact extends Standard {
     }
 
     @Override
-    public boolean isReturningSupported() {
-        return isReturning;
+    public boolean isReturningSupported(Operation operation) {
+        return is2006;
+    }
+
+    @Override
+    public boolean isBatchSupported(Operation operation) {
+        return is2006 && operation == Operation.UPDATE; // MERGE
     }
 
     // https://msdn.microsoft.com/en-us/library/ms188751.aspx
@@ -77,10 +88,19 @@ public class Transact extends Standard {
 
     @Override
     public Appender[] getInsertAppenders() {
-        if (isReturning) {
+        if (is2006) {
             return INSERT_APPENDERS;
         } else {
             return super.getInsertAppenders();
+        }
+    }
+
+    @Override
+    public Appender[] getUpdateAppenders() {
+        if (is2006) {
+            return UPDATE_APPENDERS;
+        } else {
+            return super.getUpdateAppenders();
         }
     }
 

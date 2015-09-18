@@ -1398,18 +1398,30 @@ public class Transaction {
             try {
                 Map<Object, Record> map = null;
 
-                if (mode != ResultMode.NO_RESULT) {
+                switch (mode) {
+                case NO_RESULT:
                     preparedStatement = prepare(query);
                     preparedStatement.execute();
                     continue;
-                } else if (language.isReturningSupported()) {
-                    preparedStatement = prepare(query);
-                    resultSet = preparedStatement.executeQuery();
-                } else {
-                    preparedStatement = prepare(query, true);
-                    preparedStatement.execute();
-                    resultSet = preparedStatement.getGeneratedKeys();
-                    map = new HashMap<Object, Record>();
+
+                case REPOPULATE:
+                case ID_ONLY:
+                    if (!batch.isResultSetQuery() && !batch.isGeneratedKeysQuery()) {
+                        throw new IllegalStateException(String.format("Result mode %s requires support for either batch result sets or generated keys!", mode));
+                    }
+                    if (batch.isResultSetQuery()) {
+                        preparedStatement = prepare(query);
+                        resultSet = preparedStatement.executeQuery();
+                    } else if (batch.isGeneratedKeysQuery()) {
+                        preparedStatement = prepare(query, true);
+                        preparedStatement.execute();
+                        resultSet = preparedStatement.getGeneratedKeys();
+                        map = new HashMap<Object, Record>();
+                    }
+                    break;
+
+                default:
+                    throw new IllegalStateException("Unreachable code?! (a bug)");
                 }
 
                 RecordIterator recordIterator = null;
@@ -1417,40 +1429,44 @@ public class Transaction {
                     if (!resultSet.next()) {
                         throw new IllegalStateException(String.format("Too few rows returned? Expected %d rows from query %s", records.size(), query.getSql()));
                     }
-                    if (language.isReturningSupported() && mode != ResultMode.NO_RESULT) {
+                    if (batch.isResultSetQuery()) {
                         // RETURNING rocks!
                         if (recordIterator == null) {
                             recordIterator = new RecordIterator(this, resultSet);
                             recordIterator.setCascadingClose(false);
                         }
                         recordIterator.populate(record);
-                    } else {
+                    } else if (batch.isGeneratedKeysQuery()) {
                         Column column = record.getOrCreateColumn(table.getPrimaryKey().getSymbol());
                         column.setValue(resultSet.getObject(1));
                         column.setChanged(false);
                         map.put(column.getValue(), record);
-                        record.stale(false);    // actually still stale but need to repopulate
+                        if (mode == ResultMode.REPOPULATE) {
+                            record.stale(false);    // actually still stale but need to repopulate
+                        }
                     }
                 }
 
-                if (map != null) {
+                if (batch.isGeneratedKeysQuery() && mode == ResultMode.REPOPULATE) {
                     resultSet.close();
                     resultSet = null;
                     preparedStatement.close();
                     preparedStatement = null;
+                    refresh(records);
 
-                    // records must not be stale, or Query will generate SELECTs
-                    Query q = getLanguage().buildSelectQuery(table, table.getPrimaryKey(), records);
-
-                    preparedStatement = prepare(q);
-                    resultSet = preparedStatement.executeQuery();
-                    recordIterator = new RecordIterator(this, resultSet);
-                    recordIterator.setCascadingClose(false);
-
-                    int idColumn = resultSet.findColumn(table.getPrimaryKey().getSymbol().getName());
-                    while (resultSet.next()) {
-                        recordIterator.populate(map.get(resultSet.getObject(idColumn)));
-                    }
+//
+//                    // records must not be stale, or Query will generate SELECTs
+//                    Query q = getLanguage().buildSelectQuery(table, table.getPrimaryKey(), records);
+//
+//                    preparedStatement = prepare(q);
+//                    resultSet = preparedStatement.executeQuery();
+//                    recordIterator = new RecordIterator(this, resultSet);
+//                    recordIterator.setCascadingClose(false);
+//
+//                    int idColumn = resultSet.findColumn(table.getPrimaryKey().getSymbol().getName());
+//                    while (resultSet.next()) {
+//                        recordIterator.populate(map.get(resultSet.getObject(idColumn)));
+//                    }
                 }
 
             } catch (SQLException sqlException) {
@@ -1514,6 +1530,24 @@ public class Transaction {
         return update(record, ResultMode.REPOPULATE);
     }
 
+    public void refresh(Collection<? extends Record> records) throws SQLException {
+        refresh(records, null);
+    }
+
+    public void refresh(Collection<? extends Record> records, Composite composite) throws SQLException {
+        try {
+            for (Record record : records) {
+                record.stale(false);
+            }
+            execute(getLanguage().select(ResultMode.REPOPULATE, composite, records));
+        } catch (SQLException e) { // unknown state
+            for (Record record : records) {
+                record.stale(true);
+            }
+            throw e;
+        }
+    }
+
     /**
      * Executes a batch UPDATE (UPDATE ... SET x = s.x, y = s.y FROM (values, ...) s WHERE id = s.id).
      *
@@ -1525,6 +1559,10 @@ public class Transaction {
      */
     public void update(Collection<? extends Record> records) throws SQLException {
         update(records, ResultMode.REPOPULATE);
+    }
+
+    public void update(Collection<? extends Record> records, Composite composite) throws SQLException {
+        update(records, ResultMode.REPOPULATE, composite);
     }
 
     /**

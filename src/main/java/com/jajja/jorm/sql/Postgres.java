@@ -35,21 +35,26 @@ public class Postgres extends Standard {
     public static final Appender WHERE = new Where();
     public static final Appender UPDATE_WHERE = new UpdateWhere();
 
+    private static final Appender[] SELECT_APPENDERS =  new Appender[] {
+        Standard.SELECT,
+        Postgres.WHERE,
+    };
+
     private static final Appender[] INSERT_APPENDERS =  new Appender[] {
         Standard.INSERT,
         Standard.VALUES,
-        Postgres.RETURNING
+        Postgres.RETURNING,
     };
 
     private static final Appender[] UPDATE_APPENDERS =  new Appender[] {
         Postgres.UPDATE_WHERE,
-        Postgres.RETURNING
+        Postgres.RETURNING,
     };
 
     private static final Appender[] DELETE_APPENDERS =  new Appender[] {
         Standard.DELETE,
         Postgres.WHERE,
-        Postgres.RETURNING
+        Postgres.RETURNING,
     };
 
     private final boolean is82;
@@ -72,12 +77,12 @@ public class Postgres extends Standard {
     }
 
     @Override
-    public boolean isReturningSupported() {
+    public boolean isReturningSupported(Operation operation) {
         return is82;
     }
 
     @Override
-    public boolean isBatchUpdateSupported() {
+    public boolean isBatchSupported(Operation operation) {
         return is82;
     }
 
@@ -85,6 +90,15 @@ public class Postgres extends Standard {
     public ExceptionType getExceptionType(SQLException sqlException) {
         ExceptionType type = EXCEPTIONS.get(sqlException.getSQLState());
         return type != null ? type : ExceptionType.UNKNOWN;
+    }
+
+    @Override
+    public Appender[] getSelectAppenders() {
+        if (is82) {
+            return SELECT_APPENDERS;
+        } else {
+            return super.getInsertAppenders();
+        }
     }
 
     @Override

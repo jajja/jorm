@@ -57,10 +57,11 @@ public abstract class Language {
     public abstract String getCurrentDateExpression();
     public abstract String getCurrentTimeExpression();
     public abstract String getCurrentDatetimeExpression();
-    public abstract boolean isReturningSupported();
-    public abstract boolean isBatchUpdateSupported();
+    public abstract boolean isReturningSupported(Operation operation);
+    public abstract boolean isBatchSupported(Operation operation);
 
     protected static enum Operation {
+        SELECT,
         INSERT,
         UPDATE,
         DELETE
@@ -153,6 +154,9 @@ public abstract class Language {
         Set<Symbol> changedSymbols;
         List<Record> records;
 
+        boolean isResultSetSupported;
+        boolean isGeneratedKeysSupported;
+
         public Data(ResultMode resultMode) {
             this.resultMode = resultMode;
             parameters = 0;
@@ -225,6 +229,14 @@ public abstract class Language {
             return query;
         }
 
+        public boolean isResultSetQuery() {
+            return data.isResultSetSupported;
+        }
+
+        public boolean isGeneratedKeysQuery() {
+            return data.isGeneratedKeysSupported;
+        }
+
     }
 
     public static abstract class Appender {
@@ -290,6 +302,10 @@ public abstract class Language {
         return quotedValue.toString();
     }
 
+    public Iterator<Batch> select(ResultMode mode, Record ... records) {
+        return batch(mode, Operation.SELECT, null, records);
+    }
+
     public Iterator<Batch> insert(ResultMode mode, Record ... records) {
         return batch(mode, Operation.INSERT, null, records);
     }
@@ -300,6 +316,10 @@ public abstract class Language {
 
     public Iterator<Batch> delete(ResultMode mode, Record ... records) {
         return batch(mode, Operation.DELETE, null, records);
+    }
+
+    public Iterator<Batch> select(ResultMode mode, Composite composite, Record ... records) {
+        return batch(mode, Operation.SELECT, composite, records);
     }
 
     public Iterator<Batch> insert(ResultMode mode, Composite composite, Record ... records) {
@@ -314,6 +334,10 @@ public abstract class Language {
         return batch(mode, Operation.DELETE, composite, records);
     }
 
+    public Iterator<Batch> select(ResultMode mode, Collection<? extends Record> records) {
+        return batch(mode, Operation.SELECT, null, records);
+    }
+
     public Iterator<Batch> insert(ResultMode mode, Collection<? extends Record> records) {
         return batch(mode, Operation.INSERT, null, records);
     }
@@ -324,6 +348,10 @@ public abstract class Language {
 
     public Iterator<Batch> delete(ResultMode mode, Collection<? extends Record> records) {
         return batch(mode, Operation.DELETE, null, records);
+    }
+
+    public Iterator<Batch> select(ResultMode mode, Composite composite, Collection<? extends Record> records) {
+        return batch(mode, Operation.SELECT, composite, records);
     }
 
     public Iterator<Batch> insert(ResultMode mode, Composite composite, Collection<? extends Record> records) {
@@ -339,19 +367,15 @@ public abstract class Language {
     }
 
     private Iterator<Batch> batch(ResultMode mode, Operation operation, Composite composite, Record ... records) {
-        int size = 0;
-        if (operation == Operation.UPDATE && !isBatchUpdateSupported()) {
-            size = 1; // XXX: use structure to implement this
-        }
         List<Batch> batches = new LinkedList<Batch>();
         Data data = new Data(mode);
         int i = 0;
         for (Record record : records) {
             Data increment = getData(record, operation, mode);
-            if (data.parameters + increment.parameters < getMaxParameters() && (size < 1 || i < size)) {
+            if (data.parameters + increment.parameters < getMaxParameters() && (isBatchSupported(operation) || i == 0)) {
                 data.add(increment);
                 i++;
-            } else {
+            } else if (!data.isEmpty()) {
                 batches.add(build(data, mode, operation));
                 data = increment;
                 i = 0;
@@ -365,29 +389,26 @@ public abstract class Language {
     }
 
     private Iterator<Batch> batch(ResultMode mode, Operation operation, Composite composite, Collection<? extends Record> records) {
-        int size = 0;
-        if (operation == Operation.UPDATE && !isBatchUpdateSupported()) {
-            size = 1; // XXX: use structure to implement this
-        }
-        List<Batch> batches = new LinkedList<Batch>();
-        Data data = new Data(mode);
-        int i = 0;
-        for (Record record : records) {
-            Data increment = getData(record, operation, mode);
-            if (data.parameters + increment.parameters < getMaxParameters() && (size < 1 || i < size)) {
-                data.add(increment);
-                i++;
-            } else {
-                batches.add(build(data, mode, operation));
-                data = increment;
-                i = 0;
-            }
-            data.add(composite, record);
-        }
-        if (!data.isEmpty()) {
-            batches.add(build(data, mode, operation));
-        }
-        return batches.iterator();
+        return batch(mode, operation, composite, records.toArray(new Record[records.size()]));
+//        List<Batch> batches = new LinkedList<Batch>();
+//        Data data = new Data(mode);
+//        int i = 0;
+//        for (Record record : records) {
+//            Data increment = getData(record, operation, mode);
+//            if (data.parameters + increment.parameters < getMaxParameters() && (isBatchSupported(operation) || i == 0)) {
+//                data.add(increment);
+//                i++;
+//            } else if (!data.isEmpty()) {
+//                batches.add(build(data, mode, operation));
+//                data = increment;
+//                i = 0;
+//            }
+//            data.add(composite, record);
+//        }
+//        if (!data.isEmpty()) {
+//            batches.add(build(data, mode, operation));
+//        }
+//        return batches.iterator();
     }
 
     private Batch build(Data data, ResultMode mode, Operation operation) {
@@ -400,6 +421,8 @@ public abstract class Language {
 
     protected Data getData(Record record, Operation type, ResultMode mode) {
         switch(type) {
+        case SELECT:
+            return getSelectData(record, mode);
         case INSERT:
             return getInsertData(record, mode);
         case UPDATE:
@@ -409,6 +432,10 @@ public abstract class Language {
         default:
             throw new IllegalStateException(String.format("The batch type %s is unknown!", type));
         }
+    }
+
+    protected Data getSelectData(Record record, ResultMode mode) {
+        return new Data(mode, record.table().getPrimaryKey().size(), null);
     }
 
     protected Data getInsertData(Record record, ResultMode mode) {
