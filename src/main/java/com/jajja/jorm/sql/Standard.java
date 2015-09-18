@@ -12,11 +12,17 @@ import com.jajja.jorm.Table;
 
 public class Standard extends Language {
 
+    public static final Appender SELECT = new Select();
     public static final Appender INSERT = new Insert();
     public static final Appender VALUES = new Values();
     public static final Appender DELETE = new Delete();
     public static final Appender WHERE = new Where();
     public static final Appender UPDATE = new Update();
+
+    private static final Appender[] SELECT_APPENDERS =  new Appender[] {
+        SELECT,
+        WHERE
+    };
 
     private static final Appender[] INSERT_APPENDERS =  new Appender[] {
         INSERT,
@@ -58,13 +64,20 @@ public class Standard extends Language {
     }
 
     @Override
-    public boolean isReturningSupported() {
+    public boolean isReturningSupported(Operation operation) {
+        return false;
+    }
+
+    @Override
+    public boolean isBatchSupported(Operation operation) {
         return false;
     }
 
     @Override
     public Appender[] getAppenders(Operation operation) {
         switch(operation) {
+        case SELECT:
+            return getSelectAppenders();
         case INSERT:
             return getInsertAppenders();
         case UPDATE:
@@ -74,6 +87,10 @@ public class Standard extends Language {
         default:
             throw new IllegalStateException(String.format("The batch operation %s is unknown!", operation));
         }
+    }
+
+    protected Appender[] getSelectAppenders() {
+        return SELECT_APPENDERS;
     }
 
     protected Appender[] getInsertAppenders() {
@@ -86,6 +103,34 @@ public class Standard extends Language {
 
     protected Appender[] getDeleteAppenders() {
         return DELETE_APPENDERS;
+    }
+
+    private static class Select extends Appender {
+        @Override
+        public void append(Data data, Query query, ResultMode mode) {
+            switch (mode) {
+            case REPOPULATE:
+                query.append("SELECT * FROM #1# ", data.table);
+                break;
+
+            case ID_ONLY: // XXX: entirely meaningless unless used outside batch context.
+                query.append("SELECT ", data.table);
+                boolean comma = false;
+                for (Symbol symbol : data.pkSymbols) {
+                    if (comma) {
+                        query.append(", ");
+                    } else {
+                        comma = true;
+                    }
+                    query.append("#:1#", symbol);
+                }
+                query.append(" FROM #1# ", data.table);
+                break;
+
+            default:
+                throw new IllegalStateException("Cannot append empty selection!");
+            }
+        }
     }
 
     private static class Insert extends Appender {
@@ -214,14 +259,9 @@ public class Standard extends Language {
     }
 
     @Override
-    public boolean isBatchUpdateSupported() {
-        return false;
-    }
-
-    @Override
     public Query select(Table table) {
         Query query = new Query(this);
-        query.append("SELECT * FROM #1#", table);
+        SELECT.append(null, query, ResultMode.REPOPULATE);
         return query;
     }
 
