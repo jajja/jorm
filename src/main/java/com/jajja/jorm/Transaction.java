@@ -89,7 +89,6 @@ import com.jajja.jorm.Row.Column;
  */
 public class Transaction {
     static {
-        System.out.println("DINKLES MAMMA DRICKER OPPIGÅRDS!");
         try {
             log = LoggerFactory.getLogger(Transaction.class);
         } catch (Exception e) {
