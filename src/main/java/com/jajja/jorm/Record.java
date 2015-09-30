@@ -120,9 +120,9 @@ import com.jajja.jorm.generator.Generator;
  *
  * @see Jorm
  * @see Query
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
- * @author Martin Korinth <martin.korinth@jajja.com>
- * @author Daniel Adolfsson <daniel.adolfsson@jajja.com>
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
+ * @author Daniel Adolfsson &lt;daniel.adolfsson@jajja.com&gt;
  * @since 1.0.0
  */
 public abstract class Record extends Row {
@@ -161,6 +161,7 @@ public abstract class Record extends Row {
 
     /**
      * Provides the cached log for the instance class according to {@link Record#log(Class)}.
+     * @return the class associated logger
      */
     public Logger log() {
         return log(getClass());
@@ -194,6 +195,11 @@ public abstract class Record extends Row {
 
     /**
      * Instantiates a record class of the specified type.
+     * 
+     * @param clazz
+     *            the @{link Record} class providing a new instance
+     * @param <T> the @{link Record} class specification
+     * @return the new instance
      */
     public static <T extends Record> T construct(Class<T> clazz) {
         try {

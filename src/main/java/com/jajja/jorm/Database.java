@@ -49,9 +49,9 @@ import org.slf4j.LoggerFactory;
  *
  * @see Jorm
  * @see Record
- * @author Martin Korinth <martin.korinth@jajja.com>
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
- * @author Daniel Adolfsson <daniel.adolfsson@jajja.com>
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
+ * @author Daniel Adolfsson &lt;daniel.adolfsson@jajja.com&gt;
  * @since 1.0.0
  */
 public class Database {
@@ -63,7 +63,7 @@ public class Database {
     private Logger log = LoggerFactory.getLogger(Database.class);
     private static volatile Database instance = new Database();
     private static boolean configured;
-    private static Map<String, Configuration> configurations;
+    private static Map<String, Configuration> configurations = new HashMap<String, Configuration>();
 
     private Database() {
     }
@@ -277,18 +277,19 @@ public class Database {
      */
     private static void configure() {
         try {
-            configurations = new HashMap<String, Configuration>();
             Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
             URL local = null;
             while (urls.hasMoreElements()) {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
+                    Database.get().log.debug("Found jorm configuration @ " + url.toString());
                     configure(url);
                 } else {
                     local = url;
                 }
             }
             if (local != null) {
+                Database.get().log.debug("Found jorm configuration @ " + local.toString());
                 configure(local);
             }
 
@@ -312,19 +313,20 @@ public class Database {
         }
     }
 
-    private static void configure(URL url) {
-        Database.get().log.debug("Found jorm configuration @ " + url.toString());
-
+    public static void configure(URL url) {
         Properties properties = new Properties();
         try {
             InputStream is = url.openStream();
             properties.load(is);
             is.close();
         } catch (IOException ex) {
-            Database.get().log.error("Failed to open jorm.properties: " + ex.getMessage(), ex);
+            Database.get().log.error("Failed to open properties file: " + ex.getMessage(), ex);
             return;
         }
+        configure(properties);
+    }
 
+    public static void configure(Properties properties) {
         for (Entry<Object, Object> property : properties.entrySet()) {
             String[] parts = ((String)property.getKey()).split("\\.");
             boolean isMalformed = false;

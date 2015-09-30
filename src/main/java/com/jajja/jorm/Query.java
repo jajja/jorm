@@ -52,8 +52,8 @@ import java.util.Map;
  *
  * @see Record
  * @see Transaction
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
- * @author Martin Korinth <martin.korinth@jajja.com>
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
  * @since 1.0.0
  */
 public class Query {

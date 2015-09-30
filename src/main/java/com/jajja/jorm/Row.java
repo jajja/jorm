@@ -33,8 +33,12 @@ import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.patch.Patcher;
 
 /**
- * @author dnk
- *
+ * @see Transaction
+ * @see Record
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
+ * @author Daniel Adolfsson &lt;daniel.adolfsson@jajja.com&gt;
+ * @since 2.0.0
  */
 public class Row {
     public static final byte FLAG_STALE = 0x01;

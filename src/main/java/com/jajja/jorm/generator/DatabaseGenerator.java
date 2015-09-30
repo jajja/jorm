@@ -41,8 +41,8 @@ import com.jajja.jorm.Transaction;
  * A code generator for {@link Jorm} mapped records.
  *
  * @see Record
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
- * @author Martin Korinth <martin.korinth@jajja.com>
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
  * @since 1.1.0
  */
 public class DatabaseGenerator implements Lookupable {

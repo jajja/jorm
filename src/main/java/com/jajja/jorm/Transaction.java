@@ -82,13 +82,21 @@ import com.jajja.jorm.Row.Column;
  * @see Query
  * @see Database
  * @see Record
- * @author Martin Korinth <martin.korinth@jajja.com>
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
- * @author Daniel Adolfsson <daniel.adolfsson@jajja.com>
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
+ * @author Daniel Adolfsson &lt;daniel.adolfsson@jajja.com&gt;
  * @since 1.0.0
  */
 public class Transaction {
-    private static Logger log = LoggerFactory.getLogger(Transaction.class);
+    static {
+        System.out.println("DINKLES MAMMA DRICKER OPPIGÅRDS!");
+        try {
+            log = LoggerFactory.getLogger(Transaction.class);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    private static Logger log = null;
     private final String database;
     private final DataSource dataSource;
     private Dialect dialect;
@@ -140,7 +148,7 @@ public class Transaction {
     }
 
     /**
-     * Provides the data source fro the transaction.
+     * Provides the data source for the transaction.
      *
      * @return the data source.
      */

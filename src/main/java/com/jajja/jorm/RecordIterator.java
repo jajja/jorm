@@ -32,6 +32,12 @@ import java.sql.Timestamp;
 
 import com.jajja.jorm.Row.Column;
 
+/**
+ * @see Transaction
+ * @see Record
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
+ * @since 2.0.0
+ */
 public class RecordIterator implements Closeable {
     private Symbol[] symbols;
     private ResultSet resultSet;

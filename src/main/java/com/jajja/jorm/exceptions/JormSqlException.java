@@ -25,7 +25,7 @@ import java.sql.SQLException;
 
 /**
  *
- * @author Daniel Adolfsson <daniel.adolfsson@jajja.com>
+ * @author Daniel Adolfsson &lt;daniel.adolfsson@jajja.com&gt;
  * @since 1.0.0
  */
 public class JormSqlException extends SQLException {

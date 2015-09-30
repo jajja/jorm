@@ -28,9 +28,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @see Jorm
  * @see Record
- * @author Daniel Adolfsson <daniel.adolfsson@jajja.com>
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
- * @author Martin Korinth <martin.korinth@jajja.com>
+ * @author Daniel Adolfsson &lt;daniel.adolfsson@jajja.com&lt;
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&lt;
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&lt;
  * @since 1.0.0
  */
 public class Table {

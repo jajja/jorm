@@ -32,8 +32,8 @@ import java.lang.annotation.RetentionPolicy;
  *
  * @see Record
  * @see Database
- * @author Martin Korinth <martin.korinth@jajja.com>
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
  * @since 1.0.0
  */
 @Retention(RetentionPolicy.RUNTIME)

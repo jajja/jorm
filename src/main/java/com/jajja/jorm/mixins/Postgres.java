@@ -47,7 +47,7 @@ import com.jajja.jorm.Transaction;
  * drastically in upcoming versions of jORM.
  * </p>
  *
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
  * @since 1.0.0
  */
 public final class Postgres {

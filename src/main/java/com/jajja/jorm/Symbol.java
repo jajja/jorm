@@ -29,8 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @see Record
  * @see Column
- * @author Martin Korinth <martin.korinth@jajja.com>
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
  * @since 1.0.0
  */
 public final class Symbol implements Comparable<Symbol> {

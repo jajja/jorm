@@ -35,7 +35,7 @@ import com.jajja.jorm.Composite.Value;
  * A record cache implementation, using LRU.
  *
  * @see Record
- * @author Andreas Allerdahl <andreas.allerdahl@jajja.com>
+ * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
  * @since 1.0.0
  */
 public class Cache<C extends Record> {

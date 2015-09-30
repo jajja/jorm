@@ -25,7 +25,7 @@ import java.sql.SQLException;
 
 /**
  *
- * @author Martin Korinth <maritn.korinth@jajja.com>
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
  * @since 1.0.0
  */
 public class CheckViolationException extends JormSqlException {
