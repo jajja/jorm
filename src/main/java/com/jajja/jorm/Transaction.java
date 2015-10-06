@@ -88,14 +88,7 @@ import com.jajja.jorm.Row.Column;
  * @since 1.0.0
  */
 public class Transaction {
-    static {
-        try {
-            log = LoggerFactory.getLogger(Transaction.class);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-    private static Logger log = null;
+    private static Logger log;
     private final String database;
     private final DataSource dataSource;
     private Dialect dialect;
@@ -105,16 +98,32 @@ public class Transaction {
     private boolean isLoggingEnabled = false;
     private Calendar calendar;
 
+    static {
+        try {
+            log = LoggerFactory.getLogger(Transaction.class);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void tracelog(String message) {
         if (isLoggingEnabled) {
-            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-            for (int i = 1; i < stackTrace.length; i++) {
-                StackTraceElement stackTraceElement = stackTrace[i];
-                if (!stackTraceElement.getClassName().startsWith("com.jajja.jorm.")) {
-                    System.out.println(stackTraceElement + ": " + message);
-                    log.info(stackTraceElement + ": " + message);
-                    break;
+            try {
+                StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+                for (int i = 1; i < stackTrace.length; i++) {
+                    StackTraceElement stackTraceElement = stackTrace[i];
+                    if (!stackTraceElement.getClassName().startsWith("com.jajja.jorm.")) {
+                        if (log != null) {
+                            log.info(stackTraceElement + ": " + message);
+                        } else {
+                            System.out.println(stackTraceElement + ": " + message);
+                        }
+                        break;
+                    }
                 }
+            } catch (Exception e) {
+                // ...
+                e.printStackTrace();
             }
         }
     }
