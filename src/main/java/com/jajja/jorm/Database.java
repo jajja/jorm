@@ -87,7 +87,7 @@ public class Database {
         return transactions.get();
     }
 
-    private DataSource getDataSource(String database) {
+    public DataSource getDataSource(String database) {
         return dataSources.get(database);
     }
 
