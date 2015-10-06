@@ -146,7 +146,7 @@ public class Database {
      * @throws IllegalStateException when the named database has not been
      * configured.
      */
-    public static void ensureConfigured(String database) {
+    public static void assertConfigured(String database) {
         if (!isConfigured(database)) {
             throw new IllegalStateException("Named database '" + database + "' has no configured data source!");
         }
@@ -168,7 +168,7 @@ public class Database {
         if (transaction == null) {
             DataSource dataSource = instance.getDataSource(database);
             if (dataSource == null) {
-                ensureConfigured(database); // throws!
+                assertConfigured(database); // throws!
             }
             Configuration configuration = configurations.get(database);
             transaction = new Transaction(dataSource, database, configuration != null ? configuration.calendar : null);
@@ -192,7 +192,7 @@ public class Database {
         if (transaction != null) {
             transaction.commit();
         } else {
-            ensureConfigured(database);
+            assertConfigured(database);
         }
         return transaction;
     }
@@ -211,7 +211,7 @@ public class Database {
         if (transaction != null) {
             transaction.close();
         } else {
-            ensureConfigured(database);
+            assertConfigured(database);
         }
         return transaction;
     }
@@ -593,7 +593,7 @@ public class Database {
     }
 
     private static HashMap<String, Context> contextStack(String database) {
-        ensureConfigured(database);
+        assertConfigured(database);
         HashMap<String, Context> map = get().contextStack.get();
         if (map == null) {
             map = new HashMap<String, Context>();
