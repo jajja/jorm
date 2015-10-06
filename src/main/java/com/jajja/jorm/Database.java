@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.sql.DataSource;
 
@@ -56,7 +57,7 @@ import org.slf4j.LoggerFactory;
  */
 public class Database {
     private ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
-    private Map<String, DataSource> dataSources = new HashMap<String, DataSource>();
+    private Map<String, DataSource> dataSources = new ConcurrentHashMap<String, DataSource>(16, 0.75f, 1);
     private ThreadLocal<HashMap<String, Context>> contextStack = new ThreadLocal<HashMap<String, Context>>();
     private String globalDefaultContext = "";
     private Map<String, String> defaultContext = new HashMap<String, String>();
@@ -87,9 +88,7 @@ public class Database {
     }
 
     private DataSource getDataSource(String database) {
-        synchronized (dataSources) {
-            return dataSources.get(database);
-        }
+        return dataSources.get(database);
     }
 
     /**
@@ -100,7 +99,8 @@ public class Database {
      * a data source.
      */
     public void setDataSources(Map<String, DataSource> dataSources) {
-        this.dataSources = dataSources;
+        this.dataSources.clear();
+        this.dataSources.putAll(dataSources);
     }
 
     /**
