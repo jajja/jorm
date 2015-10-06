@@ -43,7 +43,8 @@ import com.jajja.jorm.patch.Patcher;
 public class Row {
     public static final byte FLAG_STALE = 0x01;
     public static final byte FLAG_READ_ONLY = 0x02;
-    byte flags;
+    public static final byte FLAG_REF_FETCH = 0x04;
+    byte flags = FLAG_REF_FETCH;
     Map<Symbol, Column> columns = new HashMap<Symbol, Column>(8, 1.0f);
 
     public static class Column {
@@ -247,7 +248,7 @@ public class Row {
     }
 
     private boolean flag(int flag) {
-        return (flags &= flag) != 0;
+        return (flags & flag) != 0;
     }
 
     /**
@@ -302,6 +303,19 @@ public class Row {
         if (isReadOnly()) {
             throw new RuntimeException("Row is read only!");
         }
+    }
+
+    public void refFetch(boolean refFetch) {
+        flag(FLAG_REF_FETCH, refFetch);
+    }
+
+    public boolean isRefFetch() {       // Best name 2015
+        return flag(FLAG_REF_FETCH);
+    }
+
+    public void unmodifiable() {
+        flag(FLAG_READ_ONLY, true);
+        flag(FLAG_REF_FETCH, false);
     }
 
     private boolean hasChanged(Symbol symbol, Object newValue) {
@@ -600,15 +614,18 @@ public class Row {
 
         Column column = columns.get(symbol);
         if (column == null) {
-            throw new RuntimeException("Column '" + symbol.getName() + "' does not exist, or has not yet been set");
+            throw new RuntimeException("Column '" + symbol.getName() + "' does not exist, or has not yet been set on " + this);
         }
 
         Object value = column.getValue();
 
         if (value != null) {
             if (Record.isRecordSubclass(clazz)) {
-                if ((column.getReference() == null) && !isReferenceCacheOnly) {
+                if (column.getReference() == null && !isReferenceCacheOnly) {
                     // Load foreign key
+                    if (!flag(FLAG_REF_FETCH)) {
+                        throw new IllegalAccessError("Reference fetching is disabled");
+                    }
                     try {
                         transaction = (transaction != null ? transaction : Record.transaction((Class<? extends Record>)clazz));
                         Record reference = transaction.findById((Class<? extends Record>)clazz, value);
