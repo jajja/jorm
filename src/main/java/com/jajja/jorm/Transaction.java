@@ -1895,17 +1895,17 @@ public class Transaction {
 
         query.append(" WHERE #1#", getDialect().toSqlExpression(record.get(key)));
 
-        record.stale(true);
         try {
             if (getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
                 query.append(" RETURNING *");
-                selectInto(record, query);
-                rowsUpdated = 1;                        // XXX FIXME not correct
+                rowsUpdated = selectInto(record, query) ? 1 : 0;    // FIXME 1 row is not necessarily correct
             } else {
                 rowsUpdated = executeUpdate(query);
+                if (rowsUpdated > 0) {
+                    record.stale(true);
+                }
             }
         } catch (SQLException e) {
-            record.stale(false);
             throw(e);
         }
 
