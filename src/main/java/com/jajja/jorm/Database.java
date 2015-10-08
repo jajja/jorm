@@ -56,15 +56,14 @@ import org.slf4j.LoggerFactory;
  * @since 1.0.0
  */
 public class Database {
-    private ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
-    private Map<String, DataSource> dataSources = new ConcurrentHashMap<String, DataSource>(16, 0.75f, 1);
-    private ThreadLocal<HashMap<String, Context>> contextStack = new ThreadLocal<HashMap<String, Context>>();
+    private final Logger log = LoggerFactory.getLogger(Database.class);
+    private final ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
+    private final ThreadLocal<HashMap<String, Context>> contextStack = new ThreadLocal<HashMap<String, Context>>();
+    private final Map<String, DataSource> dataSources = new ConcurrentHashMap<String, DataSource>(16, 0.75f, 1);
+    private final Map<String, Configuration> configurations = new HashMap<String, Configuration>();
+    private final Map<String, String> defaultContext = new HashMap<String, String>();
     private String globalDefaultContext = "";
-    private Map<String, String> defaultContext = new HashMap<String, String>();
-    private Logger log = LoggerFactory.getLogger(Database.class);
-    private static volatile Database instance = new Database();
-    private static boolean configured;
-    private static Map<String, Configuration> configurations = new HashMap<String, Configuration>();
+    private static Database instance;           // NEVER use directly, always use get()
 
     private Database() {
     }
@@ -76,7 +75,15 @@ public class Database {
      * @return the singleton database representation containing configured data
      * sources for databases.
      */
-    public static synchronized Database get() {
+    public static Database get() {
+        if (instance == null) {
+            synchronized (Database.class) {
+                if (instance == null) {
+                    instance = new Database();
+                    instance.configure();
+                }
+            }
+        }
         return instance;
     }
 
@@ -87,8 +94,8 @@ public class Database {
         return transactions.get();
     }
 
-    public DataSource getDataSource(String database) {
-        return dataSources.get(database);
+    public static DataSource getDataSource(String database) {
+        return get().dataSources.get(database);
     }
 
     /**
@@ -125,7 +132,7 @@ public class Database {
         if (!isOverride && isConfigured(database)) {
             throw new IllegalStateException("Named database '" + database + "' already configured!");
         }
-        instance.dataSources.put(database, dataSource);
+        get().dataSources.put(database, dataSource);
     }
 
     /**
@@ -135,7 +142,10 @@ public class Database {
      * @return true if the named database has been configured, false otherwise.
      */
     public static boolean isConfigured(String database) {
-        return instance.dataSources.containsKey(database);
+        if (database == null) {
+            return false;
+        }
+        return get().dataSources.containsKey(database);
     }
 
     /**
@@ -161,16 +171,15 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
-        ensureConfigured();
         database = context(database).effectiveName();
-        HashMap<String, Transaction> transactions = instance.getTransactions();
+        HashMap<String, Transaction> transactions = get().getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction == null) {
-            DataSource dataSource = instance.getDataSource(database);
+            DataSource dataSource = getDataSource(database);
             if (dataSource == null) {
                 assertConfigured(database); // throws!
             }
-            Configuration configuration = configurations.get(database);
+            Configuration configuration = get().configurations.get(database);
             transaction = new Transaction(dataSource, database, configuration != null ? configuration.calendar : null);
             transactions.put(database, transaction);
         }
@@ -187,7 +196,7 @@ public class Database {
      */
     public static Transaction commit(String database) throws SQLException {
         database = context(database).effectiveName();
-        HashMap<String, Transaction> transactions = instance.getTransactions();
+        HashMap<String, Transaction> transactions = get().getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
             transaction.commit();
@@ -206,7 +215,7 @@ public class Database {
      */
     public static Transaction close(String database) {
         database = context(database).effectiveName();
-        HashMap<String, Transaction> transactions = instance.getTransactions();
+        HashMap<String, Transaction> transactions = get().getTransactions();
         Transaction transaction = transactions.get(database);
         if (transaction != null) {
             transaction.close();
@@ -220,32 +229,19 @@ public class Database {
      * Closes and destroys all transactions for the current thread.
      */
     public static void close() {
-        HashMap<String, Transaction> map = instance.getTransactions();
+        HashMap<String, Transaction> map = get().getTransactions();
         for (Transaction transaction : map.values()) {
             transaction.destroy();
         }
         map.clear();
-        instance.transactions.remove();
+        get().transactions.remove();
     }
 
     public static void destroy() {
-        if (configurations != null) {
-            for (Configuration configuration : configurations.values()) {
+        if (get().configurations != null) {
+            for (Configuration configuration : get().configurations.values()) {
                 configuration.destroy();
             }
-        }
-    }
-
-    private static void ensureConfigured() {
-        if (configured) {
-            return;
-        }
-        synchronized (Database.class) {
-            if (configured) {
-                return;
-            }
-            configure();
-            configured = true;
         }
     }
 
@@ -275,7 +271,7 @@ public class Database {
      * database.context=
      * database.moria.context=production
      */
-    private static void configure() {
+    private void configure() {
         try {
             Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
             URL local = null;
@@ -309,7 +305,6 @@ public class Database {
             }
         } catch (IOException ex) {
             Database.get().log.warn("Failed to find resource 'jorm.properties': " + ex.getMessage(), ex);
-            configurations = null;
         }
     }
 
@@ -334,10 +329,10 @@ public class Database {
             if (parts[0].equals("database") && parts.length > 1) {
                 String database = parts[1];
 
-                Configuration configuration = configurations.get(database);
+                Configuration configuration = get().configurations.get(database);
                 if (configuration == null) {
                     configuration = new Configuration(database);
-                    configurations.put(database, configuration);
+                    get().configurations.put(database, configuration);
                 }
 
                 String value = (String)property.getValue();
@@ -555,7 +550,7 @@ public class Database {
             if (next != null || isClosed) {
                 throw new IllegalStateException("Context closed in wrong order");
             }
-            contextStack(database).put(database, prev);
+            contextStack().put(database, prev);
             prev.next = null;
             prev = null;
             isClosed = true;
@@ -592,8 +587,7 @@ public class Database {
         return get().defaultContext.put(database, name);
     }
 
-    private static HashMap<String, Context> contextStack(String database) {
-        assertConfigured(database);
+    private static HashMap<String, Context> contextStack() {
         HashMap<String, Context> map = get().contextStack.get();
         if (map == null) {
             map = new HashMap<String, Context>();
@@ -604,7 +598,7 @@ public class Database {
 
     // Get active thread-local context
     public static Context context(String database) {
-        HashMap<String, Context> map = contextStack(database);
+        HashMap<String, Context> map = contextStack();
         Context activeContext = map.get(database);
         if (activeContext == null) {
             activeContext = new Context(database);
@@ -615,7 +609,7 @@ public class Database {
 
     // Push active thread-local context
     public static Context context(String database, String name) {
-        HashMap<String, Context> map = contextStack(database);
+        HashMap<String, Context> map = contextStack();
         Context newContext = new Context(context(database), name);
         map.put(database, newContext);
         return newContext;
