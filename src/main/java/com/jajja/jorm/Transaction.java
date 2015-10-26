@@ -92,7 +92,6 @@ public class Transaction {
     private final String database;
     private final DataSource dataSource;
     private Dialect dialect;
-    private Timestamp now;
     private Connection connection;
     private boolean isDestroyed = false;
     private boolean isLoggingEnabled = false;
@@ -167,14 +166,8 @@ public class Transaction {
     /**
      * Provides the SQL dialect of the connection for the transaction.
      */
-    public Dialect getDialect() {
-        if (dialect == null) {
-            try {
-                dialect = new Dialect(database, getConnection());
-            } catch (SQLException sqlException) {
-                throw new RuntimeException("Failed to get database connection", sqlException);
-            }
-        }
+    public Dialect getDialect() throws SQLException {
+        getConnection();
         return dialect;
     }
 
@@ -193,40 +186,18 @@ public class Transaction {
      * @throws RuntimeException
      *             if a database access error occurs.
      */
-    public Timestamp now() {
-        if (now != null) {
-            return now;
-        }
-
+    public Timestamp now() throws SQLException {
         PreparedStatement preparedStatement = null;
-        ResultSet resultSet = null;
         try {
-            Connection connection = getConnection();
-            preparedStatement = connection.prepareStatement(getDialect().getNowQuery());
-            resultSet = preparedStatement.executeQuery();
+            preparedStatement = prepare(getDialect().getNowQuery(), null);
+            ResultSet resultSet = preparedStatement.executeQuery();
             resultSet.next();
-            now = resultSet.getTimestamp(1);
-        } catch (SQLException sqlException) {
-            throw new RuntimeException("Failed to execute: " + getDialect().getNowQuery(), sqlException);
+            return resultSet.getTimestamp(1);
         } finally {
-            try {
-                if (resultSet != null) {
-                    resultSet.close();
-                }
-            } catch (SQLException exception) {
-                throw new RuntimeException("Failed closing the result set", exception);
-            } finally {
-                if (preparedStatement != null) {
-                    try {
-                        preparedStatement.close();
-                    } catch (SQLException exception) {
-                        throw new RuntimeException("Failed closing the prepared statment", exception);
-                    }
-                }
+            if (preparedStatement != null) {
+                preparedStatement.close();
             }
         }
-
-        return now;
     }
 
     /**
@@ -245,6 +216,7 @@ public class Transaction {
             connection = dataSource.getConnection();
             tracelog("BEGIN");
             connection.setAutoCommit(false);
+            dialect = new Dialect(database, getConnection());
         }
         return connection;
     }
@@ -323,7 +295,6 @@ public class Transaction {
             } catch (SQLException e) {
                 log.error("Failed to close connection", e);
             }
-            now = null;
             dialect = null;
             connection = null;
         }
@@ -757,15 +728,15 @@ public class Transaction {
         return populateByCompositeValue(record, record.primaryKey().value(id));
     }
 
-    private <T extends Record> Query getSelectQuery(Class<T> clazz) {
+    private <T extends Record> Query getSelectQuery(Class<T> clazz) throws SQLException {
         return build("SELECT * FROM #1# ", clazz);
     }
 
-    private <T extends Record> Query getDeleteQuery(Class<T> clazz) {
+    private <T extends Record> Query getDeleteQuery(Class<T> clazz) throws SQLException {
         return build("DELETE FROM #1# ", clazz);
     }
 
-    public <T extends Record> Query getSelectQuery(Class<T> clazz, Object value) {
+    public <T extends Record> Query getSelectQuery(Class<T> clazz, Object value) throws SQLException {
         Value v;
         if (value instanceof Value) {
             v = (Value)value;
@@ -779,7 +750,7 @@ public class Transaction {
         return query;
     }
 
-    public <T extends Record> Query getDeleteQuery(Class<T> clazz, Object value) {
+    public <T extends Record> Query getDeleteQuery(Class<T> clazz, Object value) throws SQLException {
         Value v;
         if (value instanceof Value) {
             v = (Value)value;
@@ -799,8 +770,9 @@ public class Transaction {
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
+     * @throws SQLException
      */
-    public Query build() {
+    public Query build() throws SQLException {
         return new Query(getDialect());
     }
 
@@ -810,8 +782,9 @@ public class Transaction {
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
+     * @throws SQLException
      */
-    public Query build(String sql) {
+    public Query build(String sql) throws SQLException {
         return new Query(getDialect(), sql);
     }
 
@@ -825,8 +798,9 @@ public class Transaction {
      * @param params
      *            the parameters applying to the SQL hash markup.
      * @return the built query.
+     * @throws SQLException
      */
-    public Query build(String sql, Object... params) {
+    public Query build(String sql, Object... params) throws SQLException {
         return new Query(getDialect(), sql, params);
     }
 

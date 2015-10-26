@@ -195,7 +195,7 @@ public abstract class Record extends Row {
 
     /**
      * Instantiates a record class of the specified type.
-     * 
+     *
      * @param clazz
      *            the @{link Record} class providing a new instance
      * @param <T> the @{link Record} class specification
@@ -306,8 +306,9 @@ public abstract class Record extends Row {
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
+     * @throws SQLException
      */
-    public Query build(String sql) {
+    public Query build(String sql) throws SQLException {
         return transaction().build(sql);
     }
 
@@ -321,8 +322,9 @@ public abstract class Record extends Row {
      * @param params
      *            the parameters applying to the SQL hash markup.
      * @return the built query.
+     * @throws SQLException
      */
-    public Query build(String sql, Object... params) {
+    public Query build(String sql, Object... params) throws SQLException {
         return transaction().build(sql, params);
     }
 
@@ -334,8 +336,9 @@ public abstract class Record extends Row {
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
+     * @throws SQLException
      */
-    public static Query build(Class<? extends Record> clazz, String sql) {
+    public static Query build(Class<? extends Record> clazz, String sql) throws SQLException {
         return transaction(clazz).build(sql);
     }
 
@@ -352,8 +355,9 @@ public abstract class Record extends Row {
      *            the parameters applying to the SQL hash markup.
      * @return the built query.
      * @return the built query.
+     * @throws SQLException
      */
-    public static Query build(Class<? extends Record> clazz, String sql, Object... params) {
+    public static Query build(Class<? extends Record> clazz, String sql, Object... params) throws SQLException {
         return transaction(clazz).build(sql, params);
     }
 

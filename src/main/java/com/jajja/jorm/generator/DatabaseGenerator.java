@@ -57,7 +57,7 @@ public class DatabaseGenerator implements Lookupable {
         ENUM;
     }
 
-    public DatabaseGenerator(Generator generator, String name, String packageName) {
+    public DatabaseGenerator(Generator generator, String name, String packageName) throws SQLException {
         this.generator = generator;
         this.name = name;
         this.packageName = packageName;

@@ -21,6 +21,7 @@
  */
 package com.jajja.jorm;
 
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -81,15 +82,15 @@ public class Query {
         append(sql, params);
     }
 
-    public Query(Transaction transaction) {
+    public Query(Transaction transaction) throws SQLException {
         this(transaction.getDialect());
     }
 
-    public Query(Transaction transaction, String sql) {
+    public Query(Transaction transaction, String sql) throws SQLException {
         this(transaction.getDialect(), sql);
     }
 
-    public Query(Transaction transaction, String sql, Object ... params) {
+    public Query(Transaction transaction, String sql, Object ... params) throws SQLException {
         this(transaction.getDialect(), sql, params);
     }
 

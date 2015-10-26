@@ -45,7 +45,7 @@ public class Goblin extends Record {
     }
 
     // part 3
-    public Litter relieve() {
+    public Litter relieve() throws SQLException {
         Litter litter = new Litter();
         litter.set("stench", build("random() * 0.9")) ;
         litter.setGoblin(this);

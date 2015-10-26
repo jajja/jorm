@@ -77,7 +77,7 @@ public class Generator implements Lookupable {
         }
     }
 
-    public DatabaseGenerator addDatabase(String name, String packageName) {
+    public DatabaseGenerator addDatabase(String name, String packageName) throws SQLException {
         DatabaseGenerator database = new DatabaseGenerator(this, name, packageName);
         databases.put(name, database);
         return database;
