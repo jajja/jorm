@@ -38,9 +38,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.sql.DataSource;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * The database abstraction implemented for {@link Jorm} mapped records. Relies
  * on {@link javax.sql.DataSource} for data access to configured data bases. One
@@ -56,7 +53,6 @@ import org.slf4j.LoggerFactory;
  * @since 1.0.0
  */
 public class Database {
-    private final Logger log = LoggerFactory.getLogger(Database.class);
     // FIXME daz alotta hashmapz...
     private final ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
     private final ThreadLocal<HashMap<String, Context>> contextStack = new ThreadLocal<HashMap<String, Context>>();
@@ -279,14 +275,14 @@ public class Database {
             while (urls.hasMoreElements()) {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
-                    Database.get().log.debug("Found jorm configuration @ " + url.toString());
+                    //Database.get().log.debug("Found jorm configuration @ " + url.toString());
                     configure(url);
                 } else {
                     local = url;
                 }
             }
             if (local != null) {
-                Database.get().log.debug("Found jorm configuration @ " + local.toString());
+                //Database.get().log.debug("Found jorm configuration @ " + local.toString());
                 configure(local);
             }
 
@@ -302,23 +298,18 @@ public class Database {
                 }
                 configuration.init();
                 configure(database, configuration.dataSource);
-                Database.get().log.debug("Configured " + configuration);
+                //Database.get().log.debug("Configured " + configuration);
             }
         } catch (IOException ex) {
-            Database.get().log.warn("Failed to find resource 'jorm.properties': " + ex.getMessage(), ex);
+            //Database.get().log.warn("Failed to find resource 'jorm.properties': " + ex.getMessage(), ex);
         }
     }
 
-    public static void configure(URL url) {
+    public static void configure(URL url) throws IOException {
         Properties properties = new Properties();
-        try {
-            InputStream is = url.openStream();
-            properties.load(is);
-            is.close();
-        } catch (IOException ex) {
-            Database.get().log.error("Failed to open properties file: " + ex.getMessage(), ex);
-            return;
-        }
+        InputStream is = url.openStream();
+        properties.load(is);
+        is.close();
         configure(properties);
     }
 
@@ -384,7 +375,8 @@ public class Database {
             }
 
             if (isMalformed) {
-                Database.get().log.warn(String.format("Malformed jorm property: %s", property.toString()));
+                //Database.get().log.warn(String.format("Malformed jorm property: %s", property.toString()));
+                throw new RuntimeException(String.format("Malformed jorm property: %s", property.toString()));
             }
         }
     }
@@ -446,7 +438,8 @@ public class Database {
                             try {
                                 method.invoke(dataSource, parse(method.getParameterTypes()[0], property));
                             } catch (Exception e) {
-                                get().log.warn("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'", e);
+                                //get().log.warn("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'", e);
+                                throw new RuntimeException("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'");
                             } finally {
                                 method.setAccessible(isAccessible);
                             }
@@ -469,7 +462,8 @@ public class Database {
                 try {
                     destroyMethod.invoke(dataSource);
                 } catch (Exception e) {
-                    get().log.error("Failed to invoke destroy method for " + dataSource.getClass(), e);
+                    //get().log.error("Failed to invoke destroy method for " + dataSource.getClass(), e);
+                    throw new RuntimeException("Failed to invoke destroy method for " + dataSource.getClass(), e);
                 }
             }
         }
