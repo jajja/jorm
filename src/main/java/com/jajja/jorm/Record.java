@@ -28,10 +28,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.generator.Generator;
@@ -126,8 +122,6 @@ import com.jajja.jorm.generator.Generator;
  * @since 1.0.0
  */
 public abstract class Record extends Row {
-    private static Map<Class<? extends Record>, Logger> logs = new ConcurrentHashMap<Class<? extends Record>, Logger>(16, 0.75f, 1);
-
     public static enum ResultMode {
         /** For both INSERTs and UPDATEs, fully repopulate record(s). This is the default. */
         REPOPULATE,
@@ -135,36 +129,6 @@ public abstract class Record extends Row {
         ID_ONLY,
         /** Fetch nothing, mark record as stale and assume the primary key value is accurate. */
         NO_RESULT;
-    }
-
-    /**
-     * Provides a cached log for the specified class. Stores a new log in the
-     * cache if no preceding call with the given class has been made.
-     *
-     * @param clazz
-     *            the class defining log instance.
-     * @return the class specific cached log.
-     */
-    public static Logger log(Class<? extends Record> clazz) {
-        Logger log = logs.get(clazz);
-        if (log == null) {
-            synchronized (logs) {
-                log = logs.get(clazz);
-                if (log == null) {
-                    log = LoggerFactory.getLogger(clazz);
-                    logs.put(clazz, log);
-                }
-            }
-        }
-        return log;
-    }
-
-    /**
-     * Provides the cached log for the instance class according to {@link Record#log(Class)}.
-     * @return the class associated logger
-     */
-    public Logger log() {
-        return log(getClass());
     }
 
     // Helper method used by batch methods to quickly determine a list's generic type

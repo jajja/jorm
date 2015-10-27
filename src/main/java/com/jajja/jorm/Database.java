@@ -57,6 +57,7 @@ import org.slf4j.LoggerFactory;
  */
 public class Database {
     private final Logger log = LoggerFactory.getLogger(Database.class);
+    // FIXME daz alotta hashmapz...
     private final ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
     private final ThreadLocal<HashMap<String, Context>> contextStack = new ThreadLocal<HashMap<String, Context>>();
     private final Map<String, DataSource> dataSources = new ConcurrentHashMap<String, DataSource>(16, 0.75f, 1);

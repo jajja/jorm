@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import com.jajja.jorm.Database;
 import com.jajja.jorm.Record;
+import com.jajja.jorm.Transaction;
 import com.jajja.jorm.exceptions.CheckViolationException;
 import com.jajja.jorm.exceptions.UniqueViolationException;
 
@@ -29,7 +30,7 @@ public class Moria {
         try {
             Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
             Database.commit("moria");
-            Database.open("moria").setLoggingEnabled(true);
+            Database.open("moria").addListener(new Transaction.StoutLogListener());
         } catch (Exception e) {
             LoggerFactory.getLogger(Moria.class).error("Failed to open test", e);
         }

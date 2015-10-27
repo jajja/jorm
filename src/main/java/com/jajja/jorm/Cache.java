@@ -122,7 +122,7 @@ public class Cache<C extends Record> {
         }
     }
 
-    public C get(Value value) {
+    public C get(Value value) throws SQLException {
         synchronized (map) {
             C record;
 
@@ -142,13 +142,9 @@ public class Cache<C extends Record> {
                 } catch (Exception e) {
                     throw new RuntimeException("failed to create new instance", e);
                 }
-                try {
-                    if (!fetchInto(value, record)) {
-                        //  TODO negative cache?
-                        record = null;
-                    }
-                } catch (SQLException e) {
-                    throw new RuntimeException("failed to fetch record by key " + value, e);
+                if (!fetchInto(value, record)) {
+                    //  TODO negative cache?
+                    record = null;
                 }
                 if (record != null) {
                     index(record);
@@ -160,7 +156,7 @@ public class Cache<C extends Record> {
         }
     }
 
-    public C get(Object value) {
+    public C get(Object value) throws SQLException {
         return get(primaryKey.value(value));
     }
 

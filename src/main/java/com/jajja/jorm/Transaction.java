@@ -40,6 +40,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +51,6 @@ import java.util.TimeZone;
 import javax.sql.DataSource;
 
 import org.postgresql.util.PGobject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Record.ResultMode;
@@ -88,43 +87,67 @@ import com.jajja.jorm.Row.Column;
  * @since 1.0.0
  */
 public class Transaction {
-    private static Logger log;
     private final String database;
     private final DataSource dataSource;
     private Dialect dialect;
     private Connection connection;
     private boolean isDestroyed = false;
-    private boolean isLoggingEnabled = false;
     private Calendar calendar;
+    private Set<Listener> listeners;
 
-    static {
-        try {
-            log = LoggerFactory.getLogger(Transaction.class);
-        } catch (Exception e) {
-            e.printStackTrace();
+    public interface Listener {
+        public void log(Transaction t, String message, String sql, List<Object> params, StackTraceElement calledFrom, Throwable reason);
+    }
+
+    public static class StoutLogListener implements Listener {
+        @Override
+        public void log(Transaction t, String message, String sql, List<Object> params, StackTraceElement calledFrom, Throwable reason) {
+            System.out.printf("%s: %s: %s (called from %s)\n", t.getDatabase(), message, sql != null ? sql : "(no sql)", calledFrom);
+            if (params != null) {
+                int i = 1;
+                for (Object param : params) {
+                    System.out.printf("  SQL param #%d: %s\n", i++, param);
+                }
+            }
         }
     }
 
-    private void tracelog(String message) {
-        if (isLoggingEnabled) {
+    private void tracelog(String message, String sql, List<Object> params, Throwable reason) {
+        if (listeners != null) {
             try {
                 StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+                StackTraceElement calledFrom = null;
                 for (int i = 1; i < stackTrace.length; i++) {
                     StackTraceElement stackTraceElement = stackTrace[i];
                     if (!stackTraceElement.getClassName().startsWith("com.jajja.jorm.")) {
-                        if (log != null) {
-                            log.info(stackTraceElement + ": " + message);
-                        } else {
-                            System.out.println(stackTraceElement + ": " + message);
-                        }
+                        calledFrom = stackTraceElement;
                         break;
                     }
                 }
+                for (Listener listener : listeners) {
+                    try {
+                        listener.log(this, message, sql, params, calledFrom, reason);
+                    } catch (Exception e) {
+                    }
+                }
             } catch (Exception e) {
-                // ...
                 e.printStackTrace();
             }
         }
+    }
+
+    public boolean addListener(Listener listener) {
+        if (listeners == null) {
+            listeners = new LinkedHashSet<Listener>();
+        }
+        return listeners.add(listener);
+    }
+
+    public boolean removeListener(Listener listener) {
+        if (listeners != null) {
+            return listeners.remove(listener);
+        }
+        return false;
     }
 
     public void setCalendar(Calendar calendar) {
@@ -172,13 +195,6 @@ public class Transaction {
     }
 
     /**
-     * Enables or disables SQL query logging on this transaction.
-     */
-    public void setLoggingEnabled(boolean loggingEnabled) {
-        this.isLoggingEnabled = loggingEnabled;
-    }
-
-    /**
      * Provides the start time of the current transaction. The result is cached
      * until the end of the transaction.
      *
@@ -214,7 +230,7 @@ public class Transaction {
         }
         if (connection == null) {
             connection = dataSource.getConnection();
-            tracelog("BEGIN");
+            tracelog("BEGIN", null, null, null);
             connection.setAutoCommit(false);
             dialect = new Dialect(database, getConnection());
         }
@@ -258,7 +274,7 @@ public class Transaction {
      */
     public void commit(boolean close) throws SQLException {
         if (connection != null) {
-            tracelog("COMMIT");
+            tracelog("COMMIT", null, null, null);
             getConnection().commit();
             if (close) {
                 close();
@@ -285,15 +301,15 @@ public class Transaction {
     public void rollback(boolean close) {
         if (connection != null) {
             try {
-                tracelog("ROLLBACK");
+                tracelog("ROLLBACK", null, null, null);
                 connection.rollback();
             } catch (SQLException e) {
-                log.error("Failed to rollback transaction", e);
+                tracelog("ROLLBACK FAILED", null, null, e);
             }
             try {
                 connection.close();
             } catch (SQLException e) {
-                log.error("Failed to close connection", e);
+                tracelog("CONNECTION CLOSE FAILED", null, null, e);
             }
             dialect = null;
             connection = null;
@@ -351,7 +367,7 @@ public class Transaction {
      *             if a database access error occurs.
      */
     public PreparedStatement prepare(String sql, List<Object> params, boolean returnGeneratedKeys) throws SQLException {
-        tracelog(sql);
+        tracelog("PREPARE", sql, params, null);
         try {
             PreparedStatement preparedStatement = getConnection().prepareStatement(sql, returnGeneratedKeys ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS);
             if (params != null) {
@@ -406,8 +422,8 @@ public class Transaction {
         PreparedStatement preparedStatement = prepare(query.getSql(), query.getParams());
         try {
             preparedStatement.execute();
-        } catch (SQLException sqlException) {
-            throw getDialect().rethrow(sqlException, query.getSql());
+        } catch (SQLException e) {
+            throw getDialect().rethrow(e, query.getSql());
         } finally {
             preparedStatement.close();
         }
@@ -443,8 +459,8 @@ public class Transaction {
         PreparedStatement preparedStatement = prepare(query.getSql(), query.getParams());
         try {
             return preparedStatement.executeUpdate();
-        } catch (SQLException sqlException) {
-            throw getDialect().rethrow(sqlException, query.getSql());
+        } catch (SQLException e) {
+            throw getDialect().rethrow(e, query.getSql());
         } finally {
             preparedStatement.close();
         }
