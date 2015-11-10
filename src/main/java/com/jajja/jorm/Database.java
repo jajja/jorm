@@ -30,6 +30,8 @@ import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -274,19 +276,19 @@ public class Database {
     private void configure() {
         try {
             Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
-            URL local = null;
+            List<URL> locals = new LinkedList<URL>();
             while (urls.hasMoreElements()) {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
-                    logger.log(Level.FINE, "Found jorm configuration @ " + local.toString());
+                    logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
                     configure(url);
                 } else {
-                    local = url;
+                    locals.add(url);
                 }
             }
-            if (local != null) {
-                logger.log(Level.FINE, "Found jorm configuration @ " + local.toString());
-                configure(local);
+            for (URL url : locals) {
+                logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
+                configure(url);
             }
 
             for (Entry<String, Configuration> entry : configurations.entrySet()) {
