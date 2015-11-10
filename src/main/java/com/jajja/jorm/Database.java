@@ -378,7 +378,7 @@ public class Database {
             }
 
             if (isMalformed) {
-                throw new RuntimeException("Malformed jorm property: ", property.toString)));
+                throw new RuntimeException("Malformed jorm property: " + property.toString());
             }
         }
     }
