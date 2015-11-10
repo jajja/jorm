@@ -35,6 +35,8 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.sql.DataSource;
 
@@ -54,6 +56,7 @@ import javax.sql.DataSource;
  */
 public class Database {
     // FIXME daz alotta hashmapz...
+    private static final Logger logger =  Logger.getLogger(Database.class.getName());
     private final ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
     private final ThreadLocal<HashMap<String, Context>> contextStack = new ThreadLocal<HashMap<String, Context>>();
     private final Map<String, DataSource> dataSources = new ConcurrentHashMap<String, DataSource>(16, 0.75f, 1);
@@ -275,14 +278,14 @@ public class Database {
             while (urls.hasMoreElements()) {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
-                    //Database.get().log.debug("Found jorm configuration @ " + url.toString());
+                    logger.log(Level.FINE, "Found jorm configuration @ " + local.toString());
                     configure(url);
                 } else {
                     local = url;
                 }
             }
             if (local != null) {
-                //Database.get().log.debug("Found jorm configuration @ " + local.toString());
+                logger.log(Level.FINE, "Found jorm configuration @ " + local.toString());
                 configure(local);
             }
 
@@ -298,10 +301,10 @@ public class Database {
                 }
                 configuration.init();
                 configure(database, configuration.dataSource);
-                //Database.get().log.debug("Configured " + configuration);
+                Logger.getLogger(Database.class.getName()).log(Level.FINE, "Configured " + configuration);
             }
         } catch (IOException ex) {
-            //Database.get().log.warn("Failed to find resource 'jorm.properties': " + ex.getMessage(), ex);
+            throw new RuntimeException("Failed to configure from jorm.properties", ex);
         }
     }
 
@@ -375,8 +378,7 @@ public class Database {
             }
 
             if (isMalformed) {
-                //Database.get().log.warn(String.format("Malformed jorm property: %s", property.toString()));
-                throw new RuntimeException(String.format("Malformed jorm property: %s", property.toString()));
+                throw new RuntimeException("Malformed jorm property: ", property.toString)));
             }
         }
     }
@@ -438,7 +440,6 @@ public class Database {
                             try {
                                 method.invoke(dataSource, parse(method.getParameterTypes()[0], property));
                             } catch (Exception e) {
-                                //get().log.warn("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'", e);
                                 throw new RuntimeException("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'");
                             } finally {
                                 method.setAccessible(isAccessible);
@@ -462,7 +463,6 @@ public class Database {
                 try {
                     destroyMethod.invoke(dataSource);
                 } catch (Exception e) {
-                    //get().log.error("Failed to invoke destroy method for " + dataSource.getClass(), e);
                     throw new RuntimeException("Failed to invoke destroy method for " + dataSource.getClass(), e);
                 }
             }
