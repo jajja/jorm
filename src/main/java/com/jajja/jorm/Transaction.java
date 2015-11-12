@@ -373,6 +373,9 @@ public class Transaction {
             if (params != null) {
                 int p = 1;
                 for (Object param : params) {
+                    if (param instanceof Record) {
+                        param = ((Record)param).id();
+                    }
                     if (calendar != null) {
                         if (param instanceof Date) {
                             preparedStatement.setDate(p++, (Date)param, calendar);
@@ -610,6 +613,8 @@ public class Transaction {
     }
 
     /**
+     * Deprecated: renamed to savepoint()
+     *
      * Sets an unnamed savepoint on the active transaction. If the transaction
      * is dormant it begins and enters the active state.
      *
@@ -618,7 +623,37 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
+    @Deprecated
     public Savepoint save() throws SQLException {
+        return savepoint();
+    }
+
+    /**
+     * Sets an named savepoint on the active transaction. If the transaction is
+     * dormant it begins and enters the active state.
+     *
+     * @param name
+     *            the name of the savepoint.
+     * @return the savepoint.
+     * @throws SQLException
+     * @throws SQLException
+     *             if a database access error occurs.
+     */
+    @Deprecated
+    public Savepoint save(String name) throws SQLException {
+        return savepoint(name);
+    }
+
+    /**
+     * Sets an unnamed savepoint on the active transaction. If the transaction
+     * is dormant it begins and enters the active state.
+     *
+     * @return the savepoint.
+     * @throws SQLException
+     * @throws SQLException
+     *             if a database access error occurs.
+     */
+    public Savepoint savepoint() throws SQLException {
         return getConnection().setSavepoint();
     }
 
@@ -633,7 +668,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public Savepoint save(String name) throws SQLException {
+    public Savepoint savepoint(String name) throws SQLException {
         return getConnection().setSavepoint(name);
     }
 
@@ -1301,7 +1336,7 @@ public class Transaction {
 
         for (Row row : rows) {
             Column column = row.columns.get(foreignKeySymbol);
-            if (column != null && column.getValue() != null && column.getReference() == null) {
+            if (column != null && column.getValue() != null && column.record() == null) {
                 values.add(column.getValue());
             }
         }
@@ -1315,12 +1350,13 @@ public class Transaction {
 
         for (Row row : rows) {
             Column column = row.columns.get(foreignKeySymbol);
-            if (column != null && column.getValue() != null && column.getReference() == null) {
+            if (column != null && column.getValue() != null && column.record() == null) {
                 Record referenceRecord = map.get(key.value(column.getValue()));
                 if (referenceRecord == null && !ignoreInvalidReferences) {
                     throw new IllegalStateException(column.getValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
                 }
-                row.set(foreignKeySymbol, referenceRecord);
+                column.setValue(referenceRecord);
+                //row.set(foreignKeySymbol, referenceRecord);
             }
         }
 
@@ -1596,7 +1632,7 @@ public class Transaction {
                     column.setChanged(false);
                     if (mode == ResultMode.REPOPULATE) {
                         if (map == null) throw new IllegalStateException("bug");
-                        map.put(column.getValue(), record);
+                        map.put(column.dereference(), record);
                         record.stale(false);    // actually still stale
                     }
                 }
@@ -1691,7 +1727,7 @@ public class Transaction {
             for (Entry<Symbol, Column> e : record.columns.entrySet()) {
                 Column column = e.getValue();
                 if (column.isChanged() && !record.table().isImmutable(e.getKey())) {
-                    if (column.getValue() instanceof Query) {
+                    if (column.dereference() instanceof Query) {
                         query.append(isFirst ? "#1#" : ", #1#", column.getValue());
                     } else {
                         query.append(isFirst ? "#?1#" : ", #?1#", column.getValue());
@@ -1870,7 +1906,7 @@ public class Transaction {
         for (Entry<Symbol, Column> entry : record.columns.entrySet()) {
             Column column = entry.getValue();
             if (column.isChanged()) {
-                if (column.getValue() instanceof Query) {
+                if (column.dereference() instanceof Query) {
                     query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), column.getValue());
                 } else {
                     query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), column.getValue());

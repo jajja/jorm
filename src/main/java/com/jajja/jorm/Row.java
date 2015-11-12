@@ -24,6 +24,7 @@ package com.jajja.jorm;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -50,7 +51,6 @@ public class Row {
     public static class Column {
         private Object value = null;
         private boolean isChanged = false;
-        private Record reference = null;
 
         Column() {}
 
@@ -62,6 +62,14 @@ public class Row {
             return value;
         }
 
+        public Record record() {
+            return (value instanceof Record) ? ((Record)value) : null;
+        }
+
+        public Object dereference() {
+            return (value instanceof Record) ? ((Record)value).id() : value;
+        }
+
         void setChanged(boolean isChanged) {
             this.isChanged = isChanged;
         }
@@ -70,17 +78,9 @@ public class Row {
             return isChanged;
         }
 
-        void setReference(Record reference) {
-            this.reference = reference;
-        }
-
-        public Record getReference() {
-            return reference;
-        }
-
         @Override
         public String toString() {
-            return String.format("Column [value => %s, isChanged => %s, reference => %s]", value, isChanged, reference);
+            return String.format("Column [value => %s, isChanged => %s]", value, isChanged);
         }
     }
 
@@ -150,7 +150,7 @@ public class Row {
         assertNotStale();
         for (Symbol symbol : key.getSymbols()) {
             Column column = columns.get(symbol);
-            if (column == null || column.getValue() == null) {
+            if (column == null || column.dereference() == null) {
                 return true;
             }
         }
@@ -247,6 +247,12 @@ public class Row {
         }
     }
 
+    private static void flag(Collection<? extends Row> rows, int flag, boolean set) {
+        for (Row row : rows) {
+            row.flag(flag, set);
+        }
+    }
+
     private boolean flag(int flag) {
         return (flags & flag) != 0;
     }
@@ -258,6 +264,10 @@ public class Row {
      */
     public void stale(boolean setStale) {
         flag(FLAG_STALE, setStale);
+    }
+
+    public static void stale(Collection<? extends Row> rows, boolean setStale) {
+        flag(rows, FLAG_STALE, setStale);
     }
 
     /**
@@ -287,6 +297,10 @@ public class Row {
         flag(FLAG_READ_ONLY, setReadOnly);
     }
 
+    public static void readOnly(Collection<? extends Row> rows, boolean setStale) {
+        flag(rows, FLAG_READ_ONLY, setStale);
+    }
+
     /**
      * Checks whether the row is read-only.
      *
@@ -307,6 +321,10 @@ public class Row {
 
     public void refFetch(boolean refFetch) {
         flag(FLAG_REF_FETCH, refFetch);
+    }
+
+    public static void refFetch(Collection<? extends Row> rows, boolean setStale) {
+        flag(rows, FLAG_REF_FETCH, setStale);
     }
 
     public boolean isRefFetch() {       // Best name 2015
@@ -338,28 +356,8 @@ public class Row {
             column = new Column();
         }
 
-        boolean hasChanged;
-
-        if (value != null && Record.isRecordSubclass(value.getClass())) {
-            Record record = (Record)value;
-            Object id = record.id().getValue();
-            if (id == null) {
-                throw new NullPointerException("While setting " + record.getClass() + "." + symbol.getName() + " to " + value + " -- id (primary key) is null -- perhaps you need to save()?");
-            }
-            hasChanged = hasChanged(symbol, value);
-            column.setReference(record);
-            column.setValue(id);
-        } else {
-            hasChanged = hasChanged(symbol, value);
-            if (hasChanged) {
-                column.setReference(null); // invalidate cached reference
-            }
-            column.setValue(value);
-        }
-
-        if (hasChanged) {
-            column.setChanged(true);
-        }
+        column.setChanged(hasChanged(symbol, value));
+        column.setValue(value);
 
         columns.put(symbol, column);
     }
@@ -621,25 +619,26 @@ public class Row {
 
         if (value != null) {
             if (Record.isRecordSubclass(clazz)) {
-                if (column.getReference() == null && !isReferenceCacheOnly) {
+                Record record = column.record();
+                if (record == null) {
                     // Load foreign key
                     if (!flag(FLAG_REF_FETCH)) {
                         throw new IllegalAccessError("Reference fetching is disabled");
                     }
                     try {
                         transaction = (transaction != null ? transaction : Record.transaction((Class<? extends Record>)clazz));
-                        Record reference = transaction.findById((Class<? extends Record>)clazz, value);
-                        column.setReference(reference);
-                        value = reference;
+                        record = transaction.findById((Class<? extends Record>)clazz, value);
+                        column.setValue(record);
                     } catch (SQLException e) {
                         if (throwSqlException) {
                             throw e;
                         }
                         throw new RuntimeException("Failed to findById(" + clazz + ", " + value + ")", e);
                     }
-                } else {
-                    value = column.getReference();
+                } else if (!record.getClass().equals(clazz)) {
+                    throw new IllegalArgumentException("Class mismatch " + clazz + " != " + record.getClass());
                 }
+                value = record;
             } else {
                 try {
                     value = convert(value, clazz);
@@ -757,6 +756,9 @@ public class Row {
 
     @SuppressWarnings("unchecked")
     public static <T> T convert(Object value, Class<T> clazz) {
+        if (value instanceof Record) {
+            value = ((Record)value).id();
+        }
         if (Number.class.isAssignableFrom(clazz) && value instanceof Number) {
             return (T)Row.convertNumber((Number)value, clazz);
         } else if (clazz.isAssignableFrom(value.getClass())) {
