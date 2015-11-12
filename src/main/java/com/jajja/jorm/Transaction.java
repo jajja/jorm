@@ -373,9 +373,6 @@ public class Transaction {
             if (params != null) {
                 int p = 1;
                 for (Object param : params) {
-                    if (param instanceof Record) {
-                        param = ((Record)param).id();
-                    }
                     if (calendar != null) {
                         if (param instanceof Date) {
                             preparedStatement.setDate(p++, (Date)param, calendar);
@@ -1336,8 +1333,8 @@ public class Transaction {
 
         for (Row row : rows) {
             Column column = row.columns.get(foreignKeySymbol);
-            if (column != null && column.getValue() != null && column.record() == null) {
-                values.add(column.getValue());
+            if (column != null && column.rawValue() != null && column.record() == null) {
+                values.add(column.rawValue());
             }
         }
 
@@ -1350,10 +1347,10 @@ public class Transaction {
 
         for (Row row : rows) {
             Column column = row.columns.get(foreignKeySymbol);
-            if (column != null && column.getValue() != null && column.record() == null) {
-                Record referenceRecord = map.get(key.value(column.getValue()));
+            if (column != null && column.rawValue() != null && column.record() == null) {
+                Record referenceRecord = map.get(key.value(column.rawValue()));
                 if (referenceRecord == null && !ignoreInvalidReferences) {
-                    throw new IllegalStateException(column.getValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
+                    throw new IllegalStateException(column.rawValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
                 }
                 column.setValue(referenceRecord);
                 //row.set(foreignKeySymbol, referenceRecord);
@@ -1727,10 +1724,11 @@ public class Transaction {
             for (Entry<Symbol, Column> e : record.columns.entrySet()) {
                 Column column = e.getValue();
                 if (column.isChanged() && !record.table().isImmutable(e.getKey())) {
-                    if (column.dereference() instanceof Query) {
-                        query.append(isFirst ? "#1#" : ", #1#", column.getValue());
+                    Object value = column.dereference();
+                    if (value instanceof Query || value instanceof Composite.Value) {
+                        query.append(isFirst ? "#1#" : ", #1#", value);
                     } else {
-                        query.append(isFirst ? "#?1#" : ", #?1#", column.getValue());
+                        query.append(isFirst ? "#?1#" : ", #?1#", value);
                     }
                     isFirst = false;
                 }
@@ -1861,7 +1859,7 @@ public class Transaction {
             for (Symbol column : batchInfo.columns) {
                 if (record.isChanged(column)) {
                     Object value = record.get(column);
-                    if (value instanceof Query) {
+                    if (value instanceof Query || value instanceof Composite.Value) {
                         query.append(isColumnFirst ? "#1#" : ", #1#", value);
                     } else {
                         query.append(isColumnFirst ? "#?1#" : ", #?1#", value);
@@ -1906,10 +1904,11 @@ public class Transaction {
         for (Entry<Symbol, Column> entry : record.columns.entrySet()) {
             Column column = entry.getValue();
             if (column.isChanged()) {
-                if (column.dereference() instanceof Query) {
-                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), column.getValue());
+                Object value = column.dereference();
+                if (value instanceof Query || value instanceof Composite.Value) {
+                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), value);
                 } else {
-                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), column.getValue());
+                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), value);
                 }
                 isFirst = false;
             }
@@ -2069,7 +2068,7 @@ public class Transaction {
             query.append(isFirstValue ? "(" : ", (");
             for (Symbol column : batchInfo.columns) {
                 Object value = record.get(column);
-                if (value instanceof Query) {
+                if (value instanceof Query || value instanceof Composite.Value) {
                     query.append(isFirstColumn ? "#1#" : ", #1#", value);
                 } else {
                     String pgDataType = getPgDataType(value);

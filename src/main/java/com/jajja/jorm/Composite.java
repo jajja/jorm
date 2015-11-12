@@ -82,7 +82,7 @@ public class Composite {
             if (column == null) {
                 throw new NullPointerException("Column " + symbols[i].getName() + " is not set");
             }
-            values[i] = column.getValue();
+            values[i] = column.dereference();
         }
         return new Value(this, values);
     }

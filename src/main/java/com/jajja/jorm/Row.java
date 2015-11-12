@@ -58,7 +58,7 @@ public class Row {
             this.value = Patcher.unbork(value);
         }
 
-        public Object getValue() {
+        public Object rawValue() {
             return value;
         }
 
@@ -89,7 +89,7 @@ public class Row {
 
     public void set(Row row) {
         for (Entry<Symbol, Column> entry : row.columns.entrySet()) {
-            put(entry.getKey(), entry.getValue().getValue()); // XXX: null safe?
+            put(entry.getKey(), entry.getValue().rawValue()); // XXX: null safe?
         }
     }
 
@@ -133,7 +133,7 @@ public class Row {
         assertNotStale();
         for (Symbol symbol : key.getSymbols()) {
             Column column = columns.get(symbol);
-            if (column == null || column.getValue() == null || column.isChanged()) {
+            if (column == null || column.dereference() == null || column.isChanged()) {
                 return true;
             }
         }
@@ -342,7 +342,7 @@ public class Row {
             return true;
         }
 
-        Object oldValue = column.getValue();
+        Object oldValue = column.rawValue();
         if (oldValue == null && newValue == null) {
             return false;
         } else {
@@ -615,7 +615,7 @@ public class Row {
             throw new RuntimeException("Column '" + symbol.getName() + "' does not exist, or has not yet been set on " + this);
         }
 
-        Object value = column.getValue();
+        Object value = column.rawValue();
 
         if (value != null) {
             if (Record.isRecordSubclass(clazz)) {
@@ -673,7 +673,7 @@ public class Row {
             }
             stringBuilder.append(entry.getKey().getName());
             stringBuilder.append(" => ");
-            stringBuilder.append(entry.getValue().getValue());
+            stringBuilder.append(entry.getValue().rawValue());
         }
         stringBuilder.append(" }");
 
@@ -758,6 +758,12 @@ public class Row {
     public static <T> T convert(Object value, Class<T> clazz) {
         if (value instanceof Record) {
             value = ((Record)value).id();
+        }
+        if (value instanceof Composite.Value) {
+            Composite.Value tmp = ((Composite.Value)value);
+            if (tmp.isSingle()) {
+                value = tmp.getValue();
+            }
         }
         if (Number.class.isAssignableFrom(clazz) && value instanceof Number) {
             return (T)Row.convertNumber((Number)value, clazz);
