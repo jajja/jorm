@@ -336,27 +336,13 @@ public class Row {
         flag(FLAG_REF_FETCH, false);
     }
 
-    private boolean hasChanged(Symbol symbol, Object newValue) {
-        Column column = columns.get(symbol);
-        if (column == null) {
-            return true;
-        }
-
-        Object oldValue = column.rawValue();
-        if (oldValue == null && newValue == null) {
-            return false;
-        } else {
-            return oldValue == null || !oldValue.equals(newValue);
-        }
-    }
-
     void put(Symbol symbol, Object value) {
         Column column = columns.get(symbol);
         if (column == null) {
             column = new Column();
         }
 
-        column.setChanged(hasChanged(symbol, value));
+        column.setChanged(true);
         column.setValue(value);
 
         columns.put(symbol, column);
