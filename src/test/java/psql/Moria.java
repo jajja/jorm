@@ -30,7 +30,7 @@ public class Moria {
         try {
             Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
             Database.commit("moria");
-            Database.open("moria").addListener(new Transaction.StoutLogListener());
+            Database.open("moria").addListener(new Transaction.StdoutLogListener());
         } catch (Exception e) {
             LoggerFactory.getLogger(Moria.class).error("Failed to open test", e);
         }

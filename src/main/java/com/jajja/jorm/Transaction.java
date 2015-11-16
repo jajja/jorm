@@ -99,7 +99,7 @@ public class Transaction {
         public void log(Transaction t, String message, String sql, List<Object> params, StackTraceElement calledFrom, Throwable reason);
     }
 
-    public static class StoutLogListener implements Listener {
+    public static class StdoutLogListener implements Listener {
         @Override
         public void log(Transaction t, String message, String sql, List<Object> params, StackTraceElement calledFrom, Throwable reason) {
             System.out.printf("%s: %s: %s (called from %s)\n", t.getDatabase(), message, sql != null ? sql : "(no sql)", calledFrom);
