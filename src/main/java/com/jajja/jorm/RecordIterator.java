@@ -45,6 +45,10 @@ public class RecordIterator implements Closeable {
     private boolean cascadingClose = true;
     private Transaction transaction;
 
+    public interface Callback<T extends Row> {
+        public void row(T row);
+    }
+
     /**
      * Instantiates a RecordIterator.
      *
@@ -136,6 +140,18 @@ public class RecordIterator implements Closeable {
         Row row = new Row();
         populate(row);
         return row;
+    }
+
+    public void callback(Callback<Row> callback) throws SQLException {
+        while (next()) {
+            callback.row(row());
+        }
+    }
+
+    public <T extends Record> void callback(Class<T> clazz, Callback<T> callback) throws SQLException {
+        while (next()) {
+            callback.row(record(clazz));
+        }
     }
 
     @Override
