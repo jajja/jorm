@@ -742,6 +742,9 @@ public class Row {
 
     @SuppressWarnings("unchecked")
     public static <T> T convert(Object value, Class<T> clazz) {
+        if (value == null) {
+            return null;
+        }
         if (value instanceof Record) {
             value = ((Record)value).id();
         }
