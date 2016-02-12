@@ -1400,13 +1400,15 @@ public class Transaction {
         final Composite key = new Composite(referredSymbol);
         final Map<Composite.Value, T> map = new HashMap<Composite.Value, T>();
         Query q = null;
+        int n = 0;
         for (Object value : values) {
+            n++;
             if (q == null) {
                 q = getSelectQuery(clazz).append("WHERE #1# IN (#2#", referredSymbol, value);
             } else {
                 q.append(", #1#", value);
             }
-            if (q.getParams().size() >= 2048) { // MS SQL craps out at ~2500 parameters
+            if (q.getParams().size() >= 2048 || n == values.size()) { // MS SQL craps out at ~2500 parameters
                 q.append(")");
                 selectIntoMap(map, clazz, key, ignoreInvalidReferences, q);
                 q = null;
