@@ -1157,8 +1157,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Row> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
-        HashMap<Composite.Value, T> map = new HashMap<Composite.Value, T>();
+    public <T extends Row> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
         try {
             RecordIterator iter = null;
             try {
@@ -1178,6 +1177,83 @@ public class Transaction {
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
         }
+        return map;
+    }
+
+    public <T extends Record> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Composite compositeKey, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+        return selectIntoMap(map, clazz, compositeKey, allowDuplicates, build(sql, params));
+    }
+
+    public <T extends Record> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Composite compositeKey, boolean allowDuplicates) throws SQLException {
+        return selectIntoMap(map, clazz, compositeKey, allowDuplicates, getSelectQuery(clazz));
+    }
+
+    /**
+     * Provides a hash map of selected records, populated with the results from the
+     * given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param column
+     *            the column to use as key.
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public <T extends Row> void selectAllIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
+        try {
+            RecordIterator iter = null;
+            try {
+                boolean wantRecords = Record.isRecordSubclass(clazz);
+                iter = new RecordIterator(this, prepare(query));
+                while (iter.next()) {
+                    @SuppressWarnings("unchecked")
+                    T row = (T)(wantRecords ? iter.record((Class<? extends Record>)clazz) : iter.row());
+                    Composite.Value value = compositeKey.valueFrom(row);
+                    List<T> list = map.get(value);
+                    if (list == null) {
+                        list = new LinkedList<T>();
+                        map.put(value, list);
+                    }
+                    list.add(row);
+                }
+            } finally {
+                if (iter != null) iter.close();
+            }
+        } catch (SQLException e) {
+            throw getDialect().rethrow(e, query.getSql());
+        }
+    }
+
+    public <T extends Record> void selectAllIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Composite compositeKey, String sql, Object... params) throws SQLException {
+        selectAllIntoMap(map, clazz, compositeKey, build(sql, params));
+    }
+
+    public <T extends Record> void selectIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Composite compositeKey) throws SQLException {
+        selectAllIntoMap(map, clazz, compositeKey, getSelectQuery(clazz));
+    }
+
+    /**
+     * Provides a hash map of selected records, populated with the results from the
+     * given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param column
+     *            the column to use as key.
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public <T extends Row> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
+        HashMap<Composite.Value, T> map = new HashMap<Composite.Value, T>();
+        selectIntoMap(map, clazz, compositeKey, allowDuplicates, query);
         return map;
     }
 
@@ -1206,28 +1282,7 @@ public class Transaction {
      */
     public <T extends Row> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
         HashMap<Composite.Value, List<T>> map = new HashMap<Composite.Value, List<T>>();
-        try {
-            RecordIterator iter = null;
-            try {
-                boolean wantRecords = Record.isRecordSubclass(clazz);
-                iter = new RecordIterator(this, prepare(query));
-                while (iter.next()) {
-                    @SuppressWarnings("unchecked")
-                    T row = (T)(wantRecords ? iter.record((Class<? extends Record>)clazz) : iter.row());
-                    Composite.Value value = compositeKey.valueFrom(row);
-                    List<T> list = map.get(value);
-                    if (list == null) {
-                        list = new LinkedList<T>();
-                        map.put(value, list);
-                    }
-                    list.add(row);
-                }
-            } finally {
-                if (iter != null) iter.close();
-            }
-        } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
-        }
+        selectAllIntoMap(map, clazz, compositeKey, query);
         return map;
     }
 
@@ -1342,18 +1397,29 @@ public class Transaction {
             return new HashMap<Composite.Value, T>();
         }
 
-        Composite key = new Composite(referredSymbol);
-        Map<Composite.Value, T> map = selectAsMap(clazz, key, ignoreInvalidReferences, getSelectQuery(clazz).append("WHERE #1# IN (#2#)", referredSymbol, values));
-
-        for (Row row : rows) {
-            Column column = row.columns.get(foreignKeySymbol);
-            if (column != null && column.rawValue() != null && column.record() == null) {
-                Record referenceRecord = map.get(key.value(column.rawValue()));
-                if (referenceRecord == null && !ignoreInvalidReferences) {
-                    throw new IllegalStateException(column.rawValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
+        final Composite key = new Composite(referredSymbol);
+        final Map<Composite.Value, T> map = new HashMap<Composite.Value, T>();
+        Query q = null;
+        for (Object value : values) {
+            if (q == null) {
+                q = getSelectQuery(clazz).append("WHERE #1# IN (#2#", referredSymbol, value);
+            } else {
+                q.append(", #1#", value);
+            }
+            if (q.getParams().size() >= 2048) { // MS SQL craps out at ~2500 parameters
+                q.append(")");
+                selectIntoMap(map, clazz, key, ignoreInvalidReferences, q);
+                q = null;
+                for (Row row : rows) {
+                    Column column = row.columns.get(foreignKeySymbol);
+                    if (column != null && column.rawValue() != null && column.record() == null) {
+                        Record referenceRecord = map.get(key.value(column.rawValue()));
+                        if (referenceRecord == null && !ignoreInvalidReferences) {
+                            throw new IllegalStateException(column.rawValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
+                        }
+                        column.setValue(referenceRecord);
+                    }
                 }
-                column.setValue(referenceRecord);
-                //row.set(foreignKeySymbol, referenceRecord);
             }
         }
 
