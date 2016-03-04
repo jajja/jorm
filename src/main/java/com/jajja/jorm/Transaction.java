@@ -1620,10 +1620,6 @@ public class Transaction {
             for (Record record : records) {
                 record.assertNotReadOnly();
 
-                if (record.isStale()) {
-                    throw new IllegalStateException("Attempt to perform batch operation on stale record(s)");
-                }
-
                 if (template == null) {
                     template = record;
                 }
@@ -1699,7 +1695,6 @@ public class Transaction {
                     if (mode == ResultMode.REPOPULATE) {
                         if (map == null) throw new IllegalStateException("bug");
                         map.put(column.dereference(), record);
-                        record.stale(false);    // actually still stale
                     }
                 }
             }
@@ -1712,7 +1707,6 @@ public class Transaction {
                 preparedStatement.close();
                 preparedStatement = null;
 
-                // records must not be stale, or Query will generate SELECTs
                 Query q = getSelectQuery(template.getClass()).append("WHERE #1# IN (#2:@#)", primaryKey.getSymbol(), records);
 
                 preparedStatement = prepare(q);
@@ -1732,10 +1726,6 @@ public class Transaction {
                 }
             }
         } catch (SQLException sqlException) {
-            // records are in an unknown state, mark them stale
-            for (Record record : records) {
-                record.stale(true);
-            }
             throw dialect.rethrow(sqlException);
         } finally {
             try {
@@ -1760,10 +1750,6 @@ public class Transaction {
      */
     public void insert(Record record, ResultMode mode) throws SQLException {
         record.assertNotReadOnly();
-
-        if (record.isStale()) {
-            throw new IllegalStateException("Attempt to insert a stale record!");
-        }
 
         if (mode != ResultMode.NO_RESULT && !record.primaryKey().isSingle() && !getDialect().isReturningSupported()) {
             throw new UnsupportedOperationException("INSERT with composite primary key not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
@@ -1804,8 +1790,6 @@ public class Transaction {
             }
             query.append(")");
         }
-
-        record.stale(true);
 
         if (mode == ResultMode.NO_RESULT) {
             execute(query);
@@ -1876,7 +1860,7 @@ public class Transaction {
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param isFullRepopulate Whether or not to fully re-populate the record columns, or just update their primary key value and markStale()
+     * @param isFullRepopulate Whether or not to fully re-populate the record columns, or just update their primary key value
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -1939,7 +1923,6 @@ public class Transaction {
                 isColumnFirst = false;
             }
             query.append(")");
-            record.stale(true);
         }
 
         batchExecute(query, records, mode);
@@ -1959,10 +1942,6 @@ public class Transaction {
 
         if (!record.isChanged()) {
             return rowsUpdated;
-        }
-
-        if (record.isStale()) {
-            throw new IllegalStateException("Attempt to update a stale record!");
         }
 
         Query query = build();
@@ -1995,9 +1974,6 @@ public class Transaction {
                 rowsUpdated = selectInto(record, query) ? 1 : 0;    // FIXME 1 row is not necessarily correct
             } else {
                 rowsUpdated = executeUpdate(query);
-                if (rowsUpdated > 0) {
-                    record.stale(true);
-                }
             }
         } catch (SQLException e) {
             throw(e);
@@ -2175,25 +2151,13 @@ public class Transaction {
     }
 
     /**
-     * Re-populates a stale record with fresh database values by a select query.
-     * A record is considered stale after a call to either
-     * {@link Record#insert()} or {@link Record#insert()}, if the SQL dialect of
-     * the mapped database does not support returning. A record mapped to a
-     * table in a Postgres database is thus never stale.
+     * Re-populates a record with fresh database values by a select query.
      *
-     *
-     * @throws RuntimeException
+     * @throws SQLException
      *             whenever a SQLException occurs.
      */
-    public void refresh(Record record) {
-        if (record.isStale()) {
-            try {
-                record.assertPrimaryKeyNotNull();
-                populateById(record, record.primaryKey().valueFrom(record, true));
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to refresh stale record", e);
-            }
-            record.stale(false);
-        }
+    public void refresh(Record record) throws SQLException {
+        record.assertPrimaryKeyNotNull();
+        populateById(record, record.primaryKey().valueFrom(record, true));
     }
 }

@@ -115,7 +115,6 @@ public class RecordIterator implements Closeable {
                 row.columns.put(symbols[i], column);
             }
         } catch (SQLException sqlException) {
-            row.stale(true);
             if (transaction != null) {
                 transaction.getDialect().rethrow(sqlException);
             } else if (preparedStatement != null) {

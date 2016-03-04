@@ -42,7 +42,6 @@ import com.jajja.jorm.patch.Patcher;
  * @since 2.0.0
  */
 public class Row {
-    public static final byte FLAG_STALE = 0x01;
     public static final byte FLAG_READ_ONLY = 0x02;
     public static final byte FLAG_REF_FETCH = 0x04;
     byte flags = FLAG_REF_FETCH;
@@ -105,13 +104,12 @@ public class Row {
 
     /**
      * Reinitializes the Row to optimally hold {@code size} column values.
-     * All column values are cleared, and the row is marked not stale.
+     * All existing column values are cleared.
      *
      * @param size the number of columns
      */
     public void resetColumns(int size) {
         columns = new HashMap<Symbol, Column>(size, 1.0f);
-        stale(false);
     }
 
     /**
@@ -130,7 +128,6 @@ public class Row {
      * @return true if any of the column values are null or changed since the last call to populate()
      */
     public boolean isCompositeKeyNullOrChanged(Composite key) {
-        assertNotStale();
         for (Symbol symbol : key.getSymbols()) {
             Column column = columns.get(symbol);
             if (column == null || column.dereference() == null || column.isChanged()) {
@@ -147,7 +144,6 @@ public class Row {
      * @return true if any of the column values are null
      */
     public boolean isCompositeKeyNull(Composite key) {
-        assertNotStale();
         for (Symbol symbol : key.getSymbols()) {
             Column column = columns.get(symbol);
             if (column == null || column.dereference() == null) {
@@ -176,7 +172,6 @@ public class Row {
      * @return true if the column is set, false otherwise
      */
     public boolean isSet(Symbol symbol) {
-        assertNotStale();
         return columns.get(symbol) != null;
     }
 
@@ -257,35 +252,21 @@ public class Row {
         return (flags & flag) != 0;
     }
 
-    /**
-     * Changes the row's staleness.
-     *
-     * @param setStale whether or not the row should be marked stale
-     */
+    @Deprecated
     public void stale(boolean setStale) {
-        flag(FLAG_STALE, setStale);
     }
 
+    @Deprecated
     public static void stale(Collection<? extends Row> rows, boolean setStale) {
-        flag(rows, FLAG_STALE, setStale);
     }
 
-    /**
-     * Checks whether the row is stale.
-     *
-     * @return true if the row is stale, false otherwise.
-     */
+    @Deprecated
     public boolean isStale() {
-        return flag(FLAG_STALE);
+        return false;
     }
 
-    /**
-     * Asserts that the row is not stale.
-     */
+    @Deprecated
     public void assertNotStale() {
-        if (isStale()) {
-            throw new RuntimeException("Row is stale!");
-        }
     }
 
     /**
@@ -297,8 +278,8 @@ public class Row {
         flag(FLAG_READ_ONLY, setReadOnly);
     }
 
-    public static void readOnly(Collection<? extends Row> rows, boolean setStale) {
-        flag(rows, FLAG_READ_ONLY, setStale);
+    public static void readOnly(Collection<? extends Row> rows, boolean setReadOnly) {
+        flag(rows, FLAG_READ_ONLY, setReadOnly);
     }
 
     /**
@@ -323,8 +304,8 @@ public class Row {
         flag(FLAG_REF_FETCH, refFetch);
     }
 
-    public static void refFetch(Collection<? extends Row> rows, boolean setStale) {
-        flag(rows, FLAG_REF_FETCH, setStale);
+    public static void refFetch(Collection<? extends Row> rows, boolean setRefFetch) {
+        flag(rows, FLAG_REF_FETCH, setRefFetch);
     }
 
     public boolean isRefFetch() {       // Best name 2015
@@ -395,7 +376,6 @@ public class Row {
      */
     public void unset(Symbol symbol) {
         assertNotReadOnly();
-        assertNotStale();
 
         Column column = columns.get(symbol);
         if (column != null) {
@@ -594,8 +574,6 @@ public class Row {
 
     @SuppressWarnings("unchecked")
     <T> T getColumnValue(Symbol symbol, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
-        assertNotStale();
-
         Column column = columns.get(symbol);
         if (column == null) {
             throw new RuntimeException("Column '" + symbol.getName() + "' does not exist, or has not yet been set on " + this);
@@ -645,9 +623,6 @@ public class Row {
         StringBuilder stringBuilder = new StringBuilder();
         boolean isFirst = true;
 
-        if (isStale()) {
-            stringBuilder.append("stale ");
-        }
         if (isReadOnly()) {
             stringBuilder.append("read-only ");
         }

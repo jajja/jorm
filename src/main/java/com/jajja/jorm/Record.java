@@ -123,11 +123,11 @@ import com.jajja.jorm.generator.Generator;
  */
 public abstract class Record extends Row {
     public static enum ResultMode {
-        /** For both INSERTs and UPDATEs, fully repopulate record(s). This is the default. */
+        /** For both INSERTs and UPDATEs, fully repopulate record(s) if supported. This is the default. */
         REPOPULATE,
-        /** For INSERTs, fetch only generated keys, mark record(s) as stale. For UPDATEs, this is equivalent to NO_RESULT. */
+        /** For INSERTs, fetch only generated keys. For UPDATEs, this is equivalent to NO_RESULT. */
         ID_ONLY,
-        /** Fetch nothing, mark record as stale and assume the primary key value is accurate. */
+        /** Fetch nothing. */
         NO_RESULT;
     }
 
@@ -890,7 +890,7 @@ public abstract class Record extends Row {
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param isFullRepopulate Whether or not to fully re-populate the record columns, or just update their primary key value and markStale()
+     * @param isFullRepopulate Whether or not to fully re-populate the record columns, or just update their primary key value
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
@@ -989,29 +989,14 @@ public abstract class Record extends Row {
     }
 
     /**
-     * Re-populates a stale record with fresh database values by a select query.
-     * A record is considered stale after a call to either
-     * {@link Record#insert()} or {@link Record#insert()}, if the SQL dialect of
-     * the mapped database does not support returning. A record mapped to a
-     * table in a Postgres database is thus never stale.
+     * Re-populates a record with fresh database values by a select query.
      *
      * @throws RuntimeException
      *             whenever a SQLException occurs.
      */
     public Record refresh() throws SQLException {
-        if (isStale()) {
-            stale(false);
-            try {
-                assertPrimaryKeyNotNull();
-                populateById(primaryKey().valueFrom(this, true));
-            } catch (RuntimeException e) {
-                stale(true);
-                throw e;
-            } catch (SQLException e) {
-                stale(true);
-                throw e;
-            }
-        }
+        assertPrimaryKeyNotNull();
+        populateById(primaryKey().valueFrom(this, true));
         return this;
     }
 
@@ -1029,49 +1014,29 @@ public abstract class Record extends Row {
         }
     }
 
-    private void warnIfStale(Object ref) {
-        if (isStale()) {
-            throw new IllegalStateException(String.format("Attempt to access %s on stale record %s", ref, toString()));
-//            log().warn(String.format("Attempt to access %s on stale record %s! refresh() will be called for you, " +
-//                        "but this functionality will be removed in the future. Update your code to call record.refresh() " +
-//                        "or record.stale(false) before accessing update()d or insert()d records.", ref, toString()),
-//                        new IllegalAccessException());
-//            try {
-//                refresh();
-//            } catch (SQLException e) {
-//                throw new RuntimeException("Failed to refresh stale record", e);
-//            }
-        }
-    }
-
     @Override
     public boolean isCompositeKeyNullOrChanged(Composite key) {
-        warnIfStale(key);
         return super.isCompositeKeyNullOrChanged(key);
     }
 
     @Override
     public boolean isCompositeKeyNull(Composite key) {
-        warnIfStale(key);
         return super.isCompositeKeyNull(key);
     }
 
     @Override
     public boolean isSet(Symbol symbol) {
-        warnIfStale(symbol);
         return super.isSet(symbol);
     }
 
     @Override
     public void unset(Symbol symbol) {
         assertNotReadOnly();
-        warnIfStale(symbol);
         super.unset(symbol);
     }
 
     @Override
     <T> T getColumnValue(Symbol symbol, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
-        warnIfStale(symbol);
         return super.getColumnValue(symbol, clazz, isReferenceCacheOnly, throwSqlException, transaction);
     }
 
