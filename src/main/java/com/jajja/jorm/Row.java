@@ -608,6 +608,9 @@ public class Row {
                 Record record = column.record();
                 if (record == null) {
                     // Load foreign key
+                    if (isReferenceCacheOnly) {
+                        return null;
+                    }
                     if (!flag(FLAG_REF_FETCH)) {
                         throw new IllegalAccessError("Reference fetching is disabled");
                     }

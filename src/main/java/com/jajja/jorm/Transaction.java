@@ -1412,16 +1412,17 @@ public class Transaction {
                 q.append(")");
                 selectIntoMap(map, clazz, key, ignoreInvalidReferences, q);
                 q = null;
-                for (Row row : rows) {
-                    Column column = row.columns.get(foreignKeySymbol);
-                    if (column != null && column.rawValue() != null && column.record() == null) {
-                        Record referenceRecord = map.get(key.value(column.rawValue()));
-                        if (referenceRecord == null && !ignoreInvalidReferences) {
-                            throw new IllegalStateException(column.rawValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
-                        }
-                        column.setValue(referenceRecord);
-                    }
+            }
+        }
+
+        for (Row row : rows) {
+            Column column = row.columns.get(foreignKeySymbol);
+            if (column != null && column.rawValue() != null && column.record() == null) {
+                Record referenceRecord = map.get(key.value(column.rawValue()));
+                if (referenceRecord == null && !ignoreInvalidReferences) {
+                    throw new IllegalStateException(column.rawValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
                 }
+                column.setValue(referenceRecord);
             }
         }
 
