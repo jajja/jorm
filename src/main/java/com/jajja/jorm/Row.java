@@ -384,6 +384,19 @@ public class Row {
     }
 
     /**
+     * Unsets the columns specified by the composite key.
+     *
+     * @param symbol the column name
+     */
+    public void unset(Composite composite) {
+        assertNotReadOnly();
+
+        for (Symbol symbol : composite.getSymbols()) {
+            columns.remove(symbol);
+        }
+    }
+
+    /**
      * Constructs a {@link Value} with the values of the columns specified by the composite key.
      *
      * @param composite the composite key
