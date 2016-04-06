@@ -88,7 +88,7 @@ public class Row {
 
     public void set(Row row) {
         for (Entry<Symbol, Column> entry : row.columns.entrySet()) {
-            put(entry.getKey(), entry.getValue().rawValue()); // XXX: null safe?
+            put(entry.getKey(), entry.getValue().rawValue());
         }
     }
 

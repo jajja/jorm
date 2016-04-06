@@ -41,6 +41,17 @@ public class Composite {
         this.symbols = tidy(symbols, true);
     }
 
+    public static Composite get(Object o) {
+        if (o instanceof String) {
+            return new Composite((String)o);
+        } else if (o instanceof Symbol) {
+            return new Composite((Symbol)o);
+        } else if (o instanceof Composite) {
+            return (Composite)o;
+        }
+        throw new IllegalArgumentException();
+    }
+
     private static Symbol[] tidy(Symbol[] symbols, boolean copy) {
         int len = symbols.length;
         if (len == 0) {

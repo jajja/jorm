@@ -604,16 +604,16 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, Query query) throws SQLException {
-        return transaction(clazz).selectAsMap(clazz, compositeKey, allowDuplicates, query);
+    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates, Query query) throws SQLException {
+        return transaction(clazz).selectAsMap(clazz, key, allowDuplicates, query);
     }
 
-    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates, String sql, Object... params) throws SQLException {
-        return transaction(clazz).selectAsMap(clazz, compositeKey, allowDuplicates, sql, params);
+    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectAsMap(clazz, key, allowDuplicates, sql, params);
     }
 
-    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Composite compositeKey, boolean allowDuplicates) throws SQLException {
-        return transaction(clazz).selectAsMap(clazz, compositeKey, allowDuplicates);
+    public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates) throws SQLException {
+        return transaction(clazz).selectAsMap(clazz, key, allowDuplicates);
     }
 
     /**
@@ -631,16 +631,70 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, Query query) throws SQLException {
-        return transaction(clazz).selectAllAsMap(clazz, compositeKey, query);
+    public static <T, C extends Record> Map<T, C> selectAsMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, Query query) throws SQLException {
+        return transaction(clazz).selectAsMap(clazz, key, keyType, allowDuplicates, query);
     }
 
-    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey, String sql, Object... params) throws SQLException {
-        return transaction(clazz).selectAllAsMap(clazz, compositeKey, sql, params);
+    public static <T, C extends Record> Map<T, C> selectAsMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectAsMap(clazz, key, keyType, allowDuplicates, sql, params);
     }
 
-    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Composite compositeKey) throws SQLException {
-        return transaction(clazz).selectAllAsMap(clazz, compositeKey);
+    public static <T, C extends Record> Map<T, C> selectAsMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
+        return transaction(clazz).selectAsMap(clazz, key, keyType, allowDuplicates);
+    }
+
+    /**
+     * Provides a hash map of selected records, populated with the results from the
+     * given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param column
+     *            the column to use as key.
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key, Query query) throws SQLException {
+        return transaction(clazz).selectAllAsMap(clazz, key, query);
+    }
+
+    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectAllAsMap(clazz, key, sql, params);
+    }
+
+    public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key) throws SQLException {
+        return transaction(clazz).selectAllAsMap(clazz, key);
+    }
+
+    /**
+     * Provides a hash map of selected records, populated with the results from the
+     * given query.
+     *
+     * @param clazz
+     *            the class defining the table mapping.
+     * @param column
+     *            the column to use as key.
+     * @param query
+     *            the query.
+     * @return the matched records.
+     * @throws SQLException
+     *             if a database access error occurs or the generated SQL
+     *             statement does not return a result set.
+     */
+    public static <T, C extends Record> Map<T, List<C>> selectAllAsMap(Class<C> clazz, Object key, Class<T> keyType, Query query) throws SQLException {
+        return transaction(clazz).selectAllAsMap(clazz, key, keyType, query);
+    }
+
+    public static <T, C extends Record> Map<T, List<C>> selectAllAsMap(Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectAllAsMap(clazz, key, keyType, sql, params);
+    }
+
+    public static <T, C extends Record> Map<T, List<C>> selectAllAsMap(Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
+        return transaction(clazz).selectAllAsMap(clazz, key, keyType);
     }
 
     /**
