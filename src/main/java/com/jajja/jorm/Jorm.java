@@ -38,39 +38,43 @@ import java.lang.annotation.RetentionPolicy;
  */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Jorm {
+    public static final String NONE = "";
+    public static final String INHERIT = "\0";
+
     /**
-     * Name of the database as defined by a named data source.
+     * Name of the database as defined by a named data source. Set to Jorm.NONE for none.
      *
      * @see Database
      * @return the table name
      */
-    public String database();
+    public String database() default INHERIT;
 
     /**
-     * Name of mapped schema. Use the default value "" for default schema.
+     * Name of mapped schema. Set to Jorm.NONE for none.
      *
      * @return the schema name
      */
-    public String schema() default "";
+    public String schema() default INHERIT;
 
     /**
-     * Name of mapped table. Use the default value "" for generic SQL.
+     * Name of mapped table. Set to Jorm.NONE for none.
      *
      * @return the table name
      */
-    public String table() default "";
+    public String table() default INHERIT;
+
     /**
-     * Name of the columns that make up the primary key. Use the default value "" for generic SQL.
+     * Name of the columns that make up the primary key. Set to Jorm.NONE for none.
      *
      * @return the primary key column names
      */
-    public String[] primaryKey() default {};
+    public String[] primaryKey() default { INHERIT };
 
     /**
-     * A list of names for columns mapped as immutable columns.
+     * A list of names for columns mapped as immutable columns. Defaults to "__". Set to Jorm.NONE for none.
      *
      *
      * @return the column names of the immutable columns.
      */
-    public String immutablePrefix() default "__";
+    public String immutablePrefix() default INHERIT;
 }

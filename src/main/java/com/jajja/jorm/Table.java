@@ -47,7 +47,10 @@ public class Table {
             synchronized (map) {
                 table = map.get(clazz);
                 if (table == null) {
-                    table = new Table(clazz);
+                    table = new Table(tableAnnotation(clazz));
+                    if (table.getTable() == null ^ table.getPrimaryKey() == null) {
+                        throw new RuntimeException("Tables cannot be mapped without primary keys. Either define both table and primary key or neither in the Jorm annotation.");
+                    }
                     map.put(clazz, table);
                 }
             }
@@ -63,31 +66,39 @@ public class Table {
         this.immutablePrefix = immutablePrefix;
     }
 
-    private Table(Class<? extends Record> clazz) {
-        Jorm jorm = clazz.getAnnotation(Jorm.class);
-        if (jorm == null) {
-            throw new RuntimeException("Jorm annotation missing in " + clazz);
-        }
-        if (jorm.table().equals("") ^ jorm.primaryKey().length == 0) {
-            throw new RuntimeException("Tables cannot be mapped without primary keys. Either define both table and primary key or none in the Jorm annotation.");
-        }
-        database = jorm.database();
-        schema = nullify(jorm.schema());
-        table = nullify(jorm.table());
-        if (table != null) {
-            primaryKey = new Composite(jorm.primaryKey());
+    public Table(JormAnnotation annotation) {
+        this.database = Jorm.NONE.equals(annotation.database) ? null : annotation.database;
+        this.schema = Jorm.NONE.equals(annotation.schema) ? null : annotation.schema;
+        this.table = Jorm.NONE.equals(annotation.table) ? null : annotation.table;
+        if (annotation.primaryKey == null || annotation.primaryKey.length == 0 || Jorm.NONE.equals(annotation.primaryKey[0])) {
+            this.primaryKey = null;
         } else {
-            primaryKey = null;
+            this.primaryKey = new Composite(annotation.primaryKey);
         }
-        if (jorm.immutablePrefix().length() > 0) {
-            this.immutablePrefix = jorm.immutablePrefix();
+        if (Jorm.NONE.equals(annotation.immutablePrefix)) {
+            this.immutablePrefix = null;
+        } else if (annotation.immutablePrefix == null) {
+            this.immutablePrefix = "__";
         } else {
-            immutablePrefix = null;
+            this.immutablePrefix = null;
         }
     }
 
-    private static String nullify(String string) {
-        return string.isEmpty() ? null : string;
+    private static JormAnnotation tableAnnotation(Class<?> clazz) {
+        if (!Record.isRecordSubclass(clazz)) {
+            return null;
+        }
+
+        Jorm jorm = clazz.getAnnotation(Jorm.class);
+        JormAnnotation superAnnotation = tableAnnotation(clazz.getSuperclass());
+
+        if (jorm == null) {
+            return superAnnotation;
+        }
+
+        JormAnnotation annotation = new JormAnnotation(jorm);
+
+        return annotation.merge(superAnnotation);
     }
 
     public String getDatabase() {
@@ -112,5 +123,45 @@ public class Table {
 
     public String getImmutablePrefix() {
         return immutablePrefix;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Table [database => %s, schema => %s, table => %s, primaryKey => %s, immutablePrefix => %s]", database, schema, table, primaryKey, immutablePrefix);
+    }
+
+    private static class JormAnnotation {
+        String database;
+        String schema;
+        String table;
+        String[] primaryKey;
+        String immutablePrefix;
+
+        private static String nullify(String s) {
+            return Jorm.INHERIT.equals(s) ? null : s;
+        }
+
+        private static String[] nullify(String[] s) {
+            return s.length == 0 || (s.length == 1 && Jorm.INHERIT.equals(s[0])) ? null : s;
+        }
+
+        public JormAnnotation(Jorm jorm) {
+            this.database = nullify(jorm.database());
+            this.schema = nullify(jorm.schema());
+            this.table = nullify(jorm.table());
+            this.primaryKey = nullify(jorm.primaryKey());
+            this.immutablePrefix = nullify(jorm.immutablePrefix());
+        }
+
+        public JormAnnotation merge(JormAnnotation superAnnotation) {
+            if (superAnnotation != null) {
+                database = (database == null) ? superAnnotation.database : database;
+                schema = (schema == null) ? superAnnotation.schema : schema;
+                table = (table == null) ? superAnnotation.table : table;
+                primaryKey = primaryKey == null ? superAnnotation.primaryKey : primaryKey;
+                immutablePrefix = (immutablePrefix == null) ? superAnnotation.immutablePrefix : immutablePrefix;
+            }
+            return this;
+        }
     }
 }

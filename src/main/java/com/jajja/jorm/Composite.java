@@ -30,15 +30,14 @@ public class Composite {
     private int hashCode = 0;
 
     public Composite(String ... columns) {
-        Symbol[] symbols = new Symbol[columns.length];
+        this.symbols = new Symbol[columns.length];
         for (int i = 0; i < columns.length; i++) {
-            symbols[i] = Symbol.get(columns[i]);
+            this.symbols[i] = Symbol.get(columns[i]);
         }
-        this.symbols = tidy(symbols, false);
     }
 
     public Composite(Symbol ... symbols) {
-        this.symbols = tidy(symbols, true);
+        this.symbols = Arrays.copyOf(symbols, symbols.length);
     }
 
     public static Composite get(Object o) {
@@ -50,29 +49,6 @@ public class Composite {
             return (Composite)o;
         }
         throw new IllegalArgumentException();
-    }
-
-    private static Symbol[] tidy(Symbol[] symbols, boolean copy) {
-        int len = symbols.length;
-        if (len == 0) {
-            throw new IllegalArgumentException("At least 1 symbol is required");
-        }
-        if (len > 1) {
-            Arrays.sort(symbols);
-            int n = 0;
-            for (int i = 0; i < len; i++) {
-                symbols[n++] = symbols[i];
-                while (i < len - 1 && symbols[i].identity == symbols[i+1].identity) {
-                    i++;
-                }
-            }
-            copy = (len != n);
-            len = n;
-        }
-        if (copy) {
-            symbols = Arrays.copyOf(symbols, len);
-        }
-        return symbols;
     }
 
     public Value valueFrom(Row row) {
