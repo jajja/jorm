@@ -631,16 +631,16 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T, C extends Record> Map<T, C> selectAsMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, Query query) throws SQLException {
-        return transaction(clazz).selectAsMap(clazz, key, keyType, allowDuplicates, query);
+    public static <T, C extends Record> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, Query query) throws SQLException {
+        return transaction(clazz).selectAsTypedMap(clazz, key, keyType, allowDuplicates, query);
     }
 
-    public static <T, C extends Record> Map<T, C> selectAsMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
-        return transaction(clazz).selectAsMap(clazz, key, keyType, allowDuplicates, sql, params);
+    public static <T, C extends Record> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectAsTypedMap(clazz, key, keyType, allowDuplicates, sql, params);
     }
 
-    public static <T, C extends Record> Map<T, C> selectAsMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
-        return transaction(clazz).selectAsMap(clazz, key, keyType, allowDuplicates);
+    public static <T, C extends Record> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
+        return transaction(clazz).selectAsTypedMap(clazz, key, keyType, allowDuplicates);
     }
 
     /**
@@ -685,16 +685,16 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T, C extends Record> Map<T, List<C>> selectAllAsMap(Class<C> clazz, Object key, Class<T> keyType, Query query) throws SQLException {
-        return transaction(clazz).selectAllAsMap(clazz, key, keyType, query);
+    public static <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, Query query) throws SQLException {
+        return transaction(clazz).selectAllAsTypedMap(clazz, key, keyType, query);
     }
 
-    public static <T, C extends Record> Map<T, List<C>> selectAllAsMap(Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
-        return transaction(clazz).selectAllAsMap(clazz, key, keyType, sql, params);
+    public static <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
+        return transaction(clazz).selectAllAsTypedMap(clazz, key, keyType, sql, params);
     }
 
-    public static <T, C extends Record> Map<T, List<C>> selectAllAsMap(Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
-        return transaction(clazz).selectAllAsMap(clazz, key, keyType);
+    public static <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
+        return transaction(clazz).selectAllAsTypedMap(clazz, key, keyType);
     }
 
     /**
