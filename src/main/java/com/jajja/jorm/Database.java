@@ -81,8 +81,10 @@ public class Database {
         if (instance == null) {
             synchronized (Database.class) {
                 if (instance == null) {
-                    instance = new Database();
-                    instance.configure();
+                    Database newInst = new Database();
+                    newInst = new Database();
+                    newInst.configure();
+                    instance = newInst;
                 }
             }
         }
