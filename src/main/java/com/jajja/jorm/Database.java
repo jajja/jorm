@@ -57,7 +57,6 @@ import javax.sql.DataSource;
  * @since 1.0.0
  */
 public class Database {
-    // FIXME daz alotta hashmapz...
     private static final Logger logger =  Logger.getLogger(Database.class.getName());
     private final ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
     private final ThreadLocal<HashMap<String, Context>> contextStack = new ThreadLocal<HashMap<String, Context>>();
@@ -65,9 +64,10 @@ public class Database {
     private final Map<String, Configuration> configurations = new HashMap<String, Configuration>();
     private final Map<String, String> defaultContext = new HashMap<String, String>();
     private String globalDefaultContext = "";
-    private static Database instance;           // NEVER use directly, always use get()
+    private static Database instance;
 
     private Database() {
+        __configure();
     }
 
     /**
@@ -81,10 +81,7 @@ public class Database {
         if (instance == null) {
             synchronized (Database.class) {
                 if (instance == null) {
-                    Database newInst = new Database();
-                    newInst = new Database();
-                    newInst.configure();
-                    instance = newInst;
+                    instance = new Database();
                 }
             }
         }
@@ -121,7 +118,11 @@ public class Database {
      * @param dataSource the data source corresponding to the named data base.
      */
     public static void configure(String database, DataSource dataSource) {
-        configure(database, dataSource, false);
+        get().__configure(database, dataSource, false);
+    }
+
+    private void __configure(String database, DataSource dataSource) {
+        __configure(database, dataSource, false);
     }
 
     /**
@@ -133,10 +134,14 @@ public class Database {
      * configuration for the named database already exists.
      */
     public static void configure(String database, DataSource dataSource, boolean isOverride) {
-        if (!isOverride && isConfigured(database)) {
+        get().__configure(database,  dataSource, isOverride);
+    }
+
+    private void __configure(String database, DataSource dataSource, boolean isOverride) {
+        if (!isOverride && __isConfigured(database)) {
             throw new IllegalStateException("Named database '" + database + "' already configured!");
         }
-        get().dataSources.put(database, dataSource);
+        dataSources.put(database, dataSource);
     }
 
     /**
@@ -146,10 +151,14 @@ public class Database {
      * @return true if the named database has been configured, false otherwise.
      */
     public static boolean isConfigured(String database) {
+        return get().__isConfigured(database);
+    }
+
+    private boolean __isConfigured(String database) {
         if (database == null) {
             return false;
         }
-        return get().dataSources.containsKey(database);
+        return dataSources.containsKey(database);
     }
 
     /**
@@ -161,7 +170,11 @@ public class Database {
      * configured.
      */
     public static void assertConfigured(String database) {
-        if (!isConfigured(database)) {
+        get().__assertConfigured(database);
+    }
+
+    private void __assertConfigured(String database) {
+        if (!__isConfigured(database)) {
             throw new IllegalStateException("Named database '" + database + "' has no configured data source!");
         }
     }
@@ -275,7 +288,7 @@ public class Database {
      * database.context=
      * database.moria.context=production
      */
-    private void configure() {
+    private void __configure() {
         try {
             Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
             List<URL> locals = new LinkedList<URL>();
@@ -283,14 +296,14 @@ public class Database {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
                     logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
-                    configure(url);
+                    __configure(url);
                 } else {
                     locals.add(url);
                 }
             }
             for (URL url : locals) {
                 logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
-                configure(url);
+                __configure(url);
             }
 
             for (Entry<String, Configuration> entry : configurations.entrySet()) {
@@ -304,7 +317,7 @@ public class Database {
                     }
                 }
                 configuration.init();
-                configure(database, configuration.dataSource);
+                __configure(database, configuration.dataSource);
                 Logger.getLogger(Database.class.getName()).log(Level.FINE, "Configured " + configuration);
             }
         } catch (IOException ex) {
@@ -317,10 +330,22 @@ public class Database {
         InputStream is = url.openStream();
         properties.load(is);
         is.close();
-        configure(properties);
+        get().__configure(properties);
     }
 
     public static void configure(Properties properties) {
+        get().__configure(properties);
+    }
+
+    private void __configure(URL url) throws IOException {
+        Properties properties = new Properties();
+        InputStream is = url.openStream();
+        properties.load(is);
+        is.close();
+        __configure(properties);
+    }
+
+    private void __configure(Properties properties) {
         for (Entry<Object, Object> property : properties.entrySet()) {
             String[] parts = ((String)property.getKey()).split("\\.");
             boolean isMalformed = false;
@@ -328,17 +353,17 @@ public class Database {
             if (parts[0].equals("database") && parts.length > 1) {
                 String database = parts[1];
 
-                Configuration configuration = get().configurations.get(database);
+                Configuration configuration = configurations.get(database);
                 if (configuration == null) {
                     configuration = new Configuration(database);
-                    get().configurations.put(database, configuration);
+                    configurations.put(database, configuration);
                 }
 
                 String value = (String)property.getValue();
                 switch (parts.length) {
                 case 2:
                     if (parts[1].equals("context")) {
-                        Database.get().globalDefaultContext = value;
+                        globalDefaultContext = value;
                     } else {
                         isMalformed = true;
                     }
@@ -353,7 +378,7 @@ public class Database {
                         if (database.indexOf(Context.CONTEXT_SEPARATOR) != -1) {
                             isMalformed = true;
                         } else {
-                            Database.get().defaultContext.put(database, value);
+                            defaultContext.put(database, value);
                         }
                     } else if (parts[2].equals("timeZone")) {
                         if ("default".equalsIgnoreCase(value)) {
