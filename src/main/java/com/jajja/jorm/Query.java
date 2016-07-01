@@ -23,7 +23,6 @@ package com.jajja.jorm;
 
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +41,7 @@ import java.util.Map;
  * When a label is specified, the referenced argument must either a Record (the label refers to a column name),
  * or a java.util.Map (the label refers to a key contained by the Map).<br>
  * <br>
- * If the referenced argument is a Collection, each entry in the collection is processed separately,
+ * If the referenced argument is an iterable, each entry in the iterable is processed separately,
  * then finally concatenated together using a colon as a separator.<br>
  * <br>
  * If the referenced argument is a Table, it is properly quoted (e.g "the_schema"."the_table"), regardless of modifier.<br>
@@ -206,9 +205,9 @@ public class Query {
         if (param != null && param.getClass().isArray() && !param.getClass().getComponentType().isPrimitive()) {
             param = Arrays.asList((Object[])param);
         }
-        if (param instanceof Collection) {
+        if (param instanceof Iterable) {
             boolean isFirst = true;
-            for (Object o : (Collection)param) {
+            for (Object o : (Iterable)param) {
                 if (isFirst) {
                     isFirst = false;
                 } else {

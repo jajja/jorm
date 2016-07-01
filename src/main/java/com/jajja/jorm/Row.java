@@ -24,7 +24,6 @@ package com.jajja.jorm;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -242,7 +241,7 @@ public class Row {
         }
     }
 
-    private static void flag(Collection<? extends Row> rows, int flag, boolean set) {
+    private static void flag(Iterable<? extends Row> rows, int flag, boolean set) {
         for (Row row : rows) {
             row.flag(flag, set);
         }
@@ -257,7 +256,7 @@ public class Row {
     }
 
     @Deprecated
-    public static void stale(Collection<? extends Row> rows, boolean setStale) {
+    public static void stale(Iterable<? extends Row> rows, boolean setStale) {
     }
 
     @Deprecated
@@ -278,7 +277,7 @@ public class Row {
         flag(FLAG_READ_ONLY, setReadOnly);
     }
 
-    public static void readOnly(Collection<? extends Row> rows, boolean setReadOnly) {
+    public static void readOnly(Iterable<? extends Row> rows, boolean setReadOnly) {
         flag(rows, FLAG_READ_ONLY, setReadOnly);
     }
 
@@ -304,7 +303,7 @@ public class Row {
         flag(FLAG_REF_FETCH, refFetch);
     }
 
-    public static void refFetch(Collection<? extends Row> rows, boolean setRefFetch) {
+    public static void refFetch(Iterable<? extends Row> rows, boolean setRefFetch) {
         flag(rows, FLAG_REF_FETCH, setRefFetch);
     }
 

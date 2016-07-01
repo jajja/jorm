@@ -36,7 +36,6 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -1495,7 +1494,7 @@ public class Transaction {
     }
 
     /**
-     * Populates all records in the given collection of records with a single
+     * Populates all records in the given iterable of records with a single
      * prefetched reference of the given record class. Existing cached
      * references are not overwritten.
      *
@@ -1513,11 +1512,11 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Row> rows, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
+    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
         return prefetch(rows, foreignKeySymbol, clazz, referredSymbol, false);
     }
 
-    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Row> rows, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
         Set<Object> values = new HashSet<Object>();
 
         for (Row row : rows) {
@@ -1564,7 +1563,7 @@ public class Transaction {
     }
 
     /**
-     * Populates all records in the given collection of records with a single
+     * Populates all records in the given iterable of records with a single
      * prefetched reference of the given record class. Existing cached
      * references are not overwritten.
      *
@@ -1583,12 +1582,12 @@ public class Transaction {
      *             statement does not return a result set.
      */
     // XXX context
-    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Row> rows, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
+    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
         return prefetch(rows, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol));
     }
 
     // XXX context
-    public <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Row> rows, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
         return prefetch(rows, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol), ignoreInvalidReferences);
     }
 
@@ -1621,7 +1620,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public void save(Collection<? extends Record> records, int batchSize, ResultMode mode) throws SQLException {
+    public void save(Iterable<? extends Record> records, int batchSize, ResultMode mode) throws SQLException {
         List<Record> insertRecords = new LinkedList<Record>();
         List<Record> updateRecords = new LinkedList<Record>();
 
@@ -1645,7 +1644,7 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public void save(Collection<? extends Record> records) throws SQLException {
+    public void save(Iterable<? extends Record> records) throws SQLException {
         save(records, 0, ResultMode.REPOPULATE);
     }
 
@@ -1679,7 +1678,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public void delete(Collection<? extends Record> records) throws SQLException {
+    public void delete(Iterable<? extends Record> records) throws SQLException {
         Record template = null;
         String database = null;
 
@@ -1750,7 +1749,7 @@ public class Transaction {
         private Set<Symbol> columns = new HashSet<Symbol>();
         private Record template = null;
 
-        private BatchInfo(Collection<? extends Record> records) {
+        private BatchInfo(Iterable<? extends Record> records) {
             for (Record record : records) {
                 record.assertNotReadOnly();
 
@@ -1781,7 +1780,7 @@ public class Transaction {
         }
     }
 
-    private void batchExecute(Query query, Collection<? extends Record> records, ResultMode mode) throws SQLException {
+    private void batchExecute(Query query, Iterable<? extends Record> records, ResultMode mode) throws SQLException {
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
         Record template = records.iterator().next();
@@ -1812,11 +1811,7 @@ public class Transaction {
 
             RecordIterator iter = null;
             for (Record record : records) {
-                if (!resultSet.next()) {
-                    throw new IllegalStateException(String.format("Too few rows returned? Expected %d rows from query %s", records.size(), query.getSql()));
-                }
                 if (useReturning) {
-                    // RETURNING rocks!
                     if (iter == null) {
                         iter = new RecordIterator(this, resultSet);
                         iter.setCascadingClose(false);
@@ -1976,11 +1971,11 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public void insert(Collection<? extends Record> records, ResultMode mode) throws SQLException {
+    public void insert(Iterable<? extends Record> records, ResultMode mode) throws SQLException {
         insert(records, 0, mode);
     }
 
-    public void insert(Collection<? extends Record> records) throws SQLException {
+    public void insert(Iterable<? extends Record> records) throws SQLException {
         insert(records, 0, ResultMode.REPOPULATE);
     }
 
@@ -1999,8 +1994,8 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public void insert(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        if (records.isEmpty()) {
+    public void insert(Iterable<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
+        if (!records.iterator().hasNext()) {
             return;
         }
 
@@ -2017,7 +2012,7 @@ public class Transaction {
         }
     }
 
-    private void batchInsert(BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode) throws SQLException {
+    private void batchInsert(BatchInfo batchInfo, Iterable<? extends Record> records, ResultMode mode) throws SQLException {
         Table table = batchInfo.template.table();
         Query query = build();
 
@@ -2133,7 +2128,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public void update(Collection<? extends Record> records) throws SQLException {
+    public void update(Iterable<? extends Record> records) throws SQLException {
         update(records, 0, ResultMode.REPOPULATE);
     }
 
@@ -2150,7 +2145,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
+    public void update(Iterable<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
         update(records, chunkSize, mode, null);
     }
 
@@ -2168,8 +2163,8 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public void update(Collection<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
-        if (records.isEmpty()) {
+    public void update(Iterable<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
+        if (!records.iterator().hasNext()) {
             return;
         }
 
@@ -2224,7 +2219,7 @@ public class Transaction {
         return null;
     }
 
-    private void batchUpdate(final BatchInfo batchInfo, Collection<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
+    private void batchUpdate(final BatchInfo batchInfo, Iterable<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
         Table table = batchInfo.template.table();
         Query query = build();
         String vTable = table.getTable().equals("v") ? "v2" : "v";

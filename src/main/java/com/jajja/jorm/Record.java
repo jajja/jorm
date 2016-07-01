@@ -22,7 +22,6 @@
 package com.jajja.jorm;
 
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -132,12 +131,16 @@ public abstract class Record extends Row {
     }
 
     // Helper method used by batch methods to quickly determine a list's generic type
-    private static Class<? extends Record> genericType(Collection<? extends Record> records) {
+    private static Class<? extends Record> genericType(Iterable<? extends Record> records) {
         Iterator<? extends Record> iter = records.iterator();
         if (iter.hasNext()) {
             return iter.next().getClass();
         }
         throw new IllegalArgumentException("List is empty");
+    }
+
+    private static boolean isEmpty(Iterable<?> i) {
+        return !i.iterator().hasNext();
     }
 
     /**
@@ -750,7 +753,7 @@ public abstract class Record extends Row {
     }
 
     /**
-     * Populates all records in the given collection of records with a single
+     * Populates all records in the given iterable of records with a single
      * prefetched reference of the given record class. Existing cached
      * references are not overwritten.
      *
@@ -768,22 +771,22 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
-        if (!records.isEmpty()) {
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
+        if (!isEmpty(records)) {
             return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
         }
         return new HashMap<Composite.Value, T>();
     }
 
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
-        if (!records.isEmpty()) {
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+        if (!isEmpty(records)) {
             return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
         }
         return new HashMap<Composite.Value, T>();
     }
 
     /**
-     * Populates all records in the given collection of records with a single
+     * Populates all records in the given iterable of records with a single
      * prefetched reference of the given record class. Existing cached
      * references are not overwritten.
      *
@@ -801,15 +804,15 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
-        if (!records.isEmpty()) {
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
+        if (!isEmpty(records)) {
             return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
         }
         return new HashMap<Composite.Value, T>();
     }
 
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Collection<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
-        if (!records.isEmpty()) {
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+        if (!isEmpty(records)) {
             return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
         }
         return new HashMap<Composite.Value, T>();
@@ -853,8 +856,8 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static void save(Collection<? extends Record> records, int batchSize, ResultMode mode) throws SQLException {
-        if (!records.isEmpty()) {
+    public static void save(Iterable<? extends Record> records, int batchSize, ResultMode mode) throws SQLException {
+        if (!isEmpty(records)) {
             transaction(genericType(records)).save(records, batchSize, mode);
         }
     }
@@ -867,8 +870,8 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static void save(Collection<? extends Record> records) throws SQLException {
-        if (!records.isEmpty()) {
+    public static void save(Iterable<? extends Record> records) throws SQLException {
+        if (!isEmpty(records)) {
             transaction(genericType(records)).save(records, 0, ResultMode.REPOPULATE);
         }
     }
@@ -892,8 +895,8 @@ public abstract class Record extends Row {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public static void delete(Collection<? extends Record> records) throws SQLException {
-        if (!records.isEmpty()) {
+    public static void delete(Iterable<? extends Record> records) throws SQLException {
+        if (!isEmpty(records)) {
             transaction(genericType(records)).delete(records);
         }
     }
@@ -922,14 +925,14 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static void insert(Collection<? extends Record> records, ResultMode mode) throws SQLException {
-        if (!records.isEmpty()) {
+    public static void insert(Iterable<? extends Record> records, ResultMode mode) throws SQLException {
+        if (!isEmpty(records)) {
             transaction(genericType(records)).insert(records, mode);
         }
     }
 
-    public static void insert(Collection<? extends Record> records) throws SQLException {
-        if (!records.isEmpty()) {
+    public static void insert(Iterable<? extends Record> records) throws SQLException {
+        if (!isEmpty(records)) {
             transaction(genericType(records)).insert(records);
         }
     }
@@ -949,8 +952,8 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static void insert(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        if (!records.isEmpty()) {
+    public static void insert(Iterable<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
+        if (!isEmpty(records)) {
             transaction(genericType(records)).insert(records, chunkSize, mode);
         }
     }
@@ -990,8 +993,8 @@ public abstract class Record extends Row {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public static void update(Collection<? extends Record> records) throws SQLException {
-        if (!records.isEmpty()) {
+    public static void update(Iterable<? extends Record> records) throws SQLException {
+        if (!isEmpty(records)) {
             transaction(genericType(records)).update(records);
         }
     }
@@ -1009,8 +1012,8 @@ public abstract class Record extends Row {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        if (!records.isEmpty()) {
+    public static void update(Iterable<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
+        if (!isEmpty(records)) {
             transaction(genericType(records)).update(records, chunkSize, mode);
         }
     }
@@ -1029,8 +1032,8 @@ public abstract class Record extends Row {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public static void update(Collection<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
-        if (!records.isEmpty()) {
+    public static void update(Iterable<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
+        if (!isEmpty(records)) {
             transaction(genericType(records)).update(records, chunkSize, mode, primaryKey);
         }
     }
