@@ -53,7 +53,7 @@ import org.postgresql.util.PGobject;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Record.ResultMode;
-import com.jajja.jorm.Row.Column;
+import com.jajja.jorm.Row.Field;
 
 /**
  * The transaction implementation executing all queries in for {@link Jorm}
@@ -1520,9 +1520,9 @@ public class Transaction {
         Set<Object> values = new HashSet<Object>();
 
         for (Row row : rows) {
-            Column column = row.columns.get(foreignKeySymbol);
-            if (column != null && column.rawValue() != null && column.record() == null) {
-                values.add(column.rawValue());
+            Field field = row.fields.get(foreignKeySymbol);
+            if (field != null && field.rawValue() != null && field.record() == null) {
+                values.add(field.rawValue());
             }
         }
 
@@ -1549,13 +1549,13 @@ public class Transaction {
         }
 
         for (Row row : rows) {
-            Column column = row.columns.get(foreignKeySymbol);
-            if (column != null && column.rawValue() != null && column.record() == null) {
-                Record referenceRecord = map.get(key.value(column.rawValue()));
+            Field field = row.fields.get(foreignKeySymbol);
+            if (field != null && field.rawValue() != null && field.record() == null) {
+                Record referenceRecord = map.get(key.value(field.rawValue()));
                 if (referenceRecord == null && !ignoreInvalidReferences) {
-                    throw new IllegalStateException(column.rawValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
+                    throw new IllegalStateException(field.rawValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
                 }
-                column.setValue(referenceRecord);
+                field.setValue(referenceRecord);
             }
         }
 
@@ -1764,7 +1764,7 @@ public class Transaction {
                     throw new IllegalArgumentException("all records must be bound to the same Database");
                 }
 
-                columns.addAll(record.columns.keySet());
+                columns.addAll(record.fields.keySet());
             }
 
             String immutablePrefix = template.table().getImmutablePrefix();
@@ -1818,12 +1818,12 @@ public class Transaction {
                     }
                     iter.populate(record);
                 } else {
-                    Column column = record.getOrCreateColumn(primaryKey.getSymbol());
-                    column.setValue(resultSet.getObject(1));
-                    column.setChanged(false);
+                    Field field = record.getOrCreateField(primaryKey.getSymbol());
+                    field.setValue(resultSet.getObject(1));
+                    field.setChanged(false);
                     if (mode == ResultMode.REPOPULATE) {
                         if (map == null) throw new IllegalStateException("bug");
-                        map.put(column.dereference(), record);
+                        map.put(field.dereference(), record);
                     }
                 }
             }
@@ -1889,7 +1889,7 @@ public class Transaction {
         query.append("INSERT INTO #1# (", record.table());
 
         boolean isFirst = true;
-        for (Entry<Symbol, Column> entry : record.columns.entrySet()) {
+        for (Entry<Symbol, Field> entry : record.fields.entrySet()) {
             if (entry.getValue().isChanged() && !record.table().isImmutable(entry.getKey())) {
                 query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
                 isFirst = false;
@@ -1905,10 +1905,10 @@ public class Transaction {
         } else {
             query.append(") VALUES (");
             isFirst = true;
-            for (Entry<Symbol, Column> e : record.columns.entrySet()) {
-                Column column = e.getValue();
-                if (column.isChanged() && !record.table().isImmutable(e.getKey())) {
-                    Object value = column.dereference();
+            for (Entry<Symbol, Field> e : record.fields.entrySet()) {
+                Field field = e.getValue();
+                if (field.isChanged() && !record.table().isImmutable(e.getKey())) {
+                    Object value = field.dereference();
                     if (value instanceof Query || value instanceof Composite.Value) {
                         query.append(isFirst ? "#1#" : ", #1#", value);
                     } else {
@@ -1953,9 +1953,9 @@ public class Transaction {
             if (id == null) {
                 throw new RuntimeException("INSERT to " + record.table().toString() + " did not generate a key (AKA insert id): " + query.getSql());
             }
-            Column column = record.getOrCreateColumn(record.primaryKey().getSymbol());
-            column.setValue(id);
-            column.setChanged(false);
+            Field field = record.getOrCreateField(record.primaryKey().getSymbol());
+            field.setValue(id);
+            field.setChanged(false);
         }
     }
 
@@ -2016,8 +2016,15 @@ public class Transaction {
         Table table = batchInfo.template.table();
         Query query = build();
 
-        for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
-            batchInfo.columns.add(symbol);
+        if (batchInfo.columns.isEmpty()) {
+            // We have to insert something, so add the primary key columns
+            // This does not work on MSSQL
+            // INSERT INTO table () VALUES (), (), (); = syntax error.
+            // INSERT INTO table (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT); = DEFAULT or NULL are not allowed as explicit identity values
+            // INSERT INTO table DEFAULT VALUES, DEFAULT VALUES, DEFAULT VALUES; = syntax error.
+            for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
+                batchInfo.columns.add(symbol);
+            }
         }
 
         query.append("INSERT INTO #1# (", table);
@@ -2078,10 +2085,10 @@ public class Transaction {
         query.append("UPDATE #1# SET ", record.table());
 
         boolean isFirst = true;
-        for (Entry<Symbol, Column> entry : record.columns.entrySet()) {
-            Column column = entry.getValue();
-            if (column.isChanged()) {
-                Object value = column.dereference();
+        for (Entry<Symbol, Field> entry : record.fields.entrySet()) {
+            Field field = entry.getValue();
+            if (field.isChanged()) {
+                Object value = field.dereference();
                 if (value instanceof Query || value instanceof Composite.Value) {
                     query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), value);
                 } else {

@@ -44,13 +44,13 @@ public class Row {
     public static final byte FLAG_READ_ONLY = 0x02;
     public static final byte FLAG_REF_FETCH = 0x04;
     byte flags = FLAG_REF_FETCH;
-    Map<Symbol, Column> columns = new HashMap<Symbol, Column>(8, 1.0f);
+    Map<Symbol, Field> fields = new HashMap<Symbol, Field>(8, 1.0f);
 
-    public static class Column {
+    public static class Field {
         private Object value = null;
         private boolean isChanged = false;
 
-        Column() {}
+        Field() {}
 
         void setValue(Object value) {
             this.value = Patcher.unbork(value);
@@ -72,13 +72,13 @@ public class Row {
             this.isChanged = isChanged;
         }
 
-        boolean isChanged() {
+        public boolean isChanged() {
             return isChanged;
         }
 
         @Override
         public String toString() {
-            return String.format("Column [value => %s, isChanged => %s]", value, isChanged);
+            return String.format("Field [value => %s, isChanged => %s]", value, isChanged);
         }
     }
 
@@ -86,50 +86,50 @@ public class Row {
     }
 
     public void set(Row row) {
-        for (Entry<Symbol, Column> entry : row.columns.entrySet()) {
+        for (Entry<Symbol, Field> entry : row.fields.entrySet()) {
             put(entry.getKey(), entry.getValue().rawValue());
         }
     }
 
-    Column getOrCreateColumn(Symbol symbol) {
-        Column column = columns.get(symbol);
-        if (column == null) {
-            column = new Column();
-            columns.put(symbol, column);
+    Field getOrCreateField(Symbol symbol) {
+        Field field = fields.get(symbol);
+        if (field == null) {
+            field = new Field();
+            fields.put(symbol, field);
         }
-        return column;
+        return field;
     }
 
 
     /**
-     * Reinitializes the Row to optimally hold {@code size} column values.
-     * All existing column values are cleared.
+     * Reinitializes the Row to optimally hold {@code size} fields.
+     * All existing fields are cleared.
      *
-     * @param size the number of columns
+     * @param size the number of fields
      */
-    public void resetColumns(int size) {
-        columns = new HashMap<Symbol, Column>(size, 1.0f);
+    public void resetFields(int size) {
+        fields = new HashMap<Symbol, Field>(size, 1.0f);
     }
 
     /**
-     * Provides an immutable view of the columns.
+     * Provides an immutable view of the fields.
      *
-     * @return the columns
+     * @return the fields
      */
-    public Map<Symbol, Column> columns() {
-        return Collections.unmodifiableMap(columns);
+    public Map<Symbol, Field> fields() {
+        return Collections.unmodifiableMap(fields);
     }
 
     /**
-     * Checks whether any of the values of the columns specified by the composite key are null or changed.
+     * Checks whether any of the values of the fields specified by the composite key are null or changed.
      *
      * @param key a composite key
-     * @return true if any of the column values are null or changed since the last call to populate()
+     * @return true if any of the fields are null or changed since the last call to populate()
      */
     public boolean isCompositeKeyNullOrChanged(Composite key) {
         for (Symbol symbol : key.getSymbols()) {
-            Column column = columns.get(symbol);
-            if (column == null || column.dereference() == null || column.isChanged()) {
+            Field field = fields.get(symbol);
+            if (field == null || field.dereference() == null || field.isChanged()) {
                 return true;
             }
         }
@@ -137,15 +137,15 @@ public class Row {
     }
 
     /**
-     * Checks whether any of the values of the columns specified by the composite key are null.
+     * Checks whether any of the values of the fields specified by the composite key are null.
      *
      * @param key a composite key
-     * @return true if any of the column values are null
+     * @return true if any of the fields are null
      */
     public boolean isCompositeKeyNull(Composite key) {
         for (Symbol symbol : key.getSymbols()) {
-            Column column = columns.get(symbol);
-            if (column == null || column.dereference() == null) {
+            Field field = fields.get(symbol);
+            if (field == null || field.dereference() == null) {
                 return true;
             }
         }
@@ -171,7 +171,7 @@ public class Row {
      * @return true if the column is set, false otherwise
      */
     public boolean isSet(Symbol symbol) {
-        return columns.get(symbol) != null;
+        return fields.get(symbol) != null;
     }
 
     /**
@@ -193,21 +193,21 @@ public class Row {
      * @return true if the column value has changed, false otherwise
      */
     public boolean isChanged(Symbol symbol) {
-        Column column = columns.get(symbol);
-        if (column == null) {
+        Field field = fields.get(symbol);
+        if (field == null) {
             return false;
         }
-        return column.isChanged();
+        return field.isChanged();
     }
 
     /**
-     * Checks whether any column values have changed since the last call to populate().
+     * Checks whether any fields have changed since the last call to populate().
      *
-     * @return true if at least one column value has changed, false otherwise
+     * @return true if at least one field has changed, false otherwise
      */
     public boolean isChanged() {
-        for (Column column : columns.values()) {
-            if (column.isChanged()) {
+        for (Field field : fields.values()) {
+            if (field.isChanged()) {
                 return true;
             }
         }
@@ -215,21 +215,21 @@ public class Row {
     }
 
     /**
-     * Marks all columns as changed.
+     * Marks all fields as changed.
      */
     public void taint() {
-        for (Entry<Symbol, Column> entry : columns.entrySet()) {
-            Column column = entry.getValue();
-            column.setChanged(true);
+        for (Entry<Symbol, Field> entry : fields.entrySet()) {
+            Field field = entry.getValue();
+            field.setChanged(true);
         }
     }
 
     /**
-     * Marks all columns as unchanged.
+     * Marks all fields as unchanged.
      */
     public void purify() {
-        for (Column column : columns.values()) {
-            column.setChanged(false);
+        for (Field field : fields.values()) {
+            field.setChanged(false);
         }
     }
 
@@ -317,15 +317,15 @@ public class Row {
     }
 
     void put(Symbol symbol, Object value) {
-        Column column = columns.get(symbol);
-        if (column == null) {
-            column = new Column();
+        Field field = fields.get(symbol);
+        if (field == null) {
+            field = new Field();
         }
 
-        column.setChanged(true);
-        column.setValue(value);
+        field.setChanged(true);
+        field.setValue(value);
 
-        columns.put(symbol, column);
+        fields.put(symbol, field);
     }
 
     /**
@@ -376,9 +376,9 @@ public class Row {
     public void unset(Symbol symbol) {
         assertNotReadOnly();
 
-        Column column = columns.get(symbol);
-        if (column != null) {
-            columns.remove(symbol);
+        Field field = fields.get(symbol);
+        if (field != null) {
+            fields.remove(symbol);
         }
     }
 
@@ -391,7 +391,7 @@ public class Row {
         assertNotReadOnly();
 
         for (Symbol symbol : composite.getSymbols()) {
-            columns.remove(symbol);
+            fields.remove(symbol);
         }
     }
 
@@ -586,16 +586,16 @@ public class Row {
 
     @SuppressWarnings("unchecked")
     <T> T getColumnValue(Symbol symbol, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
-        Column column = columns.get(symbol);
-        if (column == null) {
+        Field field = fields.get(symbol);
+        if (field == null) {
             throw new RuntimeException("Column '" + symbol.getName() + "' does not exist, or has not yet been set on " + this);
         }
 
-        Object value = column.rawValue();
+        Object value = field.rawValue();
 
         if (value != null) {
             if (Record.isRecordSubclass(clazz)) {
-                Record record = column.record();
+                Record record = field.record();
                 if (record == null) {
                     // Load foreign key
                     if (isReferenceCacheOnly) {
@@ -607,7 +607,7 @@ public class Row {
                     try {
                         transaction = (transaction != null ? transaction : Record.transaction((Class<? extends Record>)clazz));
                         record = transaction.findById((Class<? extends Record>)clazz, value);
-                        column.setValue(record);
+                        field.setValue(record);
                     } catch (SQLException e) {
                         if (throwSqlException) {
                             throw e;
@@ -641,7 +641,7 @@ public class Row {
 
         stringBuilder.append("Row { ");
 
-        for (Entry<Symbol, Column> entry : columns.entrySet()) {
+        for (Entry<Symbol, Field> entry : fields.entrySet()) {
             if (isFirst) {
                 isFirst = false;
             } else {
@@ -659,14 +659,14 @@ public class Row {
     @Override
     public boolean equals(Object object) {
         if (object instanceof Row) {
-            return columns.equals(((Row)object).columns);
+            return fields.equals(((Row)object).fields);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return columns.hashCode();
+        return fields.hashCode();
     }
 
     private static void convertOverflow(Number n, Class<?> clazz) {

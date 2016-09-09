@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * loosely coupled representation of columns names and values in {@link Record}.
  *
  * @see Record
- * @see Column
+ * @see Field
  * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
  * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
  * @since 1.0.0

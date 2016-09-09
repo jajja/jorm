@@ -150,13 +150,12 @@ public abstract class Record extends Row {
     }
 
     /**
-     * Constructs a record, using the column values and flags from a Row. Uses {@link Jorm} annotation for configuration.
+     * Constructs a record, using the fields flags from a Row. Uses {@link Jorm} annotation for configuration.
      *
-     * Note: this simply copies the column value reference; no deep copying is done.
-     * This means the Row and Record will share column values.
+     * Note: no deep copying is done.
      */
     public Record(Row row) {
-        this.columns = row.columns;
+        this.fields = row.fields;
         this.flags = row.flags;
     }
 
@@ -252,7 +251,7 @@ public abstract class Record extends Row {
     }
 
     /**
-     * Populates the record with the result for which the id column matches the
+     * Populates the record with the result for which the id field matches the
      * given value.
      *
      * @param id
@@ -416,12 +415,12 @@ public abstract class Record extends Row {
 
     /**
      * Provides a selected record, populated with the result for which the primary key
-     * column matches the given id value.
+     * field matches the given id value.
      *
      * @param clazz
      *            the class defining the table mapping.
      * @param id
-     *            the primary key value (can be either a {@link Composite.Value} or a single column value).
+     *            the primary key value (can be either a {@link Composite.Value} or a simple value).
      * @return the matched record or null for no match.
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
@@ -1062,11 +1061,11 @@ public abstract class Record extends Row {
      */
     @Override
     public void taint() {
-        for (Entry<Symbol, Column> entry : columns.entrySet()) {
+        for (Entry<Symbol, Field> entry : fields.entrySet()) {
             Symbol symbol = entry.getKey();
-            Column column = entry.getValue();
+            Field field = entry.getValue();
             if (!table().isImmutable(symbol) && !primaryKey().contains(symbol)) {
-                column.setChanged(true);
+                field.setChanged(true);
             }
         }
     }

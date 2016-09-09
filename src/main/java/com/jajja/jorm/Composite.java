@@ -23,7 +23,7 @@ package com.jajja.jorm;
 
 import java.util.Arrays;
 
-import com.jajja.jorm.Row.Column;
+import com.jajja.jorm.Row.Field;
 
 public class Composite {
     private final Symbol[] symbols;
@@ -65,11 +65,11 @@ public class Composite {
         }
         Object[] values = new Object[symbols.length];
         for (int i = 0; i < symbols.length; i++) {
-            Column column = row.columns.get(symbols[i]);
-            if (column == null) {
+            Field field = row.fields.get(symbols[i]);
+            if (field == null) {
                 throw new NullPointerException("Column " + symbols[i].getName() + " is not set");
             }
-            values[i] = column.dereference();
+            values[i] = field.dereference();
         }
         return new Value(this, values);
     }
