@@ -1816,6 +1816,9 @@ public class Transaction {
                         iter = new RecordIterator(this, resultSet);
                         iter.setCascadingClose(false);
                     }
+                    if (!iter.next()) {
+                        throw new IllegalStateException("bug");
+                    }
                     iter.populate(record);
                 } else {
                     Field field = record.getOrCreateField(primaryKey.getSymbol());
@@ -1845,11 +1848,11 @@ public class Transaction {
 
                 int idColumn = resultSet.findColumn(primaryKey.getSymbol().getName());
                 if (Dialect.DatabaseProduct.MYSQL.equals(dialect.getDatabaseProduct())) {
-                    while (resultSet.next()) {
+                    while (iter.next()) {
                         iter.populate(map.get(resultSet.getLong(idColumn)));
                     }
                 } else {
-                    while (resultSet.next()) {
+                    while (iter.next()) {
                         iter.populate(map.get(resultSet.getObject(idColumn)));
                     }
                 }
