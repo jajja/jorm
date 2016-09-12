@@ -1811,13 +1811,13 @@ public class Transaction {
 
             RecordIterator iter = null;
             for (Record record : records) {
+                if (!resultSet.next()) {
+                    throw new IllegalStateException("bug");
+                }
                 if (useReturning) {
                     if (iter == null) {
                         iter = new RecordIterator(this, resultSet);
                         iter.setCascadingClose(false);
-                    }
-                    if (!iter.next()) {
-                        throw new IllegalStateException("bug");
                     }
                     iter.populate(record);
                 } else {
