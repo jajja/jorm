@@ -3,3 +3,7 @@ target
 .classpath
 .project
 bin
+.gradle/
+build/
+.idea/
+*.iml
