@@ -1806,13 +1806,15 @@ public class Transaction {
                 resultSet = preparedStatement.getGeneratedKeys();
                 if (mode == ResultMode.REPOPULATE) {
                     map = new HashMap<Object, Record>();
+                } else if (mode == ResultMode.NO_RESULT) {
+                    return;
                 }
             }
 
             RecordIterator iter = null;
             for (Record record : records) {
                 if (!resultSet.next()) {
-                    throw new IllegalStateException("bug");
+                    throw new IllegalStateException("The getGeneratedKeys() result set contains too few rows. This is most likely a bug in your JDBC driver. Consider using ResultMode.NO_RESULT");
                 }
                 if (useReturning) {
                     if (iter == null) {
