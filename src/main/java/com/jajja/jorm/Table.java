@@ -117,8 +117,8 @@ public class Table {
         return primaryKey;
     }
 
-    public boolean isImmutable(Symbol symbol) {
-        return immutablePrefix != null && symbol.getName().startsWith(immutablePrefix);
+    public boolean isImmutable(String column) {
+        return immutablePrefix != null && column.startsWith(immutablePrefix);
     }
 
     public String getImmutablePrefix() {

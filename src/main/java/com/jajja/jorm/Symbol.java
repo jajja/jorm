@@ -33,8 +33,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
  * @since 1.0.0
  */
-public final class Symbol implements Comparable<Symbol> {
-    private static volatile ConcurrentHashMap<String, Symbol> symbols = new ConcurrentHashMap<String, Symbol>(512, 0.75f, 1);
+public final class SymbolLol implements Comparable<SymbolLol> {
+    private static volatile ConcurrentHashMap<String, SymbolLol> symbols = new ConcurrentHashMap<String, SymbolLol>(512, 0.75f, 1);
     final int identity;
     private final String name;
 
@@ -64,14 +64,14 @@ public final class Symbol implements Comparable<Symbol> {
      *            the name.
      * @return the symbol corresponding to the given name.
      */
-    public static Symbol get(String name) {
-        Symbol symbol = symbols.get(name);
+    public static SymbolLol get(String name) {
+        SymbolLol symbol = symbols.get(name);
 
         if (symbol == null) {
             synchronized (symbols) {
                 symbol = symbols.get(name);
                 if (symbol == null) {
-                    symbol = new Symbol(symbols.size() + 1, name);
+                    symbol = new SymbolLol(symbols.size() + 1, name);
                     symbols.put(name, symbol);
                 }
             }
@@ -80,7 +80,7 @@ public final class Symbol implements Comparable<Symbol> {
         return symbol;
     }
 
-    private Symbol(Integer identity, String string) {
+    private SymbolLol(Integer identity, String string) {
         if (string == null || string.isEmpty()) {
             throw new IllegalArgumentException("Symbols cannot have empty content!");
         }
@@ -98,8 +98,8 @@ public final class Symbol implements Comparable<Symbol> {
 
     @Override
     public boolean equals(Object object) {
-        if (object instanceof Symbol) {
-            return ((Symbol)object).identity == identity;
+        if (object instanceof SymbolLol) {
+            return ((SymbolLol)object).identity == identity;
         } else if (object instanceof String) {
             return ((String)object).equals(name);
         }
@@ -107,7 +107,7 @@ public final class Symbol implements Comparable<Symbol> {
     }
 
     @Override
-    public int compareTo(Symbol o) {
+    public int compareTo(SymbolLol o) {
         return (identity < o.identity) ? -1 : ((identity == o.identity) ? 0 : 1);
     }
 

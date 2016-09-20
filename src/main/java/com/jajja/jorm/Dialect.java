@@ -453,7 +453,7 @@ public class Dialect {
 
     public Query toSqlExpression(Value value) {
         Query query = new Query(this);
-        Symbol[] columns = value.getComposite().getSymbols();
+        String[] columns = value.getComposite().getColumns();
         Object[] values = value.getValues();
         boolean isFirst = true;
         for (int i = 0; i < columns.length; i++) {

@@ -110,7 +110,7 @@ import com.jajja.jorm.generator.Generator;
  * Note that related records are cached by the method
  * {@link Record#get(String, Class)}. Cache invalidation upon change of foreign
  * keys is maintained in records. Further control can be achieved by overriding
- * {@link Record#notifyFieldChanged(Symbol, Object)}.
+ * {@link Record#notifyFieldChanged(String, Object)}.
  * </p>
  *
  * @see Jorm
@@ -236,8 +236,6 @@ public abstract class Record extends Row {
     /**
      * Populates the record with the first result for which the given value matches.
      *
-     * @param symbol
-     *            the column symbol.
      * @param value
      *            the value to match.
      * @return true if the record could be updated with a matching row from the
@@ -758,44 +756,11 @@ public abstract class Record extends Row {
      *
      * @param records
      *            the records to populate with prefetched references.
-     * @param foreignKeySymbol
-     *            the symbol defining the foreign key to the referenced records.
-     * @param clazz
-     *            the class of the referenced records.
-     * @param referredSymbol
-     *            the symbol defining the referred column of the referenced
-     *            records.
-     * @return the prefetched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
-        if (!isEmpty(records)) {
-            return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
-        }
-        return new HashMap<Composite.Value, T>();
-    }
-
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
-        if (!isEmpty(records)) {
-            return transaction(genericType(records)).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
-        }
-        return new HashMap<Composite.Value, T>();
-    }
-
-    /**
-     * Populates all records in the given iterable of records with a single
-     * prefetched reference of the given record class. Existing cached
-     * references are not overwritten.
-     *
-     * @param records
-     *            the records to populate with prefetched references.
-     * @param foreignKeySymbol
+     * @param foreignKeyColumn
      *            the column name defining the foreign key to the referenced records.
      * @param clazz
      *            the class of the referenced records.
-     * @param referredSymbol
+     * @param referredColumn
      *            the column name defining the referred column of the referenced
      *            records.
      * @return the prefetched records.
@@ -803,16 +768,16 @@ public abstract class Record extends Row {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, String foreignKeyColumn, Class<T> clazz, String referredColumn) throws SQLException {
         if (!isEmpty(records)) {
-            return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol);
+            return transaction(clazz).prefetch(records, foreignKeyColumn, clazz, referredColumn);
         }
         return new HashMap<Composite.Value, T>();
     }
 
-    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+    public static <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Record> records, String foreignKeyColumn, Class<T> clazz, String referredColumn, boolean ignoreInvalidReferences) throws SQLException {
         if (!isEmpty(records)) {
-            return transaction(clazz).prefetch(records, foreignKeySymbol, clazz, referredSymbol, ignoreInvalidReferences);
+            return transaction(clazz).prefetch(records, foreignKeyColumn, clazz, referredColumn, ignoreInvalidReferences);
         }
         return new HashMap<Composite.Value, T>();
     }
@@ -1061,10 +1026,10 @@ public abstract class Record extends Row {
      */
     @Override
     public void taint() {
-        for (Entry<Symbol, Field> entry : fields.entrySet()) {
-            Symbol symbol = entry.getKey();
+        for (Entry<String, Field> entry : fields.entrySet()) {
+            String column = entry.getKey();
             Field field = entry.getValue();
-            if (!table().isImmutable(symbol) && !primaryKey().contains(symbol)) {
+            if (!table().isImmutable(column) && !primaryKey().contains(column)) {
                 field.setChanged(true);
             }
         }
@@ -1081,19 +1046,19 @@ public abstract class Record extends Row {
     }
 
     @Override
-    public boolean isSet(Symbol symbol) {
-        return super.isSet(symbol);
+    public boolean isSet(String column) {
+        return super.isSet(column);
     }
 
     @Override
-    public void unset(Symbol symbol) {
+    public void unset(String column) {
         assertNotReadOnly();
-        super.unset(symbol);
+        super.unset(column);
     }
 
     @Override
-    <T> T getColumnValue(Symbol symbol, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
-        return super.getColumnValue(symbol, clazz, isReferenceCacheOnly, throwSqlException, transaction);
+    <T> T getColumnValue(String column, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
+        return super.getColumnValue(column, clazz, isReferenceCacheOnly, throwSqlException, transaction);
     }
 
     @Override

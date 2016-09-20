@@ -128,9 +128,6 @@ public class Query {
             }
             sql.append(dialect.quoteIdentifier(table.getTable()));
             return;
-        } else if (param instanceof Symbol) {
-            param = ((Symbol)param).getName();
-            modifier = MODIFIER_IDENTIFIER;
         } else if (param instanceof Query) {
             append((Query)param);
             return;
@@ -197,7 +194,8 @@ public class Query {
         }
 
         if (param instanceof Composite) {
-            param = ((Composite)param).getSymbols();
+            param = ((Composite)param).getColumns();
+            modifier = MODIFIER_IDENTIFIER;
         } else if (param instanceof Composite.Value) {
             param = ((Composite.Value)param).getValues();
         }

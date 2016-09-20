@@ -754,8 +754,8 @@ public class Transaction {
      * Populates the record with the first result for which the given column name
      * matches the given value.
      *
-     * @param symbol
-     *            the column symbol.
+     * @param record
+     *            the record.
      * @param value
      *            the value to match.
      * @return true if the record could be updated with a matching row from the
@@ -1500,27 +1500,27 @@ public class Transaction {
      *
      * @param records
      *            the records to populate with prefetched references.
-     * @param foreignKeySymbol
-     *            the symbol defining the foreign key to the referenced records.
+     * @param foreignKeyColumn
+     *            the column defining the foreign key to the referenced records.
      * @param clazz
      *            the class of the referenced records.
-     * @param referredSymbol
-     *            the symbol defining the referred column of the referenced
+     * @param referredColumn
+     *            the column defining the referred column of the referenced
      *            records.
      * @return the prefetched records.
      * @throws SQLException
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol) throws SQLException {
-        return prefetch(rows, foreignKeySymbol, clazz, referredSymbol, false);
+    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, String foreignKeyColumn, Class<T> clazz, String referredColumn) throws SQLException {
+        return prefetch(rows, foreignKeyColumn, clazz, referredColumn, false);
     }
 
-    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, Symbol foreignKeySymbol, Class<T> clazz, Symbol referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
+    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, String foreignKeyColumn, Class<T> clazz, String referredColumn, boolean ignoreInvalidReferences) throws SQLException {
         Set<Object> values = new HashSet<Object>();
 
         for (Row row : rows) {
-            Field field = row.fields.get(foreignKeySymbol);
+            Field field = row.fields.get(foreignKeyColumn);
             if (field != null && field.rawValue() != null && field.record() == null) {
                 values.add(field.rawValue());
             }
@@ -1530,14 +1530,14 @@ public class Transaction {
             return new HashMap<Composite.Value, T>();
         }
 
-        final Composite key = new Composite(referredSymbol);
+        final Composite key = new Composite(referredColumn);
         final Map<Composite.Value, T> map = new HashMap<Composite.Value, T>();
         Query q = null;
         int n = 0;
         for (Object value : values) {
             n++;
             if (q == null) {
-                q = getSelectQuery(clazz).append("WHERE #1# IN (#2#", referredSymbol, value);
+                q = getSelectQuery(clazz).append("WHERE #:1# IN (#2#", referredColumn, value);
             } else {
                 q.append(", #1#", value);
             }
@@ -1549,46 +1549,17 @@ public class Transaction {
         }
 
         for (Row row : rows) {
-            Field field = row.fields.get(foreignKeySymbol);
+            Field field = row.fields.get(foreignKeyColumn);
             if (field != null && field.rawValue() != null && field.record() == null) {
                 Record referenceRecord = map.get(key.value(field.rawValue()));
                 if (referenceRecord == null && !ignoreInvalidReferences) {
-                    throw new IllegalStateException(field.rawValue() + " not present in " + Table.get(clazz).getTable() + "." + referredSymbol.getName());
+                    throw new IllegalStateException(field.rawValue() + " not present in " + Table.get(clazz).getTable() + "." + referredColumn);
                 }
                 field.setValue(referenceRecord);
             }
         }
 
         return map;
-    }
-
-    /**
-     * Populates all records in the given iterable of records with a single
-     * prefetched reference of the given record class. Existing cached
-     * references are not overwritten.
-     *
-     * @param rows
-     *            the records to populate with prefetched references.
-     * @param foreignKeySymbol
-     *            the column name defining the foreign key to the referenced records.
-     * @param clazz
-     *            the class of the referenced records.
-     * @param referredSymbol
-     *            the column name defining the referred column of the referenced
-     *            records.
-     * @return the prefetched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    // XXX context
-    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, String foreignKeySymbol, Class<T> clazz, String referredSymbol) throws SQLException {
-        return prefetch(rows, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol));
-    }
-
-    // XXX context
-    public <T extends Record> Map<Composite.Value, T> prefetch(Iterable<? extends Row> rows, String foreignKeySymbol, Class<T> clazz, String referredSymbol, boolean ignoreInvalidReferences) throws SQLException {
-        return prefetch(rows, Symbol.get(foreignKeySymbol), clazz, Symbol.get(referredSymbol), ignoreInvalidReferences);
     }
 
     /**
@@ -1666,8 +1637,8 @@ public class Transaction {
         } finally {
             preparedStatement.close();
         }
-        for (Symbol symbol : record.primaryKey().getSymbols()) {
-            record.put(symbol, null);
+        for (String column : record.primaryKey().getColumns()) {
+            record.put(column, null);
         }
     }
 
@@ -1746,7 +1717,7 @@ public class Transaction {
     }
 
     private static class BatchInfo {
-        private Set<Symbol> columns = new HashSet<Symbol>();
+        private Set<String> columns = new HashSet<String>();
         private Record template = null;
 
         private BatchInfo(Iterable<? extends Record> records) {
@@ -1769,10 +1740,10 @@ public class Transaction {
 
             String immutablePrefix = template.table().getImmutablePrefix();
             if (template != null && immutablePrefix != null) {
-                Iterator<Symbol> i = columns.iterator();
+                Iterator<String> i = columns.iterator();
                 while (i.hasNext()) {
-                    Symbol symbol = i.next();
-                    if (symbol.getName().startsWith(immutablePrefix)) {
+                    String column = i.next();
+                    if (column.startsWith(immutablePrefix)) {
                         i.remove();
                     }
                 }
@@ -1823,7 +1794,7 @@ public class Transaction {
                     }
                     iter.populate(record);
                 } else {
-                    Field field = record.getOrCreateField(primaryKey.getSymbol());
+                    Field field = record.getOrCreateField(primaryKey.getColumn());
                     field.setValue(resultSet.getObject(1));
                     field.setChanged(false);
                     if (mode == ResultMode.REPOPULATE) {
@@ -1841,14 +1812,14 @@ public class Transaction {
                 preparedStatement.close();
                 preparedStatement = null;
 
-                Query q = getSelectQuery(template.getClass()).append("WHERE #1# IN (#2:@#)", primaryKey.getSymbol(), records);
+                Query q = getSelectQuery(template.getClass()).append("WHERE #1# IN (#2:@#)", primaryKey.getColumn(), records);
 
                 preparedStatement = prepare(q);
                 resultSet = preparedStatement.executeQuery();
                 iter = new RecordIterator(this, resultSet);
                 iter.setCascadingClose(false);
 
-                int idColumn = resultSet.findColumn(primaryKey.getSymbol().getName());
+                int idColumn = resultSet.findColumn(primaryKey.getColumn());
                 if (Dialect.DatabaseProduct.MYSQL.equals(dialect.getDatabaseProduct())) {
                     while (iter.next()) {
                         iter.populate(map.get(resultSet.getLong(idColumn)));
@@ -1894,7 +1865,7 @@ public class Transaction {
         query.append("INSERT INTO #1# (", record.table());
 
         boolean isFirst = true;
-        for (Entry<Symbol, Field> entry : record.fields.entrySet()) {
+        for (Entry<String, Field> entry : record.fields.entrySet()) {
             if (entry.getValue().isChanged() && !record.table().isImmutable(entry.getKey())) {
                 query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
                 isFirst = false;
@@ -1904,13 +1875,13 @@ public class Transaction {
         if (isFirst) {
             // No columns are marked as changed, but we need to insert something... INSERT INTO foo DEFAULT VALUES is not supported on all databases
             query.append("#1#", record.primaryKey());
-            for (int i = 0; i < record.primaryKey().getSymbols().length; i++) {
+            for (int i = 0; i < record.primaryKey().getColumns().length; i++) {
                 query.append(i == 0 ? ") VALUES (DEFAULT" : ", DEFAULT");
             }
         } else {
             query.append(") VALUES (");
             isFirst = true;
-            for (Entry<Symbol, Field> e : record.fields.entrySet()) {
+            for (Entry<String, Field> e : record.fields.entrySet()) {
                 Field field = e.getValue();
                 if (field.isChanged() && !record.table().isImmutable(e.getKey())) {
                     Object value = field.dereference();
@@ -1958,7 +1929,7 @@ public class Transaction {
             if (id == null) {
                 throw new RuntimeException("INSERT to " + record.table().toString() + " did not generate a key (AKA insert id): " + query.getSql());
             }
-            Field field = record.getOrCreateField(record.primaryKey().getSymbol());
+            Field field = record.getOrCreateField(record.primaryKey().getColumn());
             field.setValue(id);
             field.setChanged(false);
         }
@@ -2027,15 +1998,15 @@ public class Transaction {
             // INSERT INTO table () VALUES (), (), (); = syntax error.
             // INSERT INTO table (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT); = DEFAULT or NULL are not allowed as explicit identity values
             // INSERT INTO table DEFAULT VALUES, DEFAULT VALUES, DEFAULT VALUES; = syntax error.
-            for (Symbol symbol : table.getPrimaryKey().getSymbols()) {
-                batchInfo.columns.add(symbol);
+            for (String column : table.getPrimaryKey().getColumns()) {
+                batchInfo.columns.add(column);
             }
         }
 
         query.append("INSERT INTO #1# (", table);
 
         boolean isFirst = true;
-        for (Symbol column : batchInfo.columns) {
+        for (String column : batchInfo.columns) {
             query.append(isFirst ? "#:1#" : ", #:1#", column);
             isFirst = false;
         }
@@ -2050,7 +2021,7 @@ public class Transaction {
             isFirst = false;
 
             boolean isColumnFirst = true;
-            for (Symbol column : batchInfo.columns) {
+            for (String column : batchInfo.columns) {
                 if (record.isChanged(column)) {
                     Object value = record.get(column);
                     if (value instanceof Query || value instanceof Composite.Value) {
@@ -2090,7 +2061,7 @@ public class Transaction {
         query.append("UPDATE #1# SET ", record.table());
 
         boolean isFirst = true;
-        for (Entry<Symbol, Field> entry : record.fields.entrySet()) {
+        for (Entry<String, Field> entry : record.fields.entrySet()) {
             Field field = entry.getValue();
             if (field.isChanged()) {
                 Object value = field.dereference();
@@ -2238,7 +2209,7 @@ public class Transaction {
 
         query.append("UPDATE #1# SET ", table);
         boolean isFirstColumn = true;
-        for (Symbol column : batchInfo.columns) {
+        for (String column : batchInfo.columns) {
             query.append(isFirstColumn ? "#1# = #!2#.#1#" : ", #1# = #!2#.#1#", column, vTable);
             isFirstColumn = false;
         }
@@ -2252,7 +2223,7 @@ public class Transaction {
             }
             isFirstColumn = true;
             query.append(isFirstValue ? "(" : ", (");
-            for (Symbol column : batchInfo.columns) {
+            for (String column : batchInfo.columns) {
                 Object value = record.get(column);
                 if (value instanceof Query || value instanceof Composite.Value) {
                     query.append(isFirstColumn ? "#1#" : ", #1#", value);
@@ -2272,20 +2243,20 @@ public class Transaction {
 
         query.append(") #!1# (", vTable);
         isFirstColumn = true;
-        for (Symbol column : batchInfo.columns) {
+        for (String column : batchInfo.columns) {
             query.append(isFirstColumn ? "#1#" : ", #1#", column);
             isFirstColumn = false;
         }
 
         query.append(") WHERE");
         boolean isFirst = true;
-        for (Symbol symbol : primaryKey.getSymbols()) {
+        for (String column : primaryKey.getColumns()) {
             if (isFirst) {
                 isFirst = false;
             } else {
                 query.append(" AND");
             }
-            query.append(" #1#.#2# = #:3#.#2#", table, symbol, vTable);
+            query.append(" #1#.#2# = #:3#.#2#", table, column, vTable);
         }
 
         batchExecute(query, records, mode);

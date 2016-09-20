@@ -21,30 +21,19 @@
  */
 package com.jajja.jorm;
 
-import java.util.Arrays;
-
 import com.jajja.jorm.Row.Field;
 
 public class Composite {
-    private final Symbol[] symbols;
+    private final String[] columns;
     private int hashCode = 0;
 
     public Composite(String ... columns) {
-        this.symbols = new Symbol[columns.length];
-        for (int i = 0; i < columns.length; i++) {
-            this.symbols[i] = Symbol.get(columns[i]);
-        }
-    }
-
-    public Composite(Symbol ... symbols) {
-        this.symbols = Arrays.copyOf(symbols, symbols.length);
+        this.columns = StringPool.array(columns);
     }
 
     public static Composite get(Object o) {
         if (o instanceof String) {
             return new Composite((String)o);
-        } else if (o instanceof Symbol) {
-            return new Composite((Symbol)o);
         } else if (o instanceof Composite) {
             return (Composite)o;
         }
@@ -52,9 +41,9 @@ public class Composite {
     }
 
     public Value valueFrom(Row row) {
-        Object[] values = new Object[symbols.length];
-        for (int i = 0; i < symbols.length; i++) {
-            values[i] = row.get(symbols[i]);
+        Object[] values = new Object[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            values[i] = row.get(columns[i]);
         }
         return new Value(this, values);
     }
@@ -63,11 +52,11 @@ public class Composite {
         if (!noRefresh) {
             return valueFrom(row);
         }
-        Object[] values = new Object[symbols.length];
-        for (int i = 0; i < symbols.length; i++) {
-            Field field = row.fields.get(symbols[i]);
+        Object[] values = new Object[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            Field field = row.fields.get(columns[i]);
             if (field == null) {
-                throw new NullPointerException("Column " + symbols[i].getName() + " is not set");
+                throw new NullPointerException("Column " + columns[i] + " is not set");
             }
             values[i] = field.dereference();
         }
@@ -75,25 +64,25 @@ public class Composite {
     }
 
     public Value value(Object ... values) {
-        if (this.symbols.length != values.length) {
-            throw new IllegalArgumentException("Argument count must equal the number of columns (" + symbols.length + ")");
+        if (this.columns.length != values.length) {
+            throw new IllegalArgumentException("Argument count must equal the number of columns (" + columns.length + ")");
         }
         return new Value(this, values);
     }
 
-    public Symbol[] getSymbols() {
-        return symbols;
+    public String[] getColumns() {
+        return columns;
     }
 
-    public Symbol getSymbol() {
+    public String getColumn() {
         if (!isSingle()) {
             throw new RuntimeException("isSingle() == false");
         }
-        return symbols[0];
+        return columns[0];
     }
 
     public boolean isSingle() {
-        return symbols.length == 1;
+        return columns.length == 1;
     }
 
     public static class Value {
@@ -120,24 +109,20 @@ public class Composite {
             return values[0];
         }
 
-        private int getOffset(Symbol symbol) {
-            for (int i = 0; i < composite.symbols.length; i++) {
-                if (composite.symbols[i].equals(symbol)) {
+        private int getOffset(String column) {
+            for (int i = 0; i < composite.columns.length; i++) {
+                if (composite.columns[i].equals(column)) {
                     return i;
                 }
             }
             return -1;
         }
 
-        public <T> T get(String column, Class<T> clazz) {
-            return get(Symbol.get(column), clazz);
-        }
-
         @SuppressWarnings("unchecked")
-        public <T> T get(Symbol symbol, Class<T> clazz) {
-            int offset = getOffset(symbol);
+        public <T> T get(String column, Class<T> clazz) {
+            int offset = getOffset(column);
             if (offset < 0) {
-                throw new IllegalArgumentException("No such column " + symbol);
+                throw new IllegalArgumentException("No such column " + column);
             }
             Object value = values[offset];
             if (value == null) {
@@ -199,8 +184,8 @@ public class Composite {
     @Override
     public int hashCode() {
         if (hashCode == 0) {
-            for (Symbol symbol : symbols) {
-                hashCode = hashCode * 31 + symbol.hashCode();
+            for (String column : columns) {
+                hashCode = hashCode * 31 + column.hashCode();
             }
         }
         return hashCode;
@@ -210,11 +195,11 @@ public class Composite {
     public boolean equals(Object obj) {
         if (obj instanceof Composite) {
             Composite c = (Composite)obj;
-            if (symbols.length != c.symbols.length) {
+            if (columns.length != c.columns.length) {
                 return false;
             }
-            for (int i = 0; i < symbols.length; i++) {
-                if (symbols[i].identity != c.symbols[i].identity) {
+            for (int i = 0; i < columns.length; i++) {
+                if (!columns[i].equals(c.columns[i])) {
                     return false;
                 }
             }
@@ -223,9 +208,9 @@ public class Composite {
         return false;
     }
 
-    public boolean contains(Symbol symbol) {
-        for (Symbol s : symbols) {
-            if (s.equals(symbol)) {
+    public boolean contains(String column) {
+        for (String s : columns) {
+            if (s.equals(column)) {
                 return true;
             }
         }
@@ -234,16 +219,16 @@ public class Composite {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(Math.min(16, 12 * symbols.length));
+        StringBuilder sb = new StringBuilder(Math.min(16, 12 * columns.length));
         sb.append("{");
         boolean isFirst = true;
-        for (Symbol symbol : symbols) {
+        for (String column : columns) {
             if (!isFirst) {
                 sb.append(", ");
             } else {
                 isFirst = false;
             }
-            sb.append(symbol);
+            sb.append(column);
         }
         sb.append("}");
         return sb.toString();

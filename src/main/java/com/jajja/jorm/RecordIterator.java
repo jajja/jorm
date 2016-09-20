@@ -39,7 +39,7 @@ import com.jajja.jorm.Row.Field;
  * @since 2.0.0
  */
 public class RecordIterator implements Closeable {
-    private Symbol[] symbols;
+    private String[] columns;
     private ResultSet resultSet;
     private PreparedStatement preparedStatement;
     private boolean cascadingClose = true;
@@ -78,10 +78,7 @@ public class RecordIterator implements Closeable {
 
     private void init() throws SQLException {
         ResultSetMetaData metaData = resultSet.getMetaData();
-        symbols = new Symbol[metaData.getColumnCount()];
-        for (int i = 0; i < symbols.length; i++) {
-            symbols[i] = Symbol.get(metaData.getColumnLabel(i + 1));
-        }
+        columns = StringPool.arrayFromColumnLabels(metaData);
     }
 
     public ResultSet getResultSet() {
@@ -98,8 +95,8 @@ public class RecordIterator implements Closeable {
 
     public void populate(Row row) throws SQLException {
         try {
-            row.resetFields(symbols.length);
-            for (int i = 0; i < symbols.length; i++) {
+            row.resetFields(columns.length);
+            for (int i = 0; i < columns.length; i++) {
                 Field field = new Record.Field();
                 Object object = resultSet.getObject(i + 1);
                 if (transaction != null && transaction.getCalendar() != null) {
@@ -112,7 +109,7 @@ public class RecordIterator implements Closeable {
                     }
                 }
                 field.setValue(object);
-                row.fields.put(symbols[i], field);
+                row.fields.put(columns[i], field);
             }
         } catch (SQLException sqlException) {
             if (transaction != null) {
