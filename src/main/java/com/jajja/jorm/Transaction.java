@@ -1812,7 +1812,7 @@ public class Transaction {
                 preparedStatement.close();
                 preparedStatement = null;
 
-                Query q = getSelectQuery(template.getClass()).append("WHERE #1# IN (#2:@#)", primaryKey.getColumn(), records);
+                Query q = getSelectQuery(template.getClass()).append("WHERE #:1# IN (#2:@#)", primaryKey.getColumn(), records);
 
                 preparedStatement = prepare(q);
                 resultSet = preparedStatement.executeQuery();
@@ -2210,7 +2210,7 @@ public class Transaction {
         query.append("UPDATE #1# SET ", table);
         boolean isFirstColumn = true;
         for (String column : batchInfo.columns) {
-            query.append(isFirstColumn ? "#1# = #!2#.#1#" : ", #1# = #!2#.#1#", column, vTable);
+            query.append(isFirstColumn ? "#:1# = #!2#.#:1#" : ", #:1# = #!2#.#:1#", column, vTable);
             isFirstColumn = false;
         }
 
@@ -2244,7 +2244,7 @@ public class Transaction {
         query.append(") #!1# (", vTable);
         isFirstColumn = true;
         for (String column : batchInfo.columns) {
-            query.append(isFirstColumn ? "#1#" : ", #1#", column);
+            query.append(isFirstColumn ? "#:1#" : ", #:1#", column);
             isFirstColumn = false;
         }
 
@@ -2256,7 +2256,7 @@ public class Transaction {
             } else {
                 query.append(" AND");
             }
-            query.append(" #1#.#2# = #:3#.#2#", table, column, vTable);
+            query.append(" #:1#.#:2# = #:3#.#:2#", table, column, vTable);
         }
 
         batchExecute(query, records, mode);
