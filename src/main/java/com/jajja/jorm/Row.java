@@ -411,6 +411,10 @@ public class Row {
         return ref(column, clazz, null);
     }
 
+    public Record ref(String column) throws SQLException {
+        return ref(column, Record.class, null);
+    }
+
     /**
      * Provides a column Record reference (foreign key reference). If the reference is cached
      * (previously fetched), the cached Record object is returned, otherwise a database SELECT
@@ -481,6 +485,8 @@ public class Row {
                     throw new IllegalArgumentException("Class mismatch " + clazz + " != " + record.getClass());
                 }
                 value = record;
+            } else if (clazz == Record.class) {
+                value = field.record();
             } else {
                 try {
                     value = convert(value, clazz);
