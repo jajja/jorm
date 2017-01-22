@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import com.jajja.jorm.Composite;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
+import com.jajja.jorm.Transaction;
 
 @Jorm(database="moria", table="goblins", primaryKey="id")
 public class Goblin extends Record {
@@ -40,14 +41,14 @@ public class Goblin extends Record {
     }
 
     // part 2
-    public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
-        return find(Goblin.class, new Composite("tribe_id", "name").value(tribe, name));
+    public static Goblin findByTribeAndName(Transaction t, Tribe tribe, String name) throws SQLException {
+        return t.find(Goblin.class, new Composite("tribe_id", "name").value(tribe, name));
     }
 
     // part 3
-    public Litter relieve() throws SQLException {
+    public Litter relieve(Transaction t) throws SQLException {
         Litter litter = new Litter();
-        litter.set("stench", build("random() * 0.9")) ;
+        litter.set("stench", t.build("random() * 0.9")) ;
         litter.setGoblin(this);
         return litter;
     }

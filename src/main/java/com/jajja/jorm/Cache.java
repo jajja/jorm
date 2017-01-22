@@ -32,6 +32,7 @@ import java.util.Set;
 import com.jajja.jorm.Composite.Value;
 
 /**
+ * TODO: rewrite
  * A record cache implementation, using LRU.
  *
  * @see Record
@@ -81,7 +82,12 @@ public class Cache<C extends Record> {
     }
 
     protected boolean fetchInto(Composite.Value value, C record) throws SQLException {
-        return record.populateByCompositeValue(value);
+        Transaction t = Database.open(record.table().getDatabase());    // FIXME lol
+        try {
+            return t.populateByCompositeValue(record, value);
+        } finally {
+            t.close();
+        }
     }
 
     public void put(Collection<C> records) {

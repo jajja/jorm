@@ -159,32 +159,26 @@ public class DatabaseGenerator implements Lookupable {
         return this;
     }
 
-    public void fetchMetadata() throws SQLException {
-        Transaction transaction = Database.open(name);
+    public void fetchMetadata(Transaction transaction) throws SQLException {
+        if (transaction.getDialect().getDatabaseProduct().equals(Dialect.DatabaseProduct.MYSQL)) {
+            mapDataType("INT UNSIGNED", "java.lang.Long");
+            mapDataType("BIGINT UNSIGNED", "java.math.BigInteger");
+        }
+        if (transaction.getDialect().getDatabaseProduct().equals(Dialect.DatabaseProduct.POSTGRESQL)) {
+            mapDataType("box", "org.postgresql.geometric.PGbox");
+            mapDataType("circle", "org.postgresql.geometric.PGcircle");
+            mapDataType("interval", "org.postgresql.util.PGInterval");
+            mapDataType("line", "org.postgresql.geometric.PGline");
+            mapDataType("lseg", "org.postgresql.geometric.PGlseg");
+            mapDataType("money", "org.postgresql.util.PGmoney");
+            mapDataType("path", "org.postgresql.geometric.PGpath");
+            mapDataType("point", "org.postgresql.geometric.PGpoint");
+            mapDataType("polygon", "org.postgresql.geometric.PGpolygon");
 
-        try {
-            if (transaction.getDialect().getDatabaseProduct().equals(Dialect.DatabaseProduct.MYSQL)) {
-                mapDataType("INT UNSIGNED", "java.lang.Long");
-                mapDataType("BIGINT UNSIGNED", "java.math.BigInteger");
-            }
-            if (transaction.getDialect().getDatabaseProduct().equals(Dialect.DatabaseProduct.POSTGRESQL)) {
-                mapDataType("box", "org.postgresql.geometric.PGbox");
-                mapDataType("circle", "org.postgresql.geometric.PGcircle");
-                mapDataType("interval", "org.postgresql.util.PGInterval");
-                mapDataType("line", "org.postgresql.geometric.PGline");
-                mapDataType("lseg", "org.postgresql.geometric.PGlseg");
-                mapDataType("money", "org.postgresql.util.PGmoney");
-                mapDataType("path", "org.postgresql.geometric.PGpath");
-                mapDataType("point", "org.postgresql.geometric.PGpoint");
-                mapDataType("polygon", "org.postgresql.geometric.PGpolygon");
-
-                mapDataType("uuid", "java.util.UUID");
-            }
-            for (SchemaGenerator schema : schemas.values()) {
-                schema.fetchMetadata(transaction);
-            }
-        } finally {
-            transaction.close();
+            mapDataType("uuid", "java.util.UUID");
+        }
+        for (SchemaGenerator schema : schemas.values()) {
+            schema.fetchMetadata(transaction);
         }
     }
 

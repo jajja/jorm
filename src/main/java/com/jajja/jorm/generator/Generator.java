@@ -32,6 +32,7 @@ import java.util.Map;
 
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
+import com.jajja.jorm.Transaction;
 
 /**
  * A code generator for {@link Jorm} mapped records.
@@ -48,12 +49,12 @@ public class Generator implements Lookupable {
     public Generator() {
     }
 
-    public void fetchMetadata() throws SQLException {
+    public void fetchMetadata(Transaction transaction) throws SQLException {
         if (metadataFetched) {
             throw new IllegalStateException("Metadata already fetched");
         }
         for (DatabaseGenerator database : databases.values()) {
-            database.fetchMetadata();
+            database.fetchMetadata(transaction);
         }
         metadataFetched = true;
         for (DatabaseGenerator database : databases.values()) {

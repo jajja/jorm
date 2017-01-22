@@ -22,6 +22,7 @@
 package com.jajja.jorm;
 
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -85,7 +86,7 @@ import com.jajja.jorm.Row.Field;
  * @author Daniel Adolfsson &lt;daniel.adolfsson@jajja.com&gt;
  * @since 1.0.0
  */
-public class Transaction {
+public class Transaction implements Closeable {
     private final String database;
     private final DataSource dataSource;
     private Dialect dialect;
@@ -177,6 +178,7 @@ public class Transaction {
         this.database = database;
         this.dataSource = dataSource;
         this.calendar = calendar;
+        Database.register(this);
     }
 
     /**
@@ -250,18 +252,15 @@ public class Transaction {
 
     /**
      * Rolls back the current transaction and closes the database connection.
-     * This is the equivalent of calling {@link #rollback()}
+     * The transaction object should not be used again.
      */
+    @Override
     public void close() {
-        rollback();
-    }
-
-    /**
-     * Destroys the transaction.
-     */
-    public void destroy() {
-        close();
-        isDestroyed = true;
+        if (!isDestroyed) {
+            Database.unregister(this);
+            rollback();
+            isDestroyed = true;
+        }
     }
 
     /**

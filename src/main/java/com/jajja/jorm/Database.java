@@ -21,15 +21,14 @@
  */
 package com.jajja.jorm;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.URL;
-import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -57,13 +56,10 @@ import javax.sql.DataSource;
  * @since 1.0.0
  */
 public class Database {
-    private static final Logger logger =  Logger.getLogger(Database.class.getName());
-    private final ThreadLocal<HashMap<String, Transaction>> transactions = new ThreadLocal<HashMap<String, Transaction>>();
-    private final ThreadLocal<HashMap<String, Context>> contextStack = new ThreadLocal<HashMap<String, Context>>();
+    private static final Logger logger = Logger.getLogger(Database.class.getName());
+    private final ThreadLocal<HashSet<Transaction>> transactions = new ThreadLocal<HashSet<Transaction>>();
     private final Map<String, DataSource> dataSources = new ConcurrentHashMap<String, DataSource>(16, 0.75f, 1);
     private final Map<String, Configuration> configurations = new HashMap<String, Configuration>();
-    private final Map<String, String> defaultContext = new HashMap<String, String>();
-    private String globalDefaultContext = "";
     private static Database instance;
 
     private Database() {
@@ -88,11 +84,27 @@ public class Database {
         return instance;
     }
 
-    private HashMap<String, Transaction> getTransactions() {
+    private HashSet<Transaction> getThreadLocalTransactions() {
         if (transactions.get() == null) {
-            transactions.set(new HashMap<String, Transaction>());
+            transactions.set(new HashSet<Transaction>());
         }
         return transactions.get();
+    }
+
+    static void register(Transaction transaction) {
+        HashSet<Transaction> set = get().getThreadLocalTransactions();
+        if (set.contains(transaction)) {
+            throw new IllegalStateException("Transaction registered twice?!");
+        }
+        set.add(transaction);
+    }
+
+    static void unregister(Transaction transaction) {
+        HashSet<Transaction> set = get().getThreadLocalTransactions();
+        if (!set.contains(transaction)) {
+            throw new IllegalStateException("Transactions must be closed from the same thread they were created!");
+        }
+        set.remove(transaction);
     }
 
     public static DataSource getDataSource(String database) {
@@ -180,75 +192,27 @@ public class Database {
     }
 
     /**
-     * Opens a thread local transaction for the given database name. If an open
-     * transaction already exists, it is reused. This method is idempotent when
-     * called from the same thread.
+     * Opens a transaction for the given database name.
      *
      * @param database the name of the database.
      * @return the open transaction.
      */
     public static Transaction open(String database) {
-        database = context(database).effectiveName();
-        HashMap<String, Transaction> transactions = get().getTransactions();
-        Transaction transaction = transactions.get(database);
-        if (transaction == null) {
-            DataSource dataSource = getDataSource(database);
-            if (dataSource == null) {
-                assertConfigured(database); // throws!
-            }
-            Configuration configuration = get().configurations.get(database);
-            transaction = new Transaction(dataSource, database, configuration != null ? configuration.calendar : null);
-            transactions.put(database, transaction);
+        DataSource dataSource = getDataSource(database);
+        if (dataSource == null) {
+            assertConfigured(database); // throws!
         }
-        return transaction;
-    }
-
-    /**
-     * Commits the thread local transaction for the given database name if it
-     * has been opened.
-     *
-     * @param database the name of the database.
-     * @return the closed transaction or null for no active transaction.
-     * @throws SQLException if a database access error occur
-     */
-    public static Transaction commit(String database) throws SQLException {
-        database = context(database).effectiveName();
-        HashMap<String, Transaction> transactions = get().getTransactions();
-        Transaction transaction = transactions.get(database);
-        if (transaction != null) {
-            transaction.commit();
-        } else {
-            assertConfigured(database);
-        }
-        return transaction;
-    }
-
-    /**
-     * Closes the thread local transaction for the given database name if it has
-     * been opened. This method is idempotent when called from the same thread.
-     *
-     * @param database the name of the database.
-     * @return the closed transaction or null for no active transaction.
-     */
-    public static Transaction close(String database) {
-        database = context(database).effectiveName();
-        HashMap<String, Transaction> transactions = get().getTransactions();
-        Transaction transaction = transactions.get(database);
-        if (transaction != null) {
-            transaction.close();
-        } else {
-            assertConfigured(database);
-        }
-        return transaction;
+        Configuration configuration = get().configurations.get(database);
+        return new Transaction(dataSource, database, configuration != null ? configuration.calendar : null);
     }
 
     /**
      * Closes and destroys all transactions for the current thread.
      */
     public static void close() {
-        HashMap<String, Transaction> map = get().getTransactions();
-        for (Transaction transaction : map.values()) {
-            transaction.destroy();
+        HashSet<Transaction> map = get().getThreadLocalTransactions();
+        for (Transaction transaction : map) {
+            transaction.close();
         }
         map.clear();
         get().transactions.remove();
@@ -277,14 +241,6 @@ public class Database {
      * database.lothlorien.dataSource.username=galadriel
      * database.lothlorien.dataSource.password=nenya
      *
-     * database.moria@development.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_development
-     * database.moria@development.dataSource.username=dev
-     * database.moria@development.dataSource.password=$43CR37
-     *
-     * database.moria@production.dataSource.url=jdbc:postgresql://sjhdb05b.jajja.local:5432/moria_production
-     * database.moria@production.dataSource.username=prod
-     * database.moria@production.dataSource.password=$43CR37:P455
-     *
      * database.context=
      * database.moria.context=production
      */
@@ -309,13 +265,6 @@ public class Database {
             for (Entry<String, Configuration> entry : configurations.entrySet()) {
                 String database = entry.getKey();
                 Configuration configuration = entry.getValue();
-                int index = database.indexOf(Context.CONTEXT_SEPARATOR);
-                if (index > 0) {
-                    Configuration base = configurations.get(database.substring(0, index));
-                    if (base != null) {
-                        configuration.inherit(base);
-                    }
-                }
                 configuration.init();
                 __configure(database, configuration.dataSource);
                 Logger.getLogger(Database.class.getName()).log(Level.FINE, "Configured " + configuration);
@@ -361,25 +310,11 @@ public class Database {
 
                 String value = (String)property.getValue();
                 switch (parts.length) {
-                case 2:
-                    if (parts[1].equals("context")) {
-                        globalDefaultContext = value;
-                    } else {
-                        isMalformed = true;
-                    }
-                    break;
-
                 case 3:
                     if (parts[2].equals("destroyMethod")) {
                         configuration.destroyMethodName = value;
                     } else if (parts[2].equals("dataSource")) {
                         configuration.dataSourceClassName = value;
-                    } else if (parts[2].equals("defaultContext")) {
-                        if (database.indexOf(Context.CONTEXT_SEPARATOR) != -1) {
-                            isMalformed = true;
-                        } else {
-                            defaultContext.put(database, value);
-                        }
                     } else if (parts[2].equals("timeZone")) {
                         if ("default".equalsIgnoreCase(value)) {
                             configuration.calendar = null;
@@ -518,124 +453,5 @@ public class Database {
         public String toString() {
             return "{ database => " + database + ", dataSourceClassName => " + dataSourceClassName + ", dataSourceProperties => " + dataSourceProperties + " }";
         }
-    }
-
-    public static class Context implements Closeable {
-        public static final char CONTEXT_SEPARATOR = '@';
-        private Context prev;
-        private Context next;
-        private String database;
-        private String name;
-        private boolean isClosed = false;
-
-        // Root context
-        private Context(String database) {
-            this.database = database;
-        }
-
-        private Context(Context previous, String name) {
-            this.database = previous.database;
-            this.name = name;
-            this.prev = previous;
-            previous.next = this;
-        }
-
-        public String database() {
-            return database;
-        }
-
-        public String name() {
-            return name;
-        }
-
-        public String effectiveName() {
-            String effectiveName = database;
-            String name = this.name;
-            if (name == null) {
-                name = defaultContext(database);
-            }
-            if (name == null) {
-                name = globalDefaultContext();
-            }
-            if (name == null) {
-                name = "";
-            }
-            if (!name.isEmpty()) {
-                effectiveName += CONTEXT_SEPARATOR + name;
-            }
-            return effectiveName;
-        }
-
-        @Override
-        public void close() {
-            if (prev == null) {
-                throw new IllegalStateException("Attempt to close root context");
-            }
-            if (next != null || isClosed) {
-                throw new IllegalStateException("Context closed in wrong order");
-            }
-            contextStack().put(database, prev);
-            prev.next = null;
-            prev = null;
-            isClosed = true;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("%s { database=%s, name=%s, prev=%s, next=%s }", getClass(), database, name, prev != null ? "yes" : "no", next != null ? "yes" : "no");
-        }
-    }
-
-    // Get default global context (not thread safe)
-    public static String globalDefaultContext() {
-        return get().globalDefaultContext;
-    }
-
-    // Set default global context (not thread safe)
-    public static String globalDefaultContext(String name) {
-        if (name == null) {
-            name = "";
-        }
-        String previous = globalDefaultContext();
-        get().globalDefaultContext = name;
-        return previous;
-    }
-
-    // Get default per database context (not thread safe)
-    public static String defaultContext(String database) {
-        return get().defaultContext.get(database);
-    }
-
-    // Set default per database context (not thread safe)
-    public static String defaultContext(String database, String name) {
-        return get().defaultContext.put(database, name);
-    }
-
-    private static HashMap<String, Context> contextStack() {
-        HashMap<String, Context> map = get().contextStack.get();
-        if (map == null) {
-            map = new HashMap<String, Context>();
-            get().contextStack.set(map);
-        }
-        return map;
-    }
-
-    // Get active thread-local context
-    public static Context context(String database) {
-        HashMap<String, Context> map = contextStack();
-        Context activeContext = map.get(database);
-        if (activeContext == null) {
-            activeContext = new Context(database);
-            map.put(database, activeContext);
-        }
-        return activeContext;
-    }
-
-    // Push active thread-local context
-    public static Context context(String database, String name) {
-        HashMap<String, Context> map = contextStack();
-        Context newContext = new Context(context(database), name);
-        map.put(database, newContext);
-        return newContext;
     }
 }

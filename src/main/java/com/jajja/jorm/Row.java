@@ -390,29 +390,8 @@ public class Row {
         }
     }
 
-    /**
-     * Provides a column Record reference (foreign key reference). If the reference is cached
-     * (previously fetched), the cached Record object is returned, otherwise a database SELECT
-     * is executed in the Record's default transaction to map the database row to a Record.
-     *
-     * To specify a transaction, use ref(column, clazz, transaction).
-     *
-     * This method is identical to get(column, clazz), except it can throw {@link SQLException}s.
-     *
-     * This is the equivalent of calling ref(column, clazz, null)
-     *
-     * @param column the column name
-     * @param clazz the Record class to reference
-     * @return a Record reference
-     * @throws RuntimeException if the column is not set
-     * @throws SQLException
-     */
-    public <T extends Record> T ref(String column, Class<T> clazz) throws SQLException {
-        return ref(column, clazz, null);
-    }
-
-    public Record ref(String column) throws SQLException {
-        return ref(column, Record.class, null);
+    public Record ref(Transaction t, String column) throws SQLException {
+        return ref(t, column, Record.class);
     }
 
     /**
@@ -429,8 +408,8 @@ public class Row {
      * @throws RuntimeException if the column is not set
      * @throws SQLException
      */
-    public <T extends Record> T ref(String column, Class<T> clazz, Transaction transaction) throws SQLException {
-        return getColumnValue(column, clazz, false, true, transaction);
+    public <T extends Record> T ref(Transaction t, String column, Class<T> clazz) throws SQLException {
+        return getColumnValue(column, clazz, false, true, t);
     }
 
     /**
@@ -472,7 +451,9 @@ public class Row {
                         throw new IllegalAccessError("Reference fetching is disabled");
                     }
                     try {
-                        transaction = (transaction != null ? transaction : Record.transaction((Class<? extends Record>)clazz));
+                        if (transaction == null) {
+                            throw new NullPointerException("transaction == null -- did you use get() rather than of ref()?");
+                        }
                         record = transaction.findById((Class<? extends Record>)clazz, value);
                         field.setValue(record);
                     } catch (SQLException e) {
