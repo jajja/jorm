@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import com.jajja.jorm.Composite.Value;
+import com.jajja.jorm.converters.NumberConverter;
+import com.jajja.jorm.converters.TypeConverter;
 
 /**
  * @see Transaction
@@ -590,69 +592,25 @@ public class Row {
         return fields.hashCode();
     }
 
-    private static void convertOverflow(Number n, Class<?> clazz) {
-        throw new ArithmeticException(String.format("%s can not hold value %s", clazz.getSimpleName(), n.toString()));
+    static final Map<Class<?>, TypeConverter<?>> converters = new HashMap<Class<?>, TypeConverter<?>>();
+
+    static <T> void register(Class<T> clazz, TypeConverter<T> c) {
+        converters.put(clazz, c);
     }
 
-    private static final BigDecimal floatMaxValue = new BigDecimal(Float.MAX_VALUE);
-    private static final BigDecimal doubleMaxValue = new BigDecimal(Double.MAX_VALUE);
-
-    public static Number convertNumber(Number n, Class<?> clazz) {
-        if (clazz.isInstance(n)) {
-            return n;
-        } else if (Integer.class.equals(clazz)) {
-            long v = n.longValue();
-            if (v < Integer.MIN_VALUE || v > Integer.MAX_VALUE) {
-                convertOverflow(n, clazz);
-            }
-            return n.intValue();
-        } else if (Long.class.equals(clazz)) {
-            double v = n.doubleValue();
-            if (v < Long.MIN_VALUE || v > Long.MAX_VALUE) {
-                convertOverflow(n, clazz);
-            }
-            return n.longValue();
-        } else if (Short.class.equals(clazz)) {
-            int v = n.intValue();
-            if (v < Short.MIN_VALUE || v > Short.MAX_VALUE) {
-                convertOverflow(n, clazz);
-            }
-            return n.intValue();
-        } else if (Byte.class.equals(clazz)) {
-            int v = n.intValue();
-            if (v < Byte.MIN_VALUE || v > Byte.MAX_VALUE) {
-                convertOverflow(n, clazz);
-            }
-            return n.byteValue();
-        } else if (Double.class.equals(clazz)) {
-            if (n instanceof BigDecimal && ((BigDecimal)n).abs().compareTo(doubleMaxValue) > 0) {
-                convertOverflow(n, clazz);
-            } else if (n instanceof BigInteger && ((BigDecimal)n).abs().compareTo(doubleMaxValue) > 0) {
-                convertOverflow(n, clazz);
-            }
-            return n.doubleValue();
-        } else if (Float.class.equals(clazz)) {
-            if (n instanceof BigDecimal && ((BigDecimal)n).abs().compareTo(floatMaxValue) > 0) {
-                convertOverflow(n, clazz);
-            } else if (n instanceof BigInteger && ((BigDecimal)n).abs().compareTo(floatMaxValue) > 0) {
-                convertOverflow(n, clazz);
-            }
-            double v = n.doubleValue();
-            if (!Double.isInfinite(v) && (v < -Float.MAX_VALUE || v > Float.MAX_VALUE)) {
-                convertOverflow(n, clazz);
-            }
-            return n.floatValue();
-        } else if (BigDecimal.class.equals(clazz)) {
-            return new BigDecimal(n.toString());
-        } else if (BigInteger.class.equals(clazz)) {
-            return new BigInteger(n.toString());
-        } else {
-            throw new IllegalArgumentException(String.format("Cannot convert number of type %s to class %s", n.getClass(), clazz));
-        }
+    static {
+        register(Byte.class, new NumberConverter.ByteConverter());
+        register(Short.class, new NumberConverter.ShortConverter());
+        register(Integer.class, new NumberConverter.IntegerConverter());
+        register(Long.class, new NumberConverter.LongConverter());
+        register(Float.class, new NumberConverter.FloatConverter());
+        register(Double.class, new NumberConverter.DoubleConverter());
+        register(BigInteger.class, new NumberConverter.BigIntegerConverter());
+        register(BigDecimal.class, new NumberConverter.BigDecimalConverter());
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T convert(Object value, Class<T> clazz) {
+    public static <T> T convert(Object value, Class<T> type) {
         if (value == null) {
             return null;
         }
@@ -665,12 +623,13 @@ public class Row {
                 value = tmp.getValue();
             }
         }
-        if (Number.class.isAssignableFrom(clazz) && value instanceof Number) {
-            return (T)Row.convertNumber((Number)value, clazz);
-        } else if (clazz.isAssignableFrom(value.getClass())) {
-            return (T)value;
-        } else {
-            throw new IllegalArgumentException(String.format("Cannot convert object of type %s to class %s", value.getClass(), clazz));
+        TypeConverter<T> c = (TypeConverter<T>)converters.get(type);
+        if (c != null & c.supports(value)) {
+            return c.convert(value);
         }
+        if (type.isAssignableFrom(value.getClass())) {
+            return (T)value;
+        }
+        throw new IllegalArgumentException(String.format("Cannot convert object of type %s to class %s", value.getClass(), type));
     }
 }

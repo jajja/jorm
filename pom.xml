@@ -14,8 +14,8 @@
     <name>jORM</name>
     <groupId>com.jajja</groupId>
     <artifactId>jorm</artifactId>
-    <version>2.0.0-pre57</version>
-    <description>jORM is a lightweight Java ORM.</description>
+    <version>2.0.0</version>
+    <description>jORM is a lightweight Java "ORM".</description>
     <packaging>jar</packaging>
 
     <dependencies>
