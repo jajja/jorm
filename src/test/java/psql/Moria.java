@@ -29,7 +29,7 @@ public class Moria {
     public static void open() {
         try {
             Database.open("moria").load(ClassLoader.class.getResourceAsStream("/moria.sql"));
-            Database.commit("moria");
+            //Database.commit("moria");
             Database.open("moria").addListener(new Transaction.StdoutLogListener());
         } catch (Exception e) {
             LoggerFactory.getLogger(Moria.class).error("Failed to open test", e);
@@ -38,7 +38,7 @@ public class Moria {
 
     @AfterClass
     public static void close() {
-        Database.close("moria");
+        //Database.close("moria");
     }
 
 
@@ -50,7 +50,7 @@ public class Moria {
         } catch (SQLException e) {
             e.printStackTrace();
             Assert.fail();
-            Database.close("moria");
+            //Database.close("moria");
         }
     }
 
@@ -62,7 +62,7 @@ public class Moria {
         } catch (SQLException e) {
             log.error("Fail caused by SQL exception", e);
             Assert.fail();
-            Database.close("moria");
+            //Database.close("moria");
         }
     }
 
@@ -74,7 +74,7 @@ public class Moria {
         } catch (SQLException e) {
             log.error("Fail caused by SQL exception", e);
             Assert.fail();
-            Database.close("moria");
+            //Database.close("moria");
         }
     }
 
@@ -87,7 +87,7 @@ public class Moria {
         } catch (SQLException e) {
             log.error("Fail caused by SQL exception", e);
             Assert.fail();
-            Database.close("moria");
+            //Database.close("moria");
         }
     }
 
@@ -100,7 +100,7 @@ public class Moria {
         } catch (SQLException e) {
             log.error("Fail caused by SQL exception", e);
             Assert.fail();
-            Database.close("moria");
+            //Database.close("moria");
         }
     }
 
@@ -114,11 +114,11 @@ public class Moria {
                 litter.save();
             }
             Assert.assertEquals(Record.findAll(Litter.class).size(), goblins.size());
-            Database.commit("moria");
+            //Database.commit("moria");
         } catch (SQLException e) {
             log.error("Fail caused by SQL exception", e);
             Assert.fail();
-            Database.close("moria");
+            //Database.close("moria");
         }
     }
 
@@ -129,10 +129,10 @@ public class Moria {
             Litter litter = Record.select(Litter.class, "SELECT * FROM #1# LIMIT 1", Litter.class);
             litter.setStench(2.);
             litter.save();
-            Database.commit("moria");
+            //Database.commit("moria");
         } catch (SQLException e2) {
             e = e2;
-            Database.close("moria");
+            //Database.close("moria");
         }
         Assert.assertTrue(e instanceof CheckViolationException);
     }
@@ -145,10 +145,10 @@ public class Moria {
             goblin.setName("Bolg");
             goblin.setTribeId(1);
             goblin.insert();
-            Database.commit("moria");
+            //Database.commit("moria");
         } catch (SQLException e2) {
             e = e2;
-            Database.close("moria");
+            //Database.close("moria");
         }
         Assert.assertTrue(e instanceof UniqueViolationException);
     }
@@ -167,7 +167,7 @@ public class Moria {
             log.error("Fail caused by SQL exception", e);
             Assert.fail();
         }
-        Database.close("moria");
+        //Database.close("moria");
     }
 
     @Test
@@ -180,7 +180,7 @@ public class Moria {
         } catch (SQLException e) {
             log.error("Fail caused by SQL exception", e);
             Assert.fail();
-            Database.close("moria");
+            //Database.close("moria");
         } catch (IOException e) {
             log.error("Fail caused by IO exception", e);
             Assert.fail();

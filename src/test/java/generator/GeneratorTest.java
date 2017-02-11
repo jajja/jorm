@@ -29,6 +29,6 @@ public class GeneratorTest {
 
         System.out.println(generator);
 
-        com.jajja.jorm.Database.close("moria");
+        //com.jajja.jorm.Database.close("moria");
     }
 }

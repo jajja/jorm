@@ -24,13 +24,12 @@ package com.jajja.jorm;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.SQLException;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import com.jajja.jorm.Composite.Value;
-import com.jajja.jorm.patch.Patcher;
 
 /**
  * @see Transaction
@@ -43,8 +42,8 @@ import com.jajja.jorm.patch.Patcher;
 public class Row {
     public static final byte FLAG_READ_ONLY = 0x02;
     public static final byte FLAG_REF_FETCH = 0x04;
-    byte flags = FLAG_REF_FETCH;
     Map<String, Field> fields = new HashMap<String, Field>(8, 1.0f);
+    byte flags = FLAG_REF_FETCH;
 
     public static class Field {
         private Object value = null;
@@ -52,8 +51,17 @@ public class Row {
 
         Field() {}
 
+        public Field(Object value) {
+            setValue(value);
+            setChanged(true);
+        }
+
         void setValue(Object value) {
-            this.value = Patcher.unbork(value);
+            this.value = value;
+        }
+
+        public <T> T value(Class<T> type) {
+            return convert(value, type);
         }
 
         public Object rawValue() {
@@ -63,6 +71,20 @@ public class Row {
         public Record record() {
             return (value instanceof Record) ? ((Record)value) : null;
         }
+
+//        @SuppressWarnings("unchecked")
+//        public <T extends Record> T ref(Transaction t, Class<T> clazz) throws SQLException {
+//            if (record() == null) {
+//              if (isReferenceCacheOnly) {
+//                  return null;
+//              }
+//              if (!flag(FLAG_REF_FETCH)) {
+//                  throw new IllegalAccessError("Reference fetching is disabled");
+//              }
+//              setValue(t.findById((Class<? extends Record>)clazz, value));
+//            }
+//            return (T)record();
+//        }
 
         public Object dereference() {
             return (value instanceof Record) ? ((Record)value).id() : value;
@@ -80,19 +102,33 @@ public class Row {
         public String toString() {
             return String.format("Field [value => %s, isChanged => %s]", value, isChanged);
         }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj instanceof Field) {
+                Object v = ((Field)obj).value;
+                return (value == v || (value != null && value.equals(v)));
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return (value != null) ? value.hashCode() : 0;
+        }
     }
 
     public Row() {
     }
 
     public void set(Row row) {
-        for (Entry<String, Field> entry : row.fields.entrySet()) {
-            put(entry.getKey(), entry.getValue().rawValue());
+        for (NamedField f : row.fields()) {
+            put(f.name(), f.field().rawValue());
         }
     }
 
     Field getOrCreateField(String column) {
-        Field field = fields.get(column);
+        Field field = field(column);
         if (field == null) {
             field = new Field();
             fields.put(StringPool.get(column), field);
@@ -111,13 +147,66 @@ public class Row {
         fields = new HashMap<String, Field>(size, 1.0f);
     }
 
+    public static class NamedField {
+        private String name;
+        private Field field;
+
+        public NamedField(Entry<String, Field> e) {
+            this.name = e.getKey();
+            this.field = e.getValue();
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public Field field() {
+            return field;
+        }
+    }
+
+    public static class NamedFieldIterator implements Iterator<NamedField> {
+        private final Iterator<Entry<String, Field>> iter;
+
+        private NamedFieldIterator(Iterator<Entry<String, Field>> iter) {
+            this.iter = iter;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return iter.hasNext();
+        }
+
+        @Override
+        public NamedField next() {
+            return new NamedField(iter.next());
+        }
+    }
+
+    public static class NamedFieldIterable implements Iterable<NamedField> {
+        private final Map<String, Field> map;
+
+        private NamedFieldIterable(Map<String, Field> map) {
+            this.map = map;
+        }
+
+        @Override
+        public Iterator<NamedField> iterator() {
+            return new NamedFieldIterator(map.entrySet().iterator());
+        }
+    }
+
     /**
      * Provides an immutable view of the fields.
      *
      * @return the fields
      */
-    public Map<String, Field> fields() {
-        return Collections.unmodifiableMap(fields);
+    public Iterable<NamedField> fields() {
+        return new NamedFieldIterable(fields);
+    }
+
+    public Field field(String column) {
+        return fields.get(column);
     }
 
     /**
@@ -128,7 +217,7 @@ public class Row {
      */
     public boolean isCompositeKeyNullOrChanged(Composite key) {
         for (String column : key.getColumns()) {
-            Field field = fields.get(column);
+            Field field = field(column);
             if (field == null || field.dereference() == null || field.isChanged()) {
                 return true;
             }
@@ -144,7 +233,7 @@ public class Row {
      */
     public boolean isCompositeKeyNull(Composite key) {
         for (String column : key.getColumns()) {
-            Field field = fields.get(column);
+            Field field = field(column);
             if (field == null || field.dereference() == null) {
                 return true;
             }
@@ -159,7 +248,7 @@ public class Row {
      * @return true if the column is set, false otherwise
      */
     public boolean isSet(String column) {
-        return fields.get(column) != null;
+        return field(column) != null;
     }
 
     /**
@@ -169,7 +258,7 @@ public class Row {
      * @return true if the column value has changed, false otherwise
      */
     public boolean isChanged(String column) {
-        Field field = fields.get(column);
+        Field field = field(column);
         if (field == null) {
             return false;
         }
@@ -182,8 +271,8 @@ public class Row {
      * @return true if at least one field has changed, false otherwise
      */
     public boolean isChanged() {
-        for (Field field : fields.values()) {
-            if (field.isChanged()) {
+        for (NamedField f : fields()) {
+            if (f.field().isChanged()) {
                 return true;
             }
         }
@@ -194,9 +283,8 @@ public class Row {
      * Marks all fields as changed.
      */
     public void taint() {
-        for (Entry<String, Field> entry : fields.entrySet()) {
-            Field field = entry.getValue();
-            field.setChanged(true);
+        for (NamedField f : fields()) {
+            f.field().setChanged(true);
         }
     }
 
@@ -204,8 +292,8 @@ public class Row {
      * Marks all fields as unchanged.
      */
     public void purify() {
-        for (Field field : fields.values()) {
-            field.setChanged(false);
+        for (NamedField f : fields()) {
+            f.field().setChanged(false);
         }
     }
 
@@ -225,23 +313,6 @@ public class Row {
 
     private boolean flag(int flag) {
         return (flags & flag) != 0;
-    }
-
-    @Deprecated
-    public void stale(boolean setStale) {
-    }
-
-    @Deprecated
-    public static void stale(Iterable<? extends Row> rows, boolean setStale) {
-    }
-
-    @Deprecated
-    public boolean isStale() {
-        return false;
-    }
-
-    @Deprecated
-    public void assertNotStale() {
     }
 
     /**
@@ -293,7 +364,7 @@ public class Row {
     }
 
     void put(String column, Object value) {
-        Field field = fields.get(column);
+        Field field = field(column);
         if (field == null) {
             field = new Field();
             column = StringPool.get(column);
@@ -327,7 +398,7 @@ public class Row {
     public void unset(String column) {
         assertNotReadOnly();
 
-        Field field = fields.get(column);
+        Field field = field(column);
         if (field != null) {
             fields.remove(column);
         }
@@ -453,7 +524,7 @@ public class Row {
 
     @SuppressWarnings("unchecked")
     <T> T getColumnValue(String column, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
-        Field field = fields.get(column);
+        Field field = field(column);
         if (field == null) {
             throw new RuntimeException("Column '" + column + "' does not exist, or has not yet been set on " + this);
         }
@@ -510,15 +581,15 @@ public class Row {
 
         stringBuilder.append("Row { ");
 
-        for (Entry<String, Field> entry : fields.entrySet()) {
+        for (NamedField f : fields()) {
             if (isFirst) {
                 isFirst = false;
             } else {
                 stringBuilder.append(", ");
             }
-            stringBuilder.append(entry.getKey());
+            stringBuilder.append(f.name());
             stringBuilder.append(" => ");
-            stringBuilder.append(entry.getValue().rawValue());
+            stringBuilder.append(f.field().rawValue());
         }
         stringBuilder.append(" }");
 

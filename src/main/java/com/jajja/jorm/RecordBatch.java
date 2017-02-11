@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
 import com.jajja.jorm.Row.Field;
+import com.jajja.jorm.Row.NamedField;
 
 public class RecordBatch<T extends Record> {
     private final Iterable<T> records;
@@ -93,9 +93,9 @@ public class RecordBatch<T extends Record> {
             columns = new HashSet<String>();
             dirtyColumns = new HashSet<String>();
             for (TT record : this) {
-                for (Entry<String, Field> e : record.fields().entrySet()) {
-                    String column = e.getKey();
-                    Field field = e.getValue();
+                for (NamedField e : record.fields()) {
+                    String column = e.name();
+                    Field field = e.field();
                     if (!table().isImmutable(column)) {
                         columns.add(column);
                         if (field.isChanged()) {

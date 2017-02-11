@@ -43,7 +43,6 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TimeZone;
 
@@ -57,6 +56,7 @@ import com.jajja.jorm.Query.ParameterizedQuery;
 import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.RecordBatch.Slice;
 import com.jajja.jorm.Row.Field;
+import com.jajja.jorm.Row.NamedField;
 
 /**
  * The transaction implementation executing all queries in for {@link Jorm}
@@ -93,7 +93,7 @@ public class Transaction {
     private final DataSource dataSource;
     private Dialect dialect;
     private Connection connection;
-    private boolean isDestroyed = false;
+    private boolean isClosed = false;
     private Calendar calendar;
     private Set<Listener> listeners;
 
@@ -239,80 +239,70 @@ public class Transaction {
      *             if a database access error occurs.
      */
     public Connection getConnection() throws SQLException {
-        if (isDestroyed) {
-            throw new IllegalStateException("Attempted to use destroyed transaction!");
+        if (isClosed) {
+            throw new IllegalStateException("Connection was closed at " + closedAt);
         }
         if (connection == null) {
-            connection = dataSource.getConnection();
+            Connection c = dataSource.getConnection();
+            c.setAutoCommit(false);
+            dialect = new Dialect(database, c);
+            connection = c;
             tracelog("BEGIN", null, null, null);
-            connection.setAutoCommit(false);
-            dialect = new Dialect(database, getConnection());
         }
         return connection;
     }
 
+    private StackTraceElement closedAt;
+
     /**
      * Rolls back the current transaction and closes the database connection.
      * This is the equivalent of calling {@link #rollback()}
+     * @throws
      */
     public void close() {
-        rollback();
-    }
+        if (!isClosed) {
+            isClosed = true;
+            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+            for (int i = 1; i < stackTrace.length; i++) {
+                closedAt = stackTrace[i];
+                if (!stackTrace[i].getClassName().startsWith("com.jajja.jorm.")) {
+                    break;
+                }
+            }
 
-    /**
-     * Destroys the transaction.
-     */
-    public void destroy() {
-        close();
-        isDestroyed = true;
-    }
-
-    /**
-     * Commits the current transaction and closes the database connection.
-     * This is the equivalent of calling {@link #commit(true)}.
-     *
-     * @throws SQLException
-     *             if a database access error occurs.
-     */
-    public void commit() throws SQLException {
-        commit(true);
-    }
-
-    /**
-     * Commits the current transaction and optionally closes the database connection.
-     *
-     * @param close
-     *            whether or not to close the database connection.
-     * @throws SQLException
-     *             if a database access error occurs.
-     */
-    public void commit(boolean close) throws SQLException {
-        if (connection != null) {
-            tracelog("COMMIT", null, null, null);
-            getConnection().commit();
-            if (close) {
-                close();
+            try {
+                if (connection != null) {
+                    connection.close();
+                }
+            } catch (SQLException e) {
+                tracelog("CONNECTION CLOSE FAILED", null, null, e);
+            } finally {
+                dialect = null;
+                connection = null;
             }
         }
     }
 
     /**
-     * Rolls back the current transaction and closes the database connection.
+     * Commits the current transaction and closes the database connection.
      *
-     * @param close
-     *            whether or not to close the database connection.
+     * @throws SQLException
+     *             if a database error occurs.
      */
-    public void rollback() {
-        rollback(true);
+    public void commit() throws SQLException {
+        if (connection != null) {
+            connection.commit();
+            tracelog("COMMIT", null, null, null);
+        }
     }
 
     /**
      * Rolls back the current transaction and optionally closes the database connection.
      *
-     * @param close
-     *            whether or not to close the database connection.
+     * @throws SQLException
+     *             if a database error occurs.
      */
-    public void rollback(boolean close) {
+    public void rollback() {
         if (connection != null) {
             try {
                 tracelog("ROLLBACK", null, null, null);
@@ -320,13 +310,6 @@ public class Transaction {
             } catch (SQLException e) {
                 tracelog("ROLLBACK FAILED", null, null, e);
             }
-            try {
-                connection.close();
-            } catch (SQLException e) {
-                tracelog("CONNECTION CLOSE FAILED", null, null, e);
-            }
-            dialect = null;
-            connection = null;
         }
     }
 
@@ -1510,7 +1493,7 @@ public class Transaction {
         Set<Object> values = new HashSet<Object>();
 
         for (Row row : rows) {
-            Field field = row.fields.get(foreignKeyColumn);
+            Field field = row.field(foreignKeyColumn);
             if (field != null && field.rawValue() != null && field.record() == null) {
                 values.add(field.rawValue());
             }
@@ -1539,7 +1522,7 @@ public class Transaction {
         }
 
         for (Row row : rows) {
-            Field field = row.fields.get(foreignKeyColumn);
+            Field field = row.field(foreignKeyColumn);
             if (field != null && field.rawValue() != null && field.record() == null) {
                 Record referenceRecord = map.get(key.value(field.rawValue()));
                 if (referenceRecord == null && !ignoreInvalidReferences) {
@@ -1808,9 +1791,9 @@ public class Transaction {
         query.append("INSERT INTO #1# (", record.table());
 
         boolean isFirst = true;
-        for (String column : record.fields.keySet()) {
-            if (record.isDirty(column)) {
-                query.append(isFirst ? "#:1#" : ", #:1#", column);
+        for (NamedField f : record.fields()) {
+            if (f.field().isChanged() && !record.table().isImmutable(f.name())) {
+                query.append(isFirst ? "#:1#" : ", #:1#", f.name());
                 isFirst = false;
             }
         }
@@ -1824,10 +1807,9 @@ public class Transaction {
         } else {
             query.append(") VALUES (");
             isFirst = true;
-            for (Entry<String, Field> e : record.fields.entrySet()) {
-                String column = e.getKey();
-                Field field = e.getValue();
-                if (record.isDirty(column)) {
+            for (NamedField f : record.fields()) {
+                Field field = f.field();
+                if (field.isChanged() && !record.table().isImmutable(f.name())) {
                     Object value = field.dereference();
                     if (value instanceof Query || value instanceof Composite.Value) {
                         query.append(isFirst ? "#1#" : ", #1#", value);
@@ -2006,15 +1988,14 @@ public class Transaction {
         query.append("UPDATE #1# SET ", record.table());
 
         boolean isFirst = true;
-        for (Entry<String, Field> e : record.fields.entrySet()) {
-            String column = e.getKey();
-            Field field = e.getValue();
-            if (record.isDirty(column)) {
+        for (NamedField f : record.fields()) {
+            Field field = f.field();
+            if (field.isChanged()) {
                 Object value = field.dereference();
                 if (value instanceof Query || value instanceof Composite.Value) {
-                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", column, value);
+                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", f.name(), value);
                 } else {
-                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", column, value);
+                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", f.name(), value);
                 }
                 isFirst = false;
             }

@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.generator.Generator;
@@ -1045,29 +1044,11 @@ public abstract class Record extends Row {
      * Marks all fields as changed, excluding any immutable and primary key columns.
      */
     public void taint() {
-        for (Entry<String, Field> e : fields.entrySet()) {
-            String column = e.getKey();
-            Field field = e.getValue();
-            if (!isImmutable(column) && !primaryKey().contains(column)) {
-                field.setChanged(true);
+        for (NamedField f : fields()) {
+            if (!table().isImmutable(f.name()) && !primaryKey().contains(f.name())) {
+                f.field().setChanged(true);
             }
         }
-    }
-
-    /**
-     * Checks whether any mutable fields have changed since the last call to populate().
-     *
-     * @return true if at least one mutable field has changed, false otherwise
-     */
-    public boolean isDirty() {
-        for (Entry<String, Field> e : fields.entrySet()) {
-            String column = e.getKey();
-            Field field = e.getValue();
-            if (field.isChanged() && !isImmutable(column)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     @Override

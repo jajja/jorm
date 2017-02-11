@@ -26,6 +26,7 @@ import com.jajja.jorm.Row.Field;
 public class Composite {
     private final String[] columns;
     private int hashCode = 0;
+    private boolean hashCodeSet = false;
 
     public Composite(String ... columns) {
         this.columns = StringPool.array(columns);
@@ -54,7 +55,7 @@ public class Composite {
         }
         Object[] values = new Object[columns.length];
         for (int i = 0; i < columns.length; i++) {
-            Field field = row.fields.get(columns[i]);
+            Field field = row.field(columns[i]);
             if (field == null) {
                 throw new NullPointerException("Column " + columns[i] + " is not set");
             }
@@ -183,10 +184,11 @@ public class Composite {
 
     @Override
     public int hashCode() {
-        if (hashCode == 0) {
+        if (!hashCodeSet) {
             for (String column : columns) {
                 hashCode = hashCode * 31 + column.hashCode();
             }
+            hashCodeSet = true;
         }
         return hashCode;
     }

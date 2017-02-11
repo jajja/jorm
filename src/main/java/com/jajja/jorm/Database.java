@@ -27,7 +27,6 @@ import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.URL;
-import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -189,19 +188,7 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
-        database = context(database).effectiveName();
-        HashMap<String, Transaction> transactions = get().getTransactions();
-        Transaction transaction = transactions.get(database);
-        if (transaction == null) {
-            DataSource dataSource = getDataSource(database);
-            if (dataSource == null) {
-                assertConfigured(database); // throws!
-            }
-            Configuration configuration = get().configurations.get(database);
-            transaction = new Transaction(dataSource, database, configuration != null ? configuration.calendar : null);
-            transactions.put(database, transaction);
-        }
-        return transaction;
+        return open(Transaction.class, database);
     }
 
     public static <T extends Transaction> T open(Class<T> t, String database) {
@@ -227,51 +214,12 @@ public class Database {
     }
 
     /**
-     * Commits the thread local transaction for the given database name if it
-     * has been opened.
-     *
-     * @param database the name of the database.
-     * @return the closed transaction or null for no active transaction.
-     * @throws SQLException if a database access error occur
-     */
-    public static Transaction commit(String database) throws SQLException {
-        database = context(database).effectiveName();
-        HashMap<String, Transaction> transactions = get().getTransactions();
-        Transaction transaction = transactions.get(database);
-        if (transaction != null) {
-            transaction.commit();
-        } else {
-            assertConfigured(database);
-        }
-        return transaction;
-    }
-
-    /**
-     * Closes the thread local transaction for the given database name if it has
-     * been opened. This method is idempotent when called from the same thread.
-     *
-     * @param database the name of the database.
-     * @return the closed transaction or null for no active transaction.
-     */
-    public static Transaction close(String database) {
-        database = context(database).effectiveName();
-        HashMap<String, Transaction> transactions = get().getTransactions();
-        Transaction transaction = transactions.get(database);
-        if (transaction != null) {
-            transaction.close();
-        } else {
-            assertConfigured(database);
-        }
-        return transaction;
-    }
-
-    /**
      * Closes and destroys all transactions for the current thread.
      */
     public static void close() {
         HashMap<String, Transaction> map = get().getTransactions();
         for (Transaction transaction : map.values()) {
-            transaction.destroy();
+            transaction.close();
         }
         map.clear();
         get().transactions.remove();
