@@ -22,8 +22,6 @@
 package com.jajja.jorm;
 
 import java.sql.SQLException;
-import java.util.Iterator;
-import java.util.Map.Entry;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.generator.Generator;
@@ -127,19 +125,6 @@ public abstract class Record extends Row {
         NO_RESULT;
     }
 
-    // Helper method used by batch methods to quickly determine a list's generic type
-    private static Class<? extends Record> genericType(Iterable<? extends Record> records) {
-        Iterator<? extends Record> iter = records.iterator();
-        if (iter.hasNext()) {
-            return iter.next().getClass();
-        }
-        throw new IllegalArgumentException("List is empty");
-    }
-
-    private static boolean isEmpty(Iterable<?> i) {
-        return !i.iterator().hasNext();
-    }
-
     /**
      * Constructs a record. Uses {@link Jorm} annotation for configuration.
      */
@@ -219,11 +204,9 @@ public abstract class Record extends Row {
      */
     @Override
     public void taint() {
-        for (Entry<String, Field> entry : fields.entrySet()) {
-            String column = entry.getKey();
-            Field field = entry.getValue();
-            if (!table().isImmutable(column) && !primaryKey().contains(column)) {
-                field.setChanged(true);
+        for (NamedField f : fields()) {
+            if (!table().isImmutable(f.name()) && !primaryKey().contains(f.name())) {
+                f.field().setChanged(true);
             }
         }
     }

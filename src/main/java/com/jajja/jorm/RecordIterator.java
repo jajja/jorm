@@ -30,8 +30,6 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 
-import com.jajja.jorm.Row.Field;
-
 /**
  * @see Transaction
  * @see Record
@@ -97,7 +95,6 @@ public class RecordIterator implements Closeable {
         try {
             row.resetFields(columns.length);
             for (int i = 0; i < columns.length; i++) {
-                Field field = new Record.Field();
                 Object object = resultSet.getObject(i + 1);
                 if (transaction != null && transaction.getCalendar() != null) {
                     if (object instanceof Date) {
@@ -108,8 +105,7 @@ public class RecordIterator implements Closeable {
                         object = resultSet.getTimestamp(i + 1, transaction.getCalendar());
                     }
                 }
-                field.setValue(object);
-                row.fields.put(columns[i], field);
+                row.getOrCreateField(columns[i]).setValue(object);
             }
         } catch (SQLException sqlException) {
             if (transaction != null) {

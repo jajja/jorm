@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -204,6 +206,10 @@ public class Database {
         }
         Configuration configuration = get().configurations.get(database);
         return new Transaction(dataSource, database, configuration != null ? configuration.calendar : null);
+    }
+
+    public static Set<Transaction> transactions() {
+        return Collections.unmodifiableSet(get().getThreadLocalTransactions());
     }
 
     /**
