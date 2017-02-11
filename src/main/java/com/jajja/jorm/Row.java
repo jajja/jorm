@@ -624,7 +624,7 @@ public class Row {
             }
         }
         TypeConverter<T> c = (TypeConverter<T>)converters.get(type);
-        if (c != null & c.supports(value)) {
+        if (c != null && c.supports(value)) {
             return c.convert(value);
         }
         if (type.isAssignableFrom(value.getClass())) {
