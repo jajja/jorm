@@ -1172,10 +1172,11 @@ public class Transaction {
         return selectIntoTypedMap(map, clazz, key, Composite.Value.class, allowDuplicates, query);
     }
 
-    public <T extends Record> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+    public <T extends Row> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
         return selectIntoMap(map, clazz, key, allowDuplicates, build(sql, params));
     }
 
+    @Deprecated
     public <T extends Record> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Object key, boolean allowDuplicates) throws SQLException {
         return selectIntoMap(map, clazz, key, allowDuplicates, getSelectQuery(clazz));
     }
@@ -1223,10 +1224,11 @@ public class Transaction {
         return map;
     }
 
-    public <T, C extends Record> Map<T, C> selectIntoTypedMap(Map<T, C> map, Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+    public <T, C extends Row> Map<T, C> selectIntoTypedMap(Map<T, C> map, Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
         return selectIntoTypedMap(map, clazz, key, keyType, allowDuplicates, build(sql, params));
     }
 
+    @Deprecated
     public <T, C extends Record> Map<T, C> selectIntoTypedMap(Map<T, C> map, Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
         return selectIntoTypedMap(map, clazz, key, keyType, allowDuplicates, getSelectQuery(clazz));
     }
@@ -1250,10 +1252,11 @@ public class Transaction {
         selectAllIntoTypedMap(map, clazz, key, Composite.Value.class, query);
     }
 
-    public <T extends Record> void selectAllIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
+    public <T extends Row> void selectAllIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
         selectAllIntoMap(map, clazz, key, build(sql, params));
     }
 
+    @Deprecated
     public <T extends Record> void selectIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Object key) throws SQLException {
         selectAllIntoMap(map, clazz, key, getSelectQuery(clazz));
     }
@@ -1303,10 +1306,11 @@ public class Transaction {
         }
     }
 
-    public <T, C extends Record> void selectAllIntoTypedMap(HashMap<T, List<C>> map, Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
+    public <T, C extends Row> void selectAllIntoTypedMap(HashMap<T, List<C>> map, Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
         selectAllIntoTypedMap(map, clazz, key, keyType, build(sql, params));
     }
 
+    @Deprecated
     public <T, C extends Record> void selectIntoTypedMap(HashMap<T, List<C>> map, Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
         selectAllIntoTypedMap(map, clazz, key, keyType, getSelectQuery(clazz));
     }
@@ -1332,10 +1336,11 @@ public class Transaction {
         return map;
     }
 
-    public <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+    public <T extends Row> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
         return selectAsMap(clazz, key, allowDuplicates, build(sql, params));
     }
 
+    @Deprecated
     public <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates) throws SQLException {
         return selectAsMap(clazz, key, allowDuplicates, getSelectQuery(clazz));
     }
@@ -1361,10 +1366,11 @@ public class Transaction {
         return map;
     }
 
-    public <T, C extends Record> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+    public <T, C extends Row> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
         return selectAsTypedMap(clazz, key, keyType, allowDuplicates, build(sql, params));
     }
 
+    @Deprecated
     public <T, C extends Record> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
         return selectAsTypedMap(clazz, key, keyType, allowDuplicates, getSelectQuery(clazz));
     }
@@ -1390,10 +1396,11 @@ public class Transaction {
         return map;
     }
 
-    public <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
+    public <T extends Row> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
         return selectAllAsMap(clazz, key, build(sql, params));
     }
 
+    @Deprecated
     public <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key) throws SQLException {
         return selectAllAsMap(clazz, key, getSelectQuery(clazz));
     }
@@ -1413,16 +1420,17 @@ public class Transaction {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, Query query) throws SQLException {
+    public <T, C extends Row> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, Query query) throws SQLException {
         HashMap<T, List<C>> map = new HashMap<T, List<C>>();
         selectAllIntoTypedMap(map, clazz, key, keyType, query);
         return map;
     }
 
-    public <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
+    public <T, C extends Row> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
         return selectAllAsTypedMap(clazz, key, keyType, build(sql, params));
     }
 
+    @Deprecated
     public <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
         return selectAllAsTypedMap(clazz, key, keyType, getSelectQuery(clazz));
     }
