@@ -82,7 +82,6 @@ public class Table {
         } else {
             this.immutablePrefix = annotation.immutablePrefix;
         }
-        System.out.printf("table %s   immutablePrefix = (%d) %s\n", this.table, this.immutablePrefix.length(), this.immutablePrefix);
     }
 
     private static JormAnnotation tableAnnotation(Class<?> clazz) {
