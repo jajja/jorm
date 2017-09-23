@@ -101,7 +101,7 @@ public class Transaction {
     public static class StdoutLogListener implements Listener {
         @Override
         public void log(Transaction t, String message, String sql, List<Object> params, StackTraceElement[] stackTrace, Throwable reason) {
-            System.out.printf("%s: %s: %s (called from %s)\n", t.getDatabase(), message, sql != null ? sql : "(no sql)", stackTrace[0]);
+            System.out.printf("[%d] %s: %s: %s (called from %s)\n", System.currentTimeMillis(), t.getDatabase(), message, sql != null ? sql : "(no sql)", stackTrace[0]);
             if (params != null) {
                 int i = 1;
                 for (Object param : params) {
@@ -1711,7 +1711,7 @@ public class Transaction {
         if (iterator.hasNext()) {
             do {
                 Record record = iterator.next();
-                if (record.isChanged()) {
+                if (record.isDirty()) {
                     if (records == null) {
                         records = new ArrayList<Record>(size);
                     }
@@ -1746,12 +1746,12 @@ public class Transaction {
                 columns.addAll(record.fields.keySet());
             }
 
-            String immutablePrefix = template.table().getImmutablePrefix();
-            if (template != null && immutablePrefix != null) {
+            if (template != null) {
+                Table table = template.table();
                 Iterator<String> i = columns.iterator();
                 while (i.hasNext()) {
                     String column = i.next();
-                    if (column.startsWith(immutablePrefix)) {
+                    if (table.isImmutable(column)) {
                         i.remove();
                     }
                 }
@@ -1873,9 +1873,9 @@ public class Transaction {
         query.append("INSERT INTO #1# (", record.table());
 
         boolean isFirst = true;
-        for (Entry<String, Field> entry : record.fields.entrySet()) {
-            if (entry.getValue().isChanged() && !record.table().isImmutable(entry.getKey())) {
-                query.append(isFirst ? "#:1#" : ", #:1#", entry.getKey());
+        for (String column : record.fields.keySet()) {
+            if (record.isDirty(column)) {
+                query.append(isFirst ? "#:1#" : ", #:1#", column);
                 isFirst = false;
             }
         }
@@ -1890,8 +1890,9 @@ public class Transaction {
             query.append(") VALUES (");
             isFirst = true;
             for (Entry<String, Field> e : record.fields.entrySet()) {
+                String column = e.getKey();
                 Field field = e.getValue();
-                if (field.isChanged() && !record.table().isImmutable(e.getKey())) {
+                if (record.isDirty(column)) {
                     Object value = field.dereference();
                     if (value instanceof Query || value instanceof Composite.Value) {
                         query.append(isFirst ? "#1#" : ", #1#", value);
@@ -1901,8 +1902,8 @@ public class Transaction {
                     isFirst = false;
                 }
             }
-            query.append(")");
         }
+        query.append(")");
 
         if (mode == ResultMode.NO_RESULT) {
             execute(query);
@@ -2030,7 +2031,7 @@ public class Transaction {
 
             boolean isColumnFirst = true;
             for (String column : batchInfo.columns) {
-                if (record.isChanged(column)) {
+                if (record.isDirty(column)) {
                     Object value = record.get(column);
                     if (value instanceof Query || value instanceof Composite.Value) {
                         query.append(isColumnFirst ? "#1#" : ", #1#", value);
@@ -2060,26 +2061,27 @@ public class Transaction {
 
         record.assertNotReadOnly();
 
-        if (!record.isChanged()) {
-            return rowsUpdated;
-        }
-
         Query query = build();
 
         query.append("UPDATE #1# SET ", record.table());
 
         boolean isFirst = true;
-        for (Entry<String, Field> entry : record.fields.entrySet()) {
-            Field field = entry.getValue();
-            if (field.isChanged()) {
+        for (Entry<String, Field> e : record.fields.entrySet()) {
+            String column = e.getKey();
+            Field field = e.getValue();
+            if (record.isDirty(column)) {
                 Object value = field.dereference();
                 if (value instanceof Query || value instanceof Composite.Value) {
-                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", entry.getKey(), value);
+                    query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", column, value);
                 } else {
-                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", entry.getKey(), value);
+                    query.append(isFirst ? "#:1# = #?2#" : ", #:1# = #?2#", column, value);
                 }
                 isFirst = false;
             }
+        }
+
+        if (isFirst) {  // No columns dirty
+            return 0;
         }
 
         if (record.isCompositeKeyNull(key)) {

@@ -1021,18 +1021,41 @@ public abstract class Record extends Row {
         return this;
     }
 
+    public boolean isImmutable(String column) {
+        return table().isImmutable(column);
+    }
+
+    public boolean isDirty(String column) {
+        return isChanged(column) && !isImmutable(column);
+    }
+
     /**
-     * Marks all columns as changed.
+     * Marks all fields as changed, excluding any immutable and primary key columns.
      */
-    @Override
     public void taint() {
-        for (Entry<String, Field> entry : fields.entrySet()) {
-            String column = entry.getKey();
-            Field field = entry.getValue();
-            if (!table().isImmutable(column) && !primaryKey().contains(column)) {
+        for (Entry<String, Field> e : fields.entrySet()) {
+            String column = e.getKey();
+            Field field = e.getValue();
+            if (!isImmutable(column) && !primaryKey().contains(column)) {
                 field.setChanged(true);
             }
         }
+    }
+
+    /**
+     * Checks whether any mutable fields have changed since the last call to populate().
+     *
+     * @return true if at least one mutable field has changed, false otherwise
+     */
+    public boolean isDirty() {
+        for (Entry<String, Field> e : fields.entrySet()) {
+            String column = e.getKey();
+            Field field = e.getValue();
+            if (field.isChanged() && !isImmutable(column)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

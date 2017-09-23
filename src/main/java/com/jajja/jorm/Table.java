@@ -63,7 +63,7 @@ public class Table {
         this.schema = schema;
         this.table = table;
         this.primaryKey = primaryKey;
-        this.immutablePrefix = immutablePrefix;
+        this.immutablePrefix = immutablePrefix != null ? immutablePrefix : Jorm.NONE;
     }
 
     public Table(JormAnnotation annotation) {
@@ -75,13 +75,14 @@ public class Table {
         } else {
             this.primaryKey = new Composite(annotation.primaryKey);
         }
-        if (Jorm.NONE.equals(annotation.immutablePrefix)) {
-            this.immutablePrefix = null;
-        } else if (annotation.immutablePrefix == null) {
+        if (annotation.immutablePrefix == null) {
             this.immutablePrefix = "__";
+        } else if (annotation.immutablePrefix.equals(Jorm.NONE)) {
+            this.immutablePrefix = "\0";  // no column names start with "\0" :P
         } else {
-            this.immutablePrefix = null;
+            this.immutablePrefix = annotation.immutablePrefix;
         }
+        System.out.printf("table %s   immutablePrefix = (%d) %s\n", this.table, this.immutablePrefix.length(), this.immutablePrefix);
     }
 
     private static JormAnnotation tableAnnotation(Class<?> clazz) {
@@ -118,7 +119,7 @@ public class Table {
     }
 
     public boolean isImmutable(String column) {
-        return immutablePrefix != null && column.startsWith(immutablePrefix);
+        return column.startsWith(immutablePrefix);
     }
 
     public String getImmutablePrefix() {
