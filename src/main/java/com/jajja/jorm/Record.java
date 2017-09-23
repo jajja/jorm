@@ -612,6 +612,7 @@ public abstract class Record extends Row {
         return transaction(clazz).selectAsMap(clazz, key, allowDuplicates, sql, params);
     }
 
+    @Deprecated
     public static <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates) throws SQLException {
         return transaction(clazz).selectAsMap(clazz, key, allowDuplicates);
     }
@@ -639,6 +640,7 @@ public abstract class Record extends Row {
         return transaction(clazz).selectAsTypedMap(clazz, key, keyType, allowDuplicates, sql, params);
     }
 
+    @Deprecated
     public static <T, C extends Record> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
         return transaction(clazz).selectAsTypedMap(clazz, key, keyType, allowDuplicates);
     }
@@ -666,6 +668,7 @@ public abstract class Record extends Row {
         return transaction(clazz).selectAllAsMap(clazz, key, sql, params);
     }
 
+    @Deprecated
     public static <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key) throws SQLException {
         return transaction(clazz).selectAllAsMap(clazz, key);
     }
@@ -693,6 +696,7 @@ public abstract class Record extends Row {
         return transaction(clazz).selectAllAsTypedMap(clazz, key, keyType, sql, params);
     }
 
+    @Deprecated
     public static <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
         return transaction(clazz).selectAllAsTypedMap(clazz, key, keyType);
     }
