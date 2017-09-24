@@ -199,16 +199,45 @@ public abstract class Record extends Row {
         return Record.class.isAssignableFrom(clazz) && !clazz.equals(Record.class);
     }
 
+    public boolean isImmutable(String column) {
+        return table().isImmutable(column);
+    }
+
+    public boolean isImmutable(NamedField f) {
+        return table().isImmutable(f.name());
+    }
+
+    public boolean isDirty(String column) {
+        return isChanged(column) && !isImmutable(column);
+    }
+
+    public boolean isDirty(NamedField f) {
+        return f.field().isChanged() && !isImmutable(f);
+    }
+
     /**
-     * Marks all columns as changed.
+     * Marks all fields as changed, excluding any immutable and primary key columns.
      */
-    @Override
     public void taint() {
         for (NamedField f : fields()) {
             if (!table().isImmutable(f.name()) && !primaryKey().contains(f.name())) {
                 f.field().setChanged(true);
             }
         }
+    }
+
+    /**
+     * Checks whether any mutable fields have changed since the last call to populate().
+     *
+     * @return true if at least one mutable field has changed, false otherwise
+     */
+    public boolean isDirty() {
+        for (NamedField f : fields()) {
+            if (isChanged(f) && !isImmutable(f)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -219,11 +248,6 @@ public abstract class Record extends Row {
     @Override
     public boolean isCompositeKeyNull(Composite key) {
         return super.isCompositeKeyNull(key);
-    }
-
-    @Override
-    public boolean isSet(String column) {
-        return super.isSet(column);
     }
 
     @Override

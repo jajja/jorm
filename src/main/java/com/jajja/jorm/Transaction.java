@@ -35,7 +35,7 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -52,7 +52,9 @@ import javax.sql.DataSource;
 import org.postgresql.util.PGobject;
 
 import com.jajja.jorm.Composite.Value;
+import com.jajja.jorm.Dialect.DatabaseProduct;
 import com.jajja.jorm.Record.ResultMode;
+import com.jajja.jorm.RecordBatch.Slice;
 import com.jajja.jorm.Row.Field;
 import com.jajja.jorm.Row.NamedField;
 
@@ -102,7 +104,7 @@ public class Transaction implements Closeable {
     public static class StdoutLogListener implements Listener {
         @Override
         public void log(Transaction t, String message, String sql, List<Object> params, StackTraceElement[] stackTrace, Throwable reason) {
-            System.out.printf("%s: %s: %s (called from %s)\n", t.getDatabase(), message, sql != null ? sql : "(no sql)", stackTrace[0]);
+            System.out.printf("[%d] %s: %s: %s (called from %s)\n", System.currentTimeMillis(), t.getDatabase(), message, sql != null ? sql : "(no sql)", stackTrace[0]);
             if (params != null) {
                 int i = 1;
                 for (Object param : params) {
@@ -1144,10 +1146,11 @@ public class Transaction implements Closeable {
         return selectIntoTypedMap(map, clazz, key, Composite.Value.class, allowDuplicates, query);
     }
 
-    public <T extends Record> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+    public <T extends Row> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
         return selectIntoMap(map, clazz, key, allowDuplicates, build(sql, params));
     }
 
+    @Deprecated
     public <T extends Record> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Object key, boolean allowDuplicates) throws SQLException {
         return selectIntoMap(map, clazz, key, allowDuplicates, getSelectQuery(clazz));
     }
@@ -1195,10 +1198,11 @@ public class Transaction implements Closeable {
         return map;
     }
 
-    public <T, C extends Record> Map<T, C> selectIntoTypedMap(Map<T, C> map, Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+    public <T, C extends Row> Map<T, C> selectIntoTypedMap(Map<T, C> map, Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
         return selectIntoTypedMap(map, clazz, key, keyType, allowDuplicates, build(sql, params));
     }
 
+    @Deprecated
     public <T, C extends Record> Map<T, C> selectIntoTypedMap(Map<T, C> map, Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
         return selectIntoTypedMap(map, clazz, key, keyType, allowDuplicates, getSelectQuery(clazz));
     }
@@ -1222,10 +1226,11 @@ public class Transaction implements Closeable {
         selectAllIntoTypedMap(map, clazz, key, Composite.Value.class, query);
     }
 
-    public <T extends Record> void selectAllIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
+    public <T extends Row> void selectAllIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
         selectAllIntoMap(map, clazz, key, build(sql, params));
     }
 
+    @Deprecated
     public <T extends Record> void selectIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Object key) throws SQLException {
         selectAllIntoMap(map, clazz, key, getSelectQuery(clazz));
     }
@@ -1275,10 +1280,11 @@ public class Transaction implements Closeable {
         }
     }
 
-    public <T, C extends Record> void selectAllIntoTypedMap(HashMap<T, List<C>> map, Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
+    public <T, C extends Row> void selectAllIntoTypedMap(HashMap<T, List<C>> map, Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
         selectAllIntoTypedMap(map, clazz, key, keyType, build(sql, params));
     }
 
+    @Deprecated
     public <T, C extends Record> void selectIntoTypedMap(HashMap<T, List<C>> map, Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
         selectAllIntoTypedMap(map, clazz, key, keyType, getSelectQuery(clazz));
     }
@@ -1304,10 +1310,11 @@ public class Transaction implements Closeable {
         return map;
     }
 
-    public <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+    public <T extends Row> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
         return selectAsMap(clazz, key, allowDuplicates, build(sql, params));
     }
 
+    @Deprecated
     public <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates) throws SQLException {
         return selectAsMap(clazz, key, allowDuplicates, getSelectQuery(clazz));
     }
@@ -1333,10 +1340,11 @@ public class Transaction implements Closeable {
         return map;
     }
 
-    public <T, C extends Record> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
+    public <T, C extends Row> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
         return selectAsTypedMap(clazz, key, keyType, allowDuplicates, build(sql, params));
     }
 
+    @Deprecated
     public <T, C extends Record> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
         return selectAsTypedMap(clazz, key, keyType, allowDuplicates, getSelectQuery(clazz));
     }
@@ -1362,10 +1370,11 @@ public class Transaction implements Closeable {
         return map;
     }
 
-    public <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
+    public <T extends Row> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
         return selectAllAsMap(clazz, key, build(sql, params));
     }
 
+    @Deprecated
     public <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key) throws SQLException {
         return selectAllAsMap(clazz, key, getSelectQuery(clazz));
     }
@@ -1385,16 +1394,17 @@ public class Transaction implements Closeable {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, Query query) throws SQLException {
+    public <T, C extends Row> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, Query query) throws SQLException {
         HashMap<T, List<C>> map = new HashMap<T, List<C>>();
         selectAllIntoTypedMap(map, clazz, key, keyType, query);
         return map;
     }
 
-    public <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
+    public <T, C extends Row> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
         return selectAllAsTypedMap(clazz, key, keyType, build(sql, params));
     }
 
+    @Deprecated
     public <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
         return selectAllAsTypedMap(clazz, key, keyType, getSelectQuery(clazz));
     }
@@ -1621,31 +1631,14 @@ public class Transaction implements Closeable {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public void delete(Iterable<? extends Record> records) throws SQLException {
-        Record template = null;
+    public void delete(Slice<? extends Record> records, Composite primaryKey) throws SQLException {
         String database = null;
 
-        for (Record record : records) {
-            if (template != null) {
-                if (!template.getClass().equals(record.getClass())) {
-                    throw new IllegalArgumentException("all records must be of the same class");
-                }
-                if (!database.equals(record.table().getDatabase())) {
-                    throw new IllegalArgumentException("all records must be bound to the same Database");
-                }
-            } else {
-                template = record;
-                database = record.table().getDatabase();
-            }
-            record.assertNotReadOnly();
+        if (primaryKey == null) {
+            primaryKey = records.primaryKey();
         }
 
-        if (template == null) {
-            return;
-        }
-
-        Query query = build("DELETE FROM #1# WHERE", template.getClass());
-        Composite primaryKey = template.primaryKey();
+        Query query = build("DELETE FROM #1# WHERE", records.clazz());
         Dialect dialect = getDialect();
         if (primaryKey.isSingle()) {
             query.append("#:1# IN (#2:@#)", primaryKey, records);
@@ -1669,67 +1662,29 @@ public class Transaction implements Closeable {
         execute(query);
     }
 
-    private static List<? extends Record> batchChunk(Iterator<? extends Record> iterator, int size) {
-        List<Record> records = null;
-
-        if (iterator.hasNext()) {
-            do {
-                Record record = iterator.next();
-                if (record.isChanged()) {
-                    if (records == null) {
-                        records = new ArrayList<Record>(size);
-                    }
-                    records.add(record);
-                    size--;
-                }
-            } while (size > 0 && iterator.hasNext());
+    public <T extends Record> void delete(Iterable<T> records, int chunkSize, Composite primaryKey) throws SQLException {
+        RecordBatch<T> batch = RecordBatch.of(records);
+        if (chunkSize <= 0) {
+            chunkSize = batch.size();
         }
-
-        return records;
-    }
-
-    private static class BatchInfo {
-        private Set<String> columns = new HashSet<String>();
-        private Record template = null;
-
-        private BatchInfo(Iterable<? extends Record> records) {
-            for (Record record : records) {
-                record.assertNotReadOnly();
-
-                if (template == null) {
-                    template = record;
-                }
-
-                if (!template.getClass().equals(record.getClass())) {
-                    throw new IllegalArgumentException("all records must be of the same class");
-                }
-                if (!template.table().getDatabase().equals(record.table().getDatabase())) {
-                    throw new IllegalArgumentException("all records must be bound to the same Database");
-                }
-
-                for (NamedField f : record.fields()) {
-                    columns.add(f.name());
-                }
-            }
-
-            String immutablePrefix = template.table().getImmutablePrefix();
-            if (template != null && immutablePrefix != null) {
-                Iterator<String> i = columns.iterator();
-                while (i.hasNext()) {
-                    String column = i.next();
-                    if (column.startsWith(immutablePrefix)) {
-                        i.remove();
-                    }
-                }
-            }
+        for (Slice<T> slice : batch.slice(chunkSize)) {
+            delete(slice, null);
         }
     }
 
-    private void batchExecute(Query query, Iterable<? extends Record> records, ResultMode mode) throws SQLException {
+
+    public void delete(Iterable<? extends Record> records, int chunkSize) throws SQLException {
+        delete(records, chunkSize, null);
+    }
+
+    public void delete(Iterable<? extends Record> records) throws SQLException {
+        delete(records, 0);
+    }
+
+    private void batchExecute(Query query, Slice<? extends Record> records, ResultMode mode) throws SQLException {
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
-        Record template = records.iterator().next();
-        Composite primaryKey = template.primaryKey();
+        Composite primaryKey = records.primaryKey();
         Dialect dialect = getDialect();
 
         // XXX UPDATE + REPOPULATE?
@@ -1786,7 +1741,7 @@ public class Transaction implements Closeable {
                 preparedStatement.close();
                 preparedStatement = null;
 
-                Query q = getSelectQuery(template.getClass()).append("WHERE #:1# IN (#2:@#)", primaryKey.getColumn(), records);
+                Query q = getSelectQuery(records.clazz()).append("WHERE #:1# IN (#2:@#)", primaryKey.getColumn(), records);
 
                 preparedStatement = prepare(q);
                 resultSet = preparedStatement.executeQuery();
@@ -1840,7 +1795,7 @@ public class Transaction implements Closeable {
 
         boolean isFirst = true;
         for (NamedField f : record.fields()) {
-            if (f.field().isChanged() && !record.table().isImmutable(f.name())) {
+            if (record.isDirty(f)) {
                 query.append(isFirst ? "#:1#" : ", #:1#", f.name());
                 isFirst = false;
             }
@@ -1856,9 +1811,8 @@ public class Transaction implements Closeable {
             query.append(") VALUES (");
             isFirst = true;
             for (NamedField f : record.fields()) {
-                Field field = f.field();
-                if (field.isChanged() && !record.table().isImmutable(f.name())) {
-                    Object value = field.dereference();
+                if (record.isDirty(f)) {
+                    Object value = f.field().dereference();
                     if (value instanceof Query || value instanceof Composite.Value) {
                         query.append(isFirst ? "#1#" : ", #1#", value);
                     } else {
@@ -1867,8 +1821,8 @@ public class Transaction implements Closeable {
                     isFirst = false;
                 }
             }
-            query.append(")");
         }
+        query.append(")");
 
         if (mode == ResultMode.NO_RESULT) {
             execute(query);
@@ -1939,48 +1893,49 @@ public class Transaction implements Closeable {
      *
      * @param records List of records to insert (must be of the same class, and bound to the same Database)
      * @param chunkSize Splits the records into chunks, <= 0 disables
-     * @param isFullRepopulate Whether or not to fully re-populate the record columns, or just update their primary key value
+     * @param mode Result mode
      * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
+     *             if a database access error occurs
      */
-    public void insert(Iterable<? extends Record> records, int chunkSize, ResultMode mode) throws SQLException {
-        if (!records.iterator().hasNext()) {
-            return;
-        }
-
-        BatchInfo batchInfo = new BatchInfo(records);
+    public <T extends Record> void insert(Iterable<T> records, int chunkSize, ResultMode mode) throws SQLException {
+        RecordBatch<T> batch = RecordBatch.of(records);
 
         if (chunkSize <= 0) {
-            batchInsert(batchInfo, records, mode);
-        } else {
-            Iterator<? extends Record> iterator = records.iterator();
-            List<? extends Record> batch;
-            while ((batch = batchChunk(iterator, chunkSize)) != null) {
-                batchInsert(batchInfo, batch, mode);
-            }
+            chunkSize = batch.size();
+        }
+        for (Slice<T> slice : batch.slice(chunkSize)) {
+            insert(slice, mode);
         }
     }
 
-    private void batchInsert(BatchInfo batchInfo, Iterable<? extends Record> records, ResultMode mode) throws SQLException {
-        Table table = batchInfo.template.table();
+    public void insert(Slice<? extends Record> records, ResultMode mode) throws SQLException {
+        Table table = records.table();
+        Set<String> columns = records.dirtyColumns();
         Query query = build();
 
-        if (batchInfo.columns.isEmpty()) {
-            // We have to insert something, so add the primary key columns
-            // This does not work on MSSQL
-            // INSERT INTO table () VALUES (), (), (); = syntax error.
-            // INSERT INTO table (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT); = DEFAULT or NULL are not allowed as explicit identity values
-            // INSERT INTO table DEFAULT VALUES, DEFAULT VALUES, DEFAULT VALUES; = syntax error.
-            for (String column : table.getPrimaryKey().getColumns()) {
-                batchInfo.columns.add(column);
+        if (columns.isEmpty()) {
+            // No dirty columns?! We have to insert something...
+            if (dialect.getDatabaseProduct() != DatabaseProduct.SQL_SERVER) {
+                // Pick a random insert the primary key columns (id = DEFAULT), (id = DEFAULT), ...
+                columns = new HashSet<String>(Arrays.asList(table.getPrimaryKey().getColumns()));
+            } else {
+                // ... unless we're dealing with MSSQL
+                // INSERT INTO table () VALUES (), (), (); = syntax error.
+                // INSERT INTO table (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT); = DEFAULT or NULL are not allowed as explicit identity values
+                // INSERT INTO table DEFAULT VALUES, DEFAULT VALUES, DEFAULT VALUES; = syntax error.
+                columns = records.columns();
+                columns.removeAll(Arrays.asList(table.getPrimaryKey().getColumns()));
+                //if (columns.isEmpty()) { ...
             }
+            // Remove all but one column
+            for (Iterator<String> i = columns.iterator(); columns.size() > 1 && i.hasNext(); i.remove())
+                ;
         }
 
         query.append("INSERT INTO #1# (", table);
 
         boolean isFirst = true;
-        for (String column : batchInfo.columns) {
+        for (String column : columns) {
             query.append(isFirst ? "#:1#" : ", #:1#", column);
             isFirst = false;
         }
@@ -1995,8 +1950,8 @@ public class Transaction implements Closeable {
             isFirst = false;
 
             boolean isColumnFirst = true;
-            for (String column : batchInfo.columns) {
-                if (record.isChanged(column)) {
+            for (String column : columns) {
+                if (record.isDirty(column)) {
                     Object value = record.get(column);
                     if (value instanceof Query || value instanceof Composite.Value) {
                         query.append(isColumnFirst ? "#1#" : ", #1#", value);
@@ -2021,23 +1976,20 @@ public class Transaction implements Closeable {
      *             if a database access error occurs or the generated SQL
      *             statement does not return a result set.
      */
-    public int update(Record record, ResultMode mode, Composite key) throws SQLException {
+    public int update(Record record, ResultMode mode, Composite primaryKey) throws SQLException {
         int rowsUpdated = 0;
 
         record.assertNotReadOnly();
-
-        if (!record.isChanged()) {
-            return rowsUpdated;
-        }
 
         Query query = build();
 
         query.append("UPDATE #1# SET ", record.table());
 
         boolean isFirst = true;
+
         for (NamedField f : record.fields()) {
             Field field = f.field();
-            if (field.isChanged()) {
+            if (record.isDirty(f)) {
                 Object value = field.dereference();
                 if (value instanceof Query || value instanceof Composite.Value) {
                     query.append(isFirst ? "#:1# = #2#" : ", #:1# = #2#", f.name(), value);
@@ -2048,11 +2000,15 @@ public class Transaction implements Closeable {
             }
         }
 
-        if (record.isCompositeKeyNull(key)) {
+        if (isFirst) {  // No columns dirty
+            return 0;
+        }
+
+        if (record.isCompositeKeyNull(primaryKey)) {
             throw new IllegalStateException("Primary/unique key contains NULL value(s)");
         }
 
-        query.append(" WHERE #1#", getDialect().toSqlExpression(record.get(key)));
+        query.append(" WHERE #1#", getDialect().toSqlExpression(record.get(primaryKey)));
 
         try {
             if (getDialect().isReturningSupported() && mode == ResultMode.REPOPULATE) {
@@ -2120,37 +2076,21 @@ public class Transaction implements Closeable {
      * @throws SQLException
      *             if a database access error occurs
      */
-    public void update(Iterable<? extends Record> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
-        if (!records.iterator().hasNext()) {
-            return;
-        }
-
-        BatchInfo batchInfo = new BatchInfo(records);
-
-        if (primaryKey == null) {
-            primaryKey = batchInfo.template.primaryKey();
-        }
-
-        if (batchInfo.columns.isEmpty()) {
-            throw new IllegalArgumentException("No columns to update");
-        }
-
+    public <T extends Record> void update(Iterable<T> records, int chunkSize, ResultMode mode, Composite primaryKey) throws SQLException {
         Dialect dialect = getDialect();
         if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
             for (Record record : records) {
-                update(record);
+                update(record, mode, primaryKey);
             }
             return;
         }
 
+        RecordBatch<T> batch = RecordBatch.of(records);
         if (chunkSize <= 0) {
-            batchUpdate(batchInfo, records, mode, primaryKey);
-        } else {
-            Iterator<? extends Record> iterator = records.iterator();
-            List<? extends Record> batch;
-            while ((batch = batchChunk(iterator, chunkSize)) != null) {
-                batchUpdate(batchInfo, batch, mode, primaryKey);
-            }
+            chunkSize = batch.size();
+        }
+        for (Slice<T> slice : batch.slice(chunkSize)) {
+            update(slice, mode, primaryKey);
         }
     }
 
@@ -2176,19 +2116,30 @@ public class Transaction implements Closeable {
         return null;
     }
 
-    private void batchUpdate(final BatchInfo batchInfo, Iterable<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
-        Table table = batchInfo.template.table();
+    public void update(Slice<? extends Record> records, ResultMode mode, Composite primaryKey) throws SQLException {
+        if (records.dirtyColumns().isEmpty()) {
+            return;
+        }
+
+        if (primaryKey == null) {
+            primaryKey = records.primaryKey();
+        }
+
+        Table table = records.table();
         Query query = build();
-        String vTable = table.getTable().equals("v") ? "v2" : "v";
+        String virtTable = table.getTable().equals("v") ? "v2" : "v";
 
         query.append("UPDATE #1# SET ", table);
         boolean isFirstColumn = true;
-        for (String column : batchInfo.columns) {
-            query.append(isFirstColumn ? "#:1# = #!2#.#:1#" : ", #:1# = #!2#.#:1#", column, vTable);
+        for (String column : records.dirtyColumns()) {
+            query.append(isFirstColumn ? "#:1# = #!2#.#:1#" : ", #:1# = #!2#.#:1#", column, virtTable);
             isFirstColumn = false;
         }
 
         query.append(" FROM (VALUES ");
+
+        Set<String> virtTableColumns = new HashSet<String>(records.dirtyColumns());
+        virtTableColumns.addAll(Arrays.asList(primaryKey.getColumns()));
 
         boolean isFirstValue = true;
         for (Record record : records) {
@@ -2197,7 +2148,7 @@ public class Transaction implements Closeable {
             }
             isFirstColumn = true;
             query.append(isFirstValue ? "(" : ", (");
-            for (String column : batchInfo.columns) {
+            for (String column : virtTableColumns) {
                 Object value = record.get(column);
                 if (value instanceof Query || value instanceof Composite.Value) {
                     query.append(isFirstColumn ? "#1#" : ", #1#", value);
@@ -2215,9 +2166,9 @@ public class Transaction implements Closeable {
             isFirstValue = false;
         }
 
-        query.append(") #!1# (", vTable);
+        query.append(") #!1# (", virtTable);
         isFirstColumn = true;
-        for (String column : batchInfo.columns) {
+        for (String column : virtTableColumns) {
             query.append(isFirstColumn ? "#:1#" : ", #:1#", column);
             isFirstColumn = false;
         }
@@ -2230,7 +2181,7 @@ public class Transaction implements Closeable {
             } else {
                 query.append(" AND");
             }
-            query.append(" #:1#.#:2# = #:3#.#:2#", table, column, vTable);
+            query.append(" #:1#.#:2# = #:3#.#:2#", table, column, virtTable);
         }
 
         batchExecute(query, records, mode);

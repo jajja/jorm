@@ -74,20 +74,6 @@ public class Row {
             return (value instanceof Record) ? ((Record)value) : null;
         }
 
-//        @SuppressWarnings("unchecked")
-//        public <T extends Record> T ref(Transaction t, Class<T> clazz) throws SQLException {
-//            if (record() == null) {
-//              if (isReferenceCacheOnly) {
-//                  return null;
-//              }
-//              if (!flag(FLAG_REF_FETCH)) {
-//                  throw new IllegalAccessError("Reference fetching is disabled");
-//              }
-//              setValue(t.findById((Class<? extends Record>)clazz, value));
-//            }
-//            return (T)record();
-//        }
-
         public Object dereference() {
             return (value instanceof Record) ? ((Record)value).id() : value;
         }
@@ -164,6 +150,16 @@ public class Row {
 
         public Field field() {
             return field;
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return name.equals(obj);
         }
     }
 
@@ -265,6 +261,10 @@ public class Row {
             return false;
         }
         return field.isChanged();
+    }
+
+    public boolean isChanged(NamedField f) {
+        return f.field().isChanged();
     }
 
     /**
