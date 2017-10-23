@@ -2109,7 +2109,7 @@ public class Transaction {
         Dialect dialect = getDialect();
         if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
             for (Record record : records) {
-                update(record, mode, primaryKey);
+                update(record, mode, primaryKey != null ? primaryKey : record.primaryKey());
             }
             return;
         }
