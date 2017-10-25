@@ -1695,6 +1695,9 @@ public class Transaction {
         if (chunkSize <= 0) {
             chunkSize = batch.size();
         }
+        if (chunkSize == 0) {
+            return;
+        }
         for (Slice<T> slice : batch.slice(chunkSize)) {
             delete(slice, null);
         }
@@ -1932,6 +1935,9 @@ public class Transaction {
         if (chunkSize <= 0) {
             chunkSize = batch.size();
         }
+        if (chunkSize == 0) {
+            return;
+        }
         for (Slice<T> slice : batch.slice(chunkSize)) {
             insert(slice, mode);
         }
@@ -2117,6 +2123,9 @@ public class Transaction {
         RecordBatch<T> batch = RecordBatch.of(records);
         if (chunkSize <= 0) {
             chunkSize = batch.size();
+        }
+        if (chunkSize == 0) {
+            return;
         }
         for (Slice<T> slice : batch.slice(chunkSize)) {
             update(slice, mode, primaryKey);
