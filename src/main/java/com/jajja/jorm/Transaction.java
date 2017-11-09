@@ -480,44 +480,6 @@ public class Transaction {
     }
 
     /**
-     * Provides a list of selected anonymous read-only records, populated with
-     * the results from the given query.
-     *
-     * @param query
-     *            the query.
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public Map<Composite.Value, Row> selectAsMap(Object key, boolean allowDuplicates, Query query) throws SQLException {
-        return selectAsMap(Row.class, key, allowDuplicates, query);
-    }
-
-    public Map<Composite.Value, Row> selectAsMap(Object key, boolean allowDuplicates, String sql, Object ... params) throws SQLException {
-        return selectAsMap(key, allowDuplicates, build(sql, params));
-    }
-
-    /**
-     * Provides a list of selected anonymous read-only records, populated with
-     * the results from the given query.
-     *
-     * @param query
-     *            the query.
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public Map<Composite.Value, List<Row>> selectAllAsMap(Object key, Query query) throws SQLException {
-        return selectAllAsMap(Row.class, key, query);
-    }
-
-    public Map<Composite.Value, List<Row>> selectAllAsMap(Object key, String sql, Object ... params) throws SQLException {
-        return selectAllAsMap(key, build(sql, params));
-    }
-
-    /**
      * Provides an anonymous read-only record, populated with the first result
      * from the query given by a Jorm SQL statement and applicable parameters.
      *
