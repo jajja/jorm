@@ -24,6 +24,7 @@ package com.jajja.jorm;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.sql.SQLException;
@@ -214,7 +215,9 @@ public class Database {
             }
             Configuration configuration = get().configurations.get(database);
             try {
-                transaction =  t.getConstructor(DataSource.class, String.class, Calendar.class).newInstance(dataSource, database, configuration != null ? configuration.calendar : null);
+                Constructor<T> constructor = t.getConstructor(DataSource.class, String.class, Calendar.class);
+                constructor.setAccessible(true);
+                transaction = constructor.newInstance(dataSource, database, configuration != null ? configuration.calendar : null);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
