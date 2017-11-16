@@ -215,7 +215,7 @@ public class Database {
             }
             Configuration configuration = get().configurations.get(database);
             try {
-                Constructor<T> constructor = t.getConstructor(DataSource.class, String.class, Calendar.class);
+                Constructor<T> constructor = t.getDeclaredConstructor(DataSource.class, String.class, Calendar.class);
                 constructor.setAccessible(true);
                 transaction = constructor.newInstance(dataSource, database, configuration != null ? configuration.calendar : null);
             } catch (Exception e) {
