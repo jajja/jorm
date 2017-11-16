@@ -203,6 +203,26 @@ public class Database {
         return transaction;
     }
 
+    public static <T extends Transaction> T open(Class<T> t, String database) {
+        database = context(database).effectiveName();
+        HashMap<String, Transaction> transactions = get().getTransactions();
+        T transaction = (T) transactions.get(database); // XXX remove tls! this just bugged #open(String).
+        if (transaction == null) {
+            DataSource dataSource = getDataSource(database);
+            if (dataSource == null) {
+                assertConfigured(database); // throws!
+            }
+            Configuration configuration = get().configurations.get(database);
+            try {
+                transaction =  t.getConstructor(DataSource.class, String.class, Calendar.class).newInstance(dataSource, database, configuration != null ? configuration.calendar : null);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            transactions.put(database, transaction);
+        }
+        return transaction;
+    }
+
     /**
      * Commits the thread local transaction for the given database name if it
      * has been opened.
@@ -413,10 +433,10 @@ public class Database {
     }
 
     public static class Configuration {
-        private String database;
+        private final String database;
         private String dataSourceClassName;
         private String destroyMethodName;
-        private Map<String, String> dataSourceProperties = new HashMap<String, String>();
+        private final Map<String, String> dataSourceProperties = new HashMap<String, String>();
         private DataSource dataSource;
         private Method destroyMethod;
         private Calendar calendar;
@@ -524,7 +544,7 @@ public class Database {
         public static final char CONTEXT_SEPARATOR = '@';
         private Context prev;
         private Context next;
-        private String database;
+        private final String database;
         private String name;
         private boolean isClosed = false;
 

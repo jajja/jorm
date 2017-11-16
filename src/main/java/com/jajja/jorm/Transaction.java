@@ -175,7 +175,7 @@ public class Transaction {
         this.calendar = Calendar.getInstance(timeZone);
     }
 
-    Transaction(DataSource dataSource, String database, Calendar calendar) {
+    protected Transaction(DataSource dataSource, String database, Calendar calendar) {
         this.database = database;
         this.dataSource = dataSource;
         this.calendar = calendar;
@@ -550,7 +550,9 @@ public class Transaction {
                     rows.add(iter.row());
                 }
             } finally {
-                if (iter != null) iter.close();
+                if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
@@ -1053,7 +1055,9 @@ public class Transaction {
                     records.add(iter.record(clazz));
                 }
             } finally {
-                if (iter != null) iter.close();
+                if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
@@ -1180,7 +1184,9 @@ public class Transaction {
                     }
                 }
             } finally {
-                if (iter != null) iter.close();
+                if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
@@ -1263,7 +1269,9 @@ public class Transaction {
                     list.add(row);
                 }
             } finally {
-                if (iter != null) iter.close();
+                if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
@@ -1457,7 +1465,9 @@ public class Transaction {
                     return true;
                 }
             } finally {
-                 if (iter != null) iter.close();
+                 if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
             throw getDialect().rethrow(e, query.getSql());
@@ -1719,14 +1729,18 @@ public class Transaction {
                     field.setValue(resultSet.getObject(1));
                     field.setChanged(false);
                     if (mode == ResultMode.REPOPULATE) {
-                        if (map == null) throw new IllegalStateException("bug");
+                        if (map == null) {
+                            throw new IllegalStateException("bug");
+                        }
                         map.put(field.dereference(), record);
                     }
                 }
             }
 
             if (!useReturning && mode == ResultMode.REPOPULATE) {
-                if (map == null) throw new IllegalStateException("bug");
+                if (map == null) {
+                    throw new IllegalStateException("bug");
+                }
 
                 resultSet.close();
                 resultSet = null;
@@ -1925,8 +1939,9 @@ public class Transaction {
                 //if (columns.isEmpty()) { ...
             }
             // Remove all but one column
-            for (Iterator<String> i = columns.iterator(); columns.size() > 1 && i.hasNext(); i.remove())
+            for (Iterator<String> i = columns.iterator(); columns.size() > 1 && i.hasNext(); i.remove()) {
                 ;
+            }
         }
 
         query.append("INSERT INTO #1# (", table);
