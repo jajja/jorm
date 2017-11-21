@@ -4,6 +4,7 @@ import java.sql.SQLException;
 
 import com.jajja.jorm.Composite;
 import com.jajja.jorm.Jorm;
+import com.jajja.jorm.Query;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Transaction;
 
@@ -48,7 +49,7 @@ public class Goblin extends Record {
     // part 3
     public Litter relieve(Transaction t) throws SQLException {
         Litter litter = new Litter();
-        litter.set("stench", t.build("random() * 0.9")) ;
+        litter.set("stench", new Query("random() * 0.9")) ;
         litter.setGoblin(this);
         return litter;
     }

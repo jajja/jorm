@@ -393,7 +393,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public void execute(String sql, Object... params) throws SQLException {
-        execute(build(sql, params));
+        execute(new Query(sql, params));
     }
 
     /**
@@ -467,7 +467,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public Row select(String sql, Object ... params) throws SQLException {
-        return select(build(sql, params));
+        return select(new Query(sql, params));
     }
 
     /**
@@ -557,7 +557,7 @@ public class Transaction implements Closeable {
      *             if a database access error occurs
      */
     public RecordIterator iterate(String sql, Object... params) throws SQLException {
-        return iterate(build(sql, params));
+        return iterate(new Query(sql, params));
     }
 
     /**
@@ -728,11 +728,11 @@ public class Transaction implements Closeable {
     }
 
     private <T extends Record> Query getSelectQuery(Class<T> clazz) throws SQLException {
-        return build("SELECT * FROM #1# ", clazz);
+        return new Query("SELECT * FROM #1# ", clazz);
     }
 
     private <T extends Record> Query getDeleteQuery(Class<T> clazz) throws SQLException {
-        return build("DELETE FROM #1# ", clazz);
+        return new Query("DELETE FROM #1# ", clazz);
     }
 
     public <T extends Record> Query getSelectQuery(Class<T> clazz, Object value) throws SQLException {
@@ -934,7 +934,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public <T extends Record> T select(Class<T> clazz, String sql) throws SQLException {
-        return select(clazz, build(sql));
+        return select(clazz, new Query(sql));
     }
 
     /**
@@ -953,7 +953,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public <T extends Record> T select(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return select(clazz, build(sql, params));
+        return select(clazz, new Query(sql, params));
     }
 
     /**
@@ -991,7 +991,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public <T extends Record> List<T> selectAll(Class<T> clazz, String sql) throws SQLException {
-        return selectAll(clazz, build(sql));
+        return selectAll(clazz, new Query(sql));
     }
 
     /**
@@ -1010,7 +1010,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public <T extends Record> List<T> selectAll(Class<T> clazz, String sql, Object... params) throws SQLException {
-        return selectAll(clazz, build(sql, params));
+        return selectAll(clazz, new Query(sql, params));
     }
 
     /**
@@ -1059,7 +1059,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public RecordIterator selectIterator(Class<? extends Record> clazz, String sql) throws SQLException {
-        return selectIterator(clazz, build(sql));
+        return selectIterator(clazz, new Query(sql));
     }
 
     /**
@@ -1078,7 +1078,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public RecordIterator selectIterator(Class<? extends Record> clazz, String sql, Object... params) throws SQLException {
-        return selectIterator(clazz, build(sql, params));
+        return selectIterator(clazz, new Query(sql, params));
     }
 
     /**
@@ -1121,7 +1121,7 @@ public class Transaction implements Closeable {
     }
 
     public <T extends Row> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
-        return selectIntoMap(map, clazz, key, allowDuplicates, build(sql, params));
+        return selectIntoMap(map, clazz, key, allowDuplicates, new Query(sql, params));
     }
 
     @Deprecated
@@ -1175,7 +1175,7 @@ public class Transaction implements Closeable {
     }
 
     public <T, C extends Row> Map<T, C> selectIntoTypedMap(Map<T, C> map, Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
-        return selectIntoTypedMap(map, clazz, key, keyType, allowDuplicates, build(sql, params));
+        return selectIntoTypedMap(map, clazz, key, keyType, allowDuplicates, new Query(sql, params));
     }
 
     @Deprecated
@@ -1203,7 +1203,7 @@ public class Transaction implements Closeable {
     }
 
     public <T extends Row> void selectAllIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
-        selectAllIntoMap(map, clazz, key, build(sql, params));
+        selectAllIntoMap(map, clazz, key, new Query(sql, params));
     }
 
     @Deprecated
@@ -1259,7 +1259,7 @@ public class Transaction implements Closeable {
     }
 
     public <T, C extends Row> void selectAllIntoTypedMap(HashMap<T, List<C>> map, Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
-        selectAllIntoTypedMap(map, clazz, key, keyType, build(sql, params));
+        selectAllIntoTypedMap(map, clazz, key, keyType, new Query(sql, params));
     }
 
     @Deprecated
@@ -1289,7 +1289,7 @@ public class Transaction implements Closeable {
     }
 
     public <T extends Row> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
-        return selectAsMap(clazz, key, allowDuplicates, build(sql, params));
+        return selectAsMap(clazz, key, allowDuplicates, new Query(sql, params));
     }
 
     @Deprecated
@@ -1319,7 +1319,7 @@ public class Transaction implements Closeable {
     }
 
     public <T, C extends Row> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates, String sql, Object... params) throws SQLException {
-        return selectAsTypedMap(clazz, key, keyType, allowDuplicates, build(sql, params));
+        return selectAsTypedMap(clazz, key, keyType, allowDuplicates, new Query(sql, params));
     }
 
     @Deprecated
@@ -1349,7 +1349,7 @@ public class Transaction implements Closeable {
     }
 
     public <T extends Row> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
-        return selectAllAsMap(clazz, key, build(sql, params));
+        return selectAllAsMap(clazz, key, new Query(sql, params));
     }
 
     @Deprecated
@@ -1379,7 +1379,7 @@ public class Transaction implements Closeable {
     }
 
     public <T, C extends Row> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
-        return selectAllAsTypedMap(clazz, key, keyType, build(sql, params));
+        return selectAllAsTypedMap(clazz, key, keyType, new Query(sql, params));
     }
 
     @Deprecated
@@ -1401,7 +1401,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public boolean selectInto(Row row, String sql) throws SQLException {
-        return selectInto(row, build(sql));
+        return selectInto(row, new Query(sql));
     }
 
     /**
@@ -1420,7 +1420,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public boolean selectInto(Row row, String sql, Object... params) throws SQLException {
-        return selectInto(row, build(sql, params));
+        return selectInto(row, new Query(sql, params));
     }
 
     /**
@@ -1591,7 +1591,7 @@ public class Transaction implements Closeable {
      */
     public void delete(Record record) throws SQLException {
         record.assertNotReadOnly();
-        Query query = build("DELETE FROM #1# WHERE #2#", record.table(), getDialect().toSqlExpression(record.id()));
+        Query query = new Query("DELETE FROM #1# WHERE #2#", record.table(), getDialect().toSqlExpression(record.id()));
 
         PreparedStatement preparedStatement = prepare(query);
         try {
@@ -1618,7 +1618,7 @@ public class Transaction implements Closeable {
             primaryKey = records.primaryKey();
         }
 
-        Query query = build("DELETE FROM #1# WHERE", records.clazz());
+        Query query = new Query("DELETE FROM #1# WHERE", records.clazz());
         Dialect dialect = getDialect();
         if (primaryKey.isSingle()) {
             query.append("#:1# IN (#2:@#)", primaryKey, records);
@@ -1776,7 +1776,7 @@ public class Transaction implements Closeable {
             throw new UnsupportedOperationException("INSERT with composite primary key not supported by JDBC, and possibly your database (consider using ResultMode.NO_RESULT)");
         }
 
-        Query query = build();
+        Query query = new Query();
 
         query.append("INSERT INTO #1# (", record.table());
 
@@ -1901,7 +1901,7 @@ public class Transaction implements Closeable {
     public void insert(Slice<? extends Record> records, ResultMode mode) throws SQLException {
         Table table = records.table();
         Set<String> columns = records.dirtyColumns();
-        Query query = build();
+        Query query = new Query();
 
         if (columns.isEmpty()) {
             // No dirty columns?! We have to insert something...
@@ -1972,7 +1972,7 @@ public class Transaction implements Closeable {
 
         record.assertNotReadOnly();
 
-        Query query = build();
+        Query query = new Query();
 
         query.append("UPDATE #1# SET ", record.table());
 
@@ -2120,7 +2120,7 @@ public class Transaction implements Closeable {
         }
 
         Table table = records.table();
-        Query query = build();
+        Query query = new Query();
         String virtTable = table.getTable().equals("v") ? "v2" : "v";
 
         query.append("UPDATE #1# SET ", table);
