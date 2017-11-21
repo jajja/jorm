@@ -53,6 +53,7 @@ import org.postgresql.util.PGobject;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Dialect.DatabaseProduct;
+import com.jajja.jorm.Query.ParameterizedQuery;
 import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.RecordBatch.Slice;
 import com.jajja.jorm.Row.Field;
@@ -351,7 +352,8 @@ public class Transaction {
      *             if a database access error occurs.
      */
     public PreparedStatement prepare(Query query, boolean returnGeneratedKeys) throws SQLException {
-        return prepare(query.getSql(), query.getParams(), returnGeneratedKeys);
+        ParameterizedQuery q = query.build(getDialect());
+        return prepare(q.getSql(), q.getParameters(), returnGeneratedKeys);
     }
 
     /**
@@ -432,11 +434,11 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public void execute(Query query) throws SQLException {
-        PreparedStatement preparedStatement = prepare(query.getSql(), query.getParams());
+        PreparedStatement preparedStatement = prepare(query);
         try {
             preparedStatement.execute();
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         } finally {
             preparedStatement.close();
         }
@@ -455,7 +457,7 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public int executeUpdate(String sql, Object... params) throws SQLException {
-        return executeUpdate(build(sql, params));
+        return executeUpdate(new Query(sql, params));
     }
 
     /**
@@ -469,11 +471,11 @@ public class Transaction {
      *             statement does not return a result set.
      */
     public int executeUpdate(Query query) throws SQLException {
-        PreparedStatement preparedStatement = prepare(query.getSql(), query.getParams());
+        PreparedStatement preparedStatement = prepare(query);
         try {
             return preparedStatement.executeUpdate();
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         } finally {
             preparedStatement.close();
         }
@@ -528,7 +530,7 @@ public class Transaction {
      *             if a database access error occurs
      */
     public List<Row> selectAll(String sql, Object... params) throws SQLException {
-        return selectAll(build(sql, params));
+        return selectAll(new Query(sql, params));
     }
 
     /**
@@ -545,7 +547,7 @@ public class Transaction {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(this, prepare(query.getSql(), query.getParams()));
+                iter = new RecordIterator(this, prepare(query));
                 while (iter.next()) {
                     rows.add(iter.row());
                 }
@@ -555,7 +557,7 @@ public class Transaction {
                 }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
         return rows;
     }
@@ -570,7 +572,7 @@ public class Transaction {
      *             if a database access error occurs
      */
     public RecordIterator iterate(Query query) throws SQLException {
-        return new RecordIterator(this, prepare(query.getSql(), query.getParams()));
+        return new RecordIterator(this, prepare(query));
     }
 
     /**
@@ -792,25 +794,29 @@ public class Transaction {
     /**
      * Builds a generic SQL query for the record. XXX redoc
      *
+     * @deprecated Use Query constructor directly
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public Query build() throws SQLException {
-        return new Query(getDialect());
+        return new Query();
     }
 
     /**
      * Builds a generic SQL query for the record.
      *
+     * @deprecated Use Query constructor directly
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public Query build(String sql) throws SQLException {
-        return new Query(getDialect(), sql);
+        return new Query(sql);
     }
 
     /**
@@ -818,6 +824,7 @@ public class Transaction {
      * given parameters according to the SQL dialect of the mapped database of
      * the record.
      *
+     * @deprecated Use Query constructor directly
      * @param sql
      *            the Jorm SQL statement to represent the query.
      * @param params
@@ -825,8 +832,9 @@ public class Transaction {
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public Query build(String sql, Object... params) throws SQLException {
-        return new Query(getDialect(), sql, params);
+        return new Query(sql, params);
     }
 
     /**
@@ -1060,7 +1068,7 @@ public class Transaction {
                 }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
         return records;
     }
@@ -1117,7 +1125,7 @@ public class Transaction {
         try {
             return new RecordIterator(this, prepare(query));
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
     }
 
@@ -1189,7 +1197,7 @@ public class Transaction {
                 }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
         return map;
     }
@@ -1274,7 +1282,7 @@ public class Transaction {
                 }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
     }
 
@@ -1470,7 +1478,7 @@ public class Transaction {
                 }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
         return false;
     }
@@ -1523,7 +1531,7 @@ public class Transaction {
             } else {
                 q.append(", #1#", value);
             }
-            if (q.getParams().size() >= 2048 || n == values.size()) { // MS SQL craps out at ~2500 parameters
+            if (q.getParameters() >= 2048 || n == values.size()) { // MS SQL craps out at ~2500 parameters
                 q.append(")");
                 selectIntoMap(map, clazz, key, ignoreInvalidReferences, q);
                 q = null;
@@ -1700,10 +1708,10 @@ public class Transaction {
 
             if (useReturning) {
                 query.append(" RETURNING *");   // XXX ID_ONLY support
-                preparedStatement = prepare(query.getSql(), query.getParams());
+                preparedStatement = prepare(query);
                 resultSet = preparedStatement.executeQuery();
             } else {
-                preparedStatement = prepare(query.getSql(), query.getParams(), true);
+                preparedStatement = prepare(query, true);
                 preparedStatement.execute();
                 resultSet = preparedStatement.getGeneratedKeys();
                 if (mode == ResultMode.REPOPULATE) {
@@ -1851,7 +1859,7 @@ public class Transaction {
                     id = resultSet.getObject(1);
                 }
             } catch (SQLException e) {
-                throw getDialect().rethrow(e, query.getSql());
+                throw getDialect().rethrow(e, query.buildFakeSql());
             } finally {
                 try {
                     if (resultSet != null) {
@@ -1863,7 +1871,7 @@ public class Transaction {
             }
 
             if (id == null) {
-                throw new RuntimeException("INSERT to " + record.table().toString() + " did not generate a key (AKA insert id): " + query.getSql());
+                throw new RuntimeException("INSERT to " + record.table().toString() + " did not generate a key (AKA insert id): " + query.buildFakeSql());
             }
             Field field = record.getOrCreateField(record.primaryKey().getColumn());
             field.setValue(id);

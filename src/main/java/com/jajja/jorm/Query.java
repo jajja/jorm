@@ -22,6 +22,7 @@
 package com.jajja.jorm;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -62,39 +63,90 @@ public class Query {
     public static final char MODIFIER_IDENTIFIER = ':';
     public static final char MODIFIER_RAW = '?';
     private static final String ALL_MODIFIERS = "!:?";
-    private Dialect dialect;
-    private StringBuilder sql = new StringBuilder(64);
-    private List<Object> params;
+    private int numParams;
+    private RawSql currentRawSql;
+    final LinkedList<Object> parts = new LinkedList<Object>();
 
-    Query(Dialect dialect) {
-        this.dialect = dialect;
-        params = new LinkedList<Object>();
+    private static class RawSql {
+        private StringBuilder sql = new StringBuilder();
+
+        @Override
+        public String toString() {
+            return sql.toString();
+        }
     }
 
-    Query(Dialect dialect, String sql) {
-        this(dialect);
+    private static class Parameter {
+        private final Object parameter;
+
+        public Parameter(Object param) {
+            this.parameter = param;
+        }
+
+        @Override
+        public String toString() {
+            if (parameter != null) {
+                return "'" + parameter.toString().replace("'", "''") + "'";
+            }
+            return "NULL";
+        }
+    }
+
+    private static class Identifier {
+        private final String identifier;
+
+        public Identifier(String identifier) {
+            this.identifier = identifier;
+        }
+
+        @Override
+        public String toString() {
+            return "\"" + identifier.toString() + "\"";
+        }
+    }
+
+    public Query() {
+    }
+
+    public Query(String sql) {
         append(sql);
     }
 
-    Query(Dialect dialect, String sql, Object... params) {
-        this(dialect);
+    public Query(String sql, Object... params) {
         append(sql, params);
     }
 
+    @Deprecated
+    public Query(Dialect dialect) throws SQLException {
+        this();
+    }
+
+    @Deprecated
+    public Query(Dialect dialect, String sql) throws SQLException {
+        this(sql);
+    }
+
+    @Deprecated
+    public Query(Dialect dialect, String sql, Object ... params) throws SQLException {
+        this(sql, params);
+    }
+
+    @Deprecated
     public Query(Transaction transaction) throws SQLException {
-        this(transaction.getDialect());
+        this();
     }
 
+    @Deprecated
     public Query(Transaction transaction, String sql) throws SQLException {
-        this(transaction.getDialect(), sql);
+        this(sql);
     }
 
+    @Deprecated
     public Query(Transaction transaction, String sql, Object ... params) throws SQLException {
-        this(transaction.getDialect(), sql, params);
+        this(sql, params);
     }
 
     public Query(Query query) {
-        this(query.dialect);
         append(query);
     }
 
@@ -123,10 +175,11 @@ public class Query {
         if (param instanceof Table) {
             Table table = (Table)param;
             if (table.getSchema() != null) {
-                sql.append(dialect.quoteIdentifier(table.getSchema()));
-                sql.append('.');
+                appendIdentifier(table.getSchema());
+                //sql.append(dialect.quoteIdentifier(table.getSchema()));
+                append('.');
             }
-            sql.append(dialect.quoteIdentifier(table.getTable()));
+            appendIdentifier(table.getTable());
             return;
         } else if (param instanceof Query) {
             append((Query)param);
@@ -137,17 +190,16 @@ public class Query {
         switch (modifier) {
         case MODIFIER_UNQUOTED:
             // Raw string
-            sql.append(param != null ? param.toString() : "NULL");
+            append(param != null ? param.toString() : "NULL");
             break;
 
         case MODIFIER_IDENTIFIER:
             // Quoted SQL identifier (table, column name, etc)
-            sql.append(dialect.quoteIdentifier(param.toString()));
+            appendIdentifier(param.toString());
             break;
 
         case MODIFIER_NONE:
-            sql.append("?");
-            this.params.add(param);
+            appendParameter(param);
             break;
 
         default:
@@ -188,8 +240,7 @@ public class Query {
         param = params[i-1];
 
         if (modifier == MODIFIER_RAW) {
-            sql.append("?");
-            this.params.add(param);
+            appendParameter(param);
             return;
         }
 
@@ -209,7 +260,7 @@ public class Query {
                 if (isFirst) {
                     isFirst = false;
                 } else {
-                    this.sql.append(", ");
+                    append(", ");
                 }
                 append(modifier, o, label);
             }
@@ -234,14 +285,14 @@ public class Query {
             } else if (hashStart >= 0) {
                 if (ch == '#') {
                     hashStart = -1;
-                    this.sql.append('#');
+                    append('#');
                     continue;
                 }
                 inHash = true;
             } else if (ch == '#') {
                 hashStart = i;
             } else {
-                this.sql.append(ch);
+                append(ch);
             }
         }
 
@@ -252,30 +303,106 @@ public class Query {
         return this;
     }
 
+    private RawSql getRawSql() {
+        if (currentRawSql == null) {
+            currentRawSql = new RawSql();
+            parts.add(currentRawSql);
+        }
+        return currentRawSql;
+    }
+
+    private void appendParameter(Object parameter) {
+        currentRawSql = null;
+        parts.add(new Parameter(parameter));
+        numParams++;
+    }
+
+    private void appendIdentifier(String identifier) {
+        currentRawSql = null;
+        parts.add(new Identifier(identifier));
+    }
+
+    public Query append(char sql) {
+        getRawSql().sql.append(sql);
+        return this;
+    }
+
     public Query append(String sql) {
-        this.sql.append(sql);
+        getRawSql().sql.append(sql);
         return this;
     }
 
     public Query append(Query query) {
-        sql.append(query.getSql());
-        params.addAll(query.getParams());
+        currentRawSql = null;
+        parts.addAll(query.parts);
+        if (query.currentRawSql != null) {
+            // Queries can't share the same currentRawSql, or they'd append to the same StringBuilder
+            parts.removeLast();
+            getRawSql().sql.append(query.currentRawSql.sql);
+        }
         return this;
     }
 
-    public String getSql() {
-        return sql.toString();
+    public String buildFakeSql() {
+        StringBuilder sb = new StringBuilder(128);
+        for (Object part : parts) {
+            sb.append(part.toString());
+        }
+        return sb.toString();
     }
 
-    public List<Object> getParams() {
-        return params;
+    public static class ParameterizedQuery {    // XXX rename?
+        private final String sql;
+        private final List<Object> parameters;
+
+        private ParameterizedQuery(String sql, List<Object> parameters) {
+            this.sql = sql;
+            this.parameters = parameters;
+        }
+
+        public String getSql() {
+            return sql;
+        }
+
+        public List<Object> getParameters() {
+            return parameters;
+        }
+    }
+
+    /**
+     * Provides a prepared statement for the query given by a JDBC SQL statement and applicable parameters.
+     *
+     * @param sql
+     *            the JDBC SQL statement.
+     * @param params
+     *            the applicable parameters.
+     * @param returnGeneratedKeys sets Statement.RETURN_GENERATED_KEYS if true
+     * @throws SQLException
+     *             if a database access error occurs.
+     */
+    public ParameterizedQuery build(Dialect dialect) {
+        StringBuilder sql = new StringBuilder(128);
+        List<Object> parameters = new ArrayList<Object>(numParams);
+        for (Object part : parts) {
+            if (part instanceof Query.RawSql) {
+                sql.append(((Query.RawSql)part).sql);
+            } else if (part instanceof Query.Identifier) {
+                sql.append(dialect.quoteIdentifier(((Query.Identifier)part).identifier));
+            } else if (part instanceof Query.Parameter) {
+                sql.append('?');
+                parameters.add(((Query.Parameter)part).parameter);
+            } else {
+                throw new IllegalStateException();
+            }
+        }
+        return new ParameterizedQuery(sql.toString(), parameters);
+    }
+
+    public int getParameters() {
+        return numParams;
     }
 
     public boolean isEmpty() {
-        return sql.length() == 0;
-    }
-
-    public int length() {
-        return sql.length();
+        return parts.isEmpty();
     }
 }
