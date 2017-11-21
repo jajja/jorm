@@ -267,13 +267,15 @@ public abstract class Record extends Row {
     /**
      * Builds a generic SQL query for the record.
      *
+     * @deprecated Use Query constructor directly
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public Query build(String sql) throws SQLException {
-        return transaction().build(sql);
+        return new Query(sql);
     }
 
     /**
@@ -281,6 +283,7 @@ public abstract class Record extends Row {
      * given parameters according to the SQL dialect of the mapped database of
      * the record.
      *
+     * @deprecated Use Query constructor directly
      * @param sql
      *            the Jorm SQL statement to represent the query.
      * @param params
@@ -288,13 +291,15 @@ public abstract class Record extends Row {
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public Query build(String sql, Object... params) throws SQLException {
-        return transaction().build(sql, params);
+        return new Query(sql, params);
     }
 
     /**
      * Builds a generic SQL query for a given record class.
      *
+     * @deprecated Use Query constructor directly
      * @param clazz
      *            the mapped record class.
      * @param sql
@@ -302,8 +307,9 @@ public abstract class Record extends Row {
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public static Query build(Class<? extends Record> clazz, String sql) throws SQLException {
-        return transaction(clazz).build(sql);
+        return new Query(sql);
     }
 
     /**
@@ -311,6 +317,7 @@ public abstract class Record extends Row {
      * identifiers from the given parameters according to the SQL dialect of the
      * mapped database of the record class.
      *
+     * @deprecated Use Query constructor directly
      * @param clazz
      *            the mapped record class.
      * @param sql
@@ -321,8 +328,9 @@ public abstract class Record extends Row {
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public static Query build(Class<? extends Record> clazz, String sql, Object... params) throws SQLException {
-        return transaction(clazz).build(sql, params);
+        return new Query(sql, params);
     }
 
     /**
