@@ -366,7 +366,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public PreparedStatement prepare(String sql, List<Object> params) throws SQLException {
+    private PreparedStatement prepare(String sql, List<Object> params) throws SQLException {
         return prepare(sql, params, false);
     }
 
@@ -381,7 +381,7 @@ public class Transaction {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public PreparedStatement prepare(String sql, List<Object> params, boolean returnGeneratedKeys) throws SQLException {
+    private PreparedStatement prepare(String sql, List<Object> params, boolean returnGeneratedKeys) throws SQLException {
         tracelog("PREPARE", sql, params, null);
         try {
             PreparedStatement preparedStatement = getConnection().prepareStatement(sql, returnGeneratedKeys ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS);
