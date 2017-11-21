@@ -53,6 +53,7 @@ import org.postgresql.util.PGobject;
 
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.Dialect.DatabaseProduct;
+import com.jajja.jorm.Query.ParameterizedQuery;
 import com.jajja.jorm.Record.ResultMode;
 import com.jajja.jorm.RecordBatch.Slice;
 import com.jajja.jorm.Row.Field;
@@ -176,7 +177,7 @@ public class Transaction implements Closeable {
         this.calendar = Calendar.getInstance(timeZone);
     }
 
-    Transaction(DataSource dataSource, String database, Calendar calendar) {
+    protected Transaction(DataSource dataSource, String database, Calendar calendar) {
         this.database = database;
         this.dataSource = dataSource;
         this.calendar = calendar;
@@ -323,7 +324,8 @@ public class Transaction implements Closeable {
      *             if a database access error occurs.
      */
     public PreparedStatement prepare(Query query, boolean returnGeneratedKeys) throws SQLException {
-        return prepare(query.getSql(), query.getParams(), returnGeneratedKeys);
+        ParameterizedQuery q = query.build(getDialect());
+        return prepare(q.getSql(), q.getParameters(), returnGeneratedKeys);
     }
 
     /**
@@ -336,7 +338,7 @@ public class Transaction implements Closeable {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public PreparedStatement prepare(String sql, List<Object> params) throws SQLException {
+    private PreparedStatement prepare(String sql, List<Object> params) throws SQLException {
         return prepare(sql, params, false);
     }
 
@@ -351,7 +353,7 @@ public class Transaction implements Closeable {
      * @throws SQLException
      *             if a database access error occurs.
      */
-    public PreparedStatement prepare(String sql, List<Object> params, boolean returnGeneratedKeys) throws SQLException {
+    private PreparedStatement prepare(String sql, List<Object> params, boolean returnGeneratedKeys) throws SQLException {
         tracelog("PREPARE", sql, params, null);
         try {
             PreparedStatement preparedStatement = getConnection().prepareStatement(sql, returnGeneratedKeys ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS);
@@ -404,11 +406,11 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public void execute(Query query) throws SQLException {
-        PreparedStatement preparedStatement = prepare(query.getSql(), query.getParams());
+        PreparedStatement preparedStatement = prepare(query);
         try {
             preparedStatement.execute();
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         } finally {
             preparedStatement.close();
         }
@@ -427,7 +429,7 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public int executeUpdate(String sql, Object... params) throws SQLException {
-        return executeUpdate(build(sql, params));
+        return executeUpdate(new Query(sql, params));
     }
 
     /**
@@ -441,52 +443,14 @@ public class Transaction implements Closeable {
      *             statement does not return a result set.
      */
     public int executeUpdate(Query query) throws SQLException {
-        PreparedStatement preparedStatement = prepare(query.getSql(), query.getParams());
+        PreparedStatement preparedStatement = prepare(query);
         try {
             return preparedStatement.executeUpdate();
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         } finally {
             preparedStatement.close();
         }
-    }
-
-    /**
-     * Provides a list of selected anonymous read-only records, populated with
-     * the results from the given query.
-     *
-     * @param query
-     *            the query.
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public Map<Composite.Value, Row> selectAsMap(Object key, boolean allowDuplicates, Query query) throws SQLException {
-        return selectAsMap(Row.class, key, allowDuplicates, query);
-    }
-
-    public Map<Composite.Value, Row> selectAsMap(Object key, boolean allowDuplicates, String sql, Object ... params) throws SQLException {
-        return selectAsMap(key, allowDuplicates, build(sql, params));
-    }
-
-    /**
-     * Provides a list of selected anonymous read-only records, populated with
-     * the results from the given query.
-     *
-     * @param query
-     *            the query.
-     * @return the matched records.
-     * @throws SQLException
-     *             if a database access error occurs or the generated SQL
-     *             statement does not return a result set.
-     */
-    public Map<Composite.Value, List<Row>> selectAllAsMap(Object key, Query query) throws SQLException {
-        return selectAllAsMap(Row.class, key, query);
-    }
-
-    public Map<Composite.Value, List<Row>> selectAllAsMap(Object key, String sql, Object ... params) throws SQLException {
-        return selectAllAsMap(key, build(sql, params));
     }
 
     /**
@@ -538,7 +502,7 @@ public class Transaction implements Closeable {
      *             if a database access error occurs
      */
     public List<Row> selectAll(String sql, Object... params) throws SQLException {
-        return selectAll(build(sql, params));
+        return selectAll(new Query(sql, params));
     }
 
     /**
@@ -555,15 +519,17 @@ public class Transaction implements Closeable {
         try {
             RecordIterator iter = null;
             try {
-                iter = new RecordIterator(this, prepare(query.getSql(), query.getParams()));
+                iter = new RecordIterator(this, prepare(query));
                 while (iter.next()) {
                     rows.add(iter.row());
                 }
             } finally {
-                if (iter != null) iter.close();
+                if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
         return rows;
     }
@@ -578,7 +544,7 @@ public class Transaction implements Closeable {
      *             if a database access error occurs
      */
     public RecordIterator iterate(Query query) throws SQLException {
-        return new RecordIterator(this, prepare(query.getSql(), query.getParams()));
+        return new RecordIterator(this, prepare(query));
     }
 
     /**
@@ -800,25 +766,29 @@ public class Transaction implements Closeable {
     /**
      * Builds a generic SQL query for the record. XXX redoc
      *
+     * @deprecated Use Query constructor directly
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public Query build() throws SQLException {
-        return new Query(getDialect());
+        return new Query();
     }
 
     /**
      * Builds a generic SQL query for the record.
      *
+     * @deprecated Use Query constructor directly
      * @param sql
      *            the SQL statement to represent the query.
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public Query build(String sql) throws SQLException {
-        return new Query(getDialect(), sql);
+        return new Query(sql);
     }
 
     /**
@@ -826,6 +796,7 @@ public class Transaction implements Closeable {
      * given parameters according to the SQL dialect of the mapped database of
      * the record.
      *
+     * @deprecated Use Query constructor directly
      * @param sql
      *            the Jorm SQL statement to represent the query.
      * @param params
@@ -833,8 +804,9 @@ public class Transaction implements Closeable {
      * @return the built query.
      * @throws SQLException
      */
+    @Deprecated
     public Query build(String sql, Object... params) throws SQLException {
-        return new Query(getDialect(), sql, params);
+        return new Query(sql, params);
     }
 
     /**
@@ -1063,10 +1035,12 @@ public class Transaction implements Closeable {
                     records.add(iter.record(clazz));
                 }
             } finally {
-                if (iter != null) iter.close();
+                if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
         return records;
     }
@@ -1123,7 +1097,7 @@ public class Transaction implements Closeable {
         try {
             return new RecordIterator(this, prepare(query));
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
     }
 
@@ -1190,10 +1164,12 @@ public class Transaction implements Closeable {
                     }
                 }
             } finally {
-                if (iter != null) iter.close();
+                if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
         return map;
     }
@@ -1273,10 +1249,12 @@ public class Transaction implements Closeable {
                     list.add(row);
                 }
             } finally {
-                if (iter != null) iter.close();
+                if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
     }
 
@@ -1467,10 +1445,12 @@ public class Transaction implements Closeable {
                     return true;
                 }
             } finally {
-                 if (iter != null) iter.close();
+                 if (iter != null) {
+                    iter.close();
+                }
             }
         } catch (SQLException e) {
-            throw getDialect().rethrow(e, query.getSql());
+            throw getDialect().rethrow(e, query.buildFakeSql());
         }
         return false;
     }
@@ -1523,7 +1503,7 @@ public class Transaction implements Closeable {
             } else {
                 q.append(", #1#", value);
             }
-            if (q.getParams().size() >= 2048 || n == values.size()) { // MS SQL craps out at ~2500 parameters
+            if (q.getParameters() >= 2048 || n == values.size()) { // MS SQL craps out at ~2500 parameters
                 q.append(")");
                 selectIntoMap(map, clazz, key, ignoreInvalidReferences, q);
                 q = null;
@@ -1667,6 +1647,9 @@ public class Transaction implements Closeable {
         if (chunkSize <= 0) {
             chunkSize = batch.size();
         }
+        if (chunkSize == 0) {
+            return;
+        }
         for (Slice<T> slice : batch.slice(chunkSize)) {
             delete(slice, null);
         }
@@ -1698,10 +1681,10 @@ public class Transaction implements Closeable {
 
             if (useReturning) {
                 query.append(" RETURNING *");   // XXX ID_ONLY support
-                preparedStatement = prepare(query.getSql(), query.getParams());
+                preparedStatement = prepare(query);
                 resultSet = preparedStatement.executeQuery();
             } else {
-                preparedStatement = prepare(query.getSql(), query.getParams(), true);
+                preparedStatement = prepare(query, true);
                 preparedStatement.execute();
                 resultSet = preparedStatement.getGeneratedKeys();
                 if (mode == ResultMode.REPOPULATE) {
@@ -1727,14 +1710,18 @@ public class Transaction implements Closeable {
                     field.setValue(resultSet.getObject(1));
                     field.setChanged(false);
                     if (mode == ResultMode.REPOPULATE) {
-                        if (map == null) throw new IllegalStateException("bug");
+                        if (map == null) {
+                            throw new IllegalStateException("bug");
+                        }
                         map.put(field.dereference(), record);
                     }
                 }
             }
 
             if (!useReturning && mode == ResultMode.REPOPULATE) {
-                if (map == null) throw new IllegalStateException("bug");
+                if (map == null) {
+                    throw new IllegalStateException("bug");
+                }
 
                 resultSet.close();
                 resultSet = null;
@@ -1843,7 +1830,7 @@ public class Transaction implements Closeable {
                     id = resultSet.getObject(1);
                 }
             } catch (SQLException e) {
-                throw getDialect().rethrow(e, query.getSql());
+                throw getDialect().rethrow(e, query.buildFakeSql());
             } finally {
                 try {
                     if (resultSet != null) {
@@ -1855,7 +1842,7 @@ public class Transaction implements Closeable {
             }
 
             if (id == null) {
-                throw new RuntimeException("INSERT to " + record.table().toString() + " did not generate a key (AKA insert id): " + query.getSql());
+                throw new RuntimeException("INSERT to " + record.table().toString() + " did not generate a key (AKA insert id): " + query.buildFakeSql());
             }
             Field field = record.getOrCreateField(record.primaryKey().getColumn());
             field.setValue(id);
@@ -1903,6 +1890,9 @@ public class Transaction implements Closeable {
         if (chunkSize <= 0) {
             chunkSize = batch.size();
         }
+        if (chunkSize == 0) {
+            return;
+        }
         for (Slice<T> slice : batch.slice(chunkSize)) {
             insert(slice, mode);
         }
@@ -1928,8 +1918,9 @@ public class Transaction implements Closeable {
                 //if (columns.isEmpty()) { ...
             }
             // Remove all but one column
-            for (Iterator<String> i = columns.iterator(); columns.size() > 1 && i.hasNext(); i.remove())
+            for (Iterator<String> i = columns.iterator(); columns.size() > 1 && i.hasNext(); i.remove()) {
                 ;
+            }
         }
 
         query.append("INSERT INTO #1# (", table);
@@ -2080,7 +2071,7 @@ public class Transaction implements Closeable {
         Dialect dialect = getDialect();
         if (!Dialect.DatabaseProduct.POSTGRESQL.equals(dialect.getDatabaseProduct())) {
             for (Record record : records) {
-                update(record, mode, primaryKey);
+                update(record, mode, primaryKey != null ? primaryKey : record.primaryKey());
             }
             return;
         }
@@ -2088,6 +2079,9 @@ public class Transaction implements Closeable {
         RecordBatch<T> batch = RecordBatch.of(records);
         if (chunkSize <= 0) {
             chunkSize = batch.size();
+        }
+        if (chunkSize == 0) {
+            return;
         }
         for (Slice<T> slice : batch.slice(chunkSize)) {
             update(slice, mode, primaryKey);

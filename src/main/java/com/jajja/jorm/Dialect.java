@@ -451,8 +451,9 @@ public class Dialect {
 
     }
 
+    // XXX doesn't belong here (anymore)
     public Query toSqlExpression(Value value) {
-        Query query = new Query(this);
+        Query query = new Query();
         String[] columns = value.getComposite().getColumns();
         Object[] values = value.getValues();
         boolean isFirst = true;

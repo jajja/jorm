@@ -51,7 +51,12 @@ import com.jajja.jorm.Transaction;
  * @since 1.0.0
  */
 public final class Postgres {
+    @Deprecated
     public static <T> List<T> fromArray(Class<T> clazz, Array array) throws SQLException {
+        return toList(clazz, array);
+    }
+
+    public static <T> List<T> toList(Class<T> clazz, Array array) throws SQLException {
         List<T> values = null;
         if (array != null) {
             values = new LinkedList<T>();

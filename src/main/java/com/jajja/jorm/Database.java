@@ -23,6 +23,7 @@ package com.jajja.jorm;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Calendar;
@@ -200,6 +201,7 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
+        // XXX return open(Transaction.class, database); ?
         DataSource dataSource = getDataSource(database);
         if (dataSource == null) {
             assertConfigured(database); // throws!
@@ -210,6 +212,21 @@ public class Database {
 
     public static Set<Transaction> transactions() {
         return Collections.unmodifiableSet(get().getThreadLocalTransactions());
+    }
+
+    public static <T extends Transaction> T open(Class<T> t, String database) {
+        DataSource dataSource = getDataSource(database);
+        if (dataSource == null) {
+            assertConfigured(database); // throws!
+        }
+        Configuration configuration = get().configurations.get(database);
+        try {
+            Constructor<T> constructor = t.getDeclaredConstructor(DataSource.class, String.class, Calendar.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(dataSource, database, configuration != null ? configuration.calendar : null);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -354,10 +371,10 @@ public class Database {
     }
 
     public static class Configuration {
-        private String database;
+        private final String database;
         private String dataSourceClassName;
         private String destroyMethodName;
-        private Map<String, String> dataSourceProperties = new HashMap<String, String>();
+        private final Map<String, String> dataSourceProperties = new HashMap<String, String>();
         private DataSource dataSource;
         private Method destroyMethod;
         private Calendar calendar;
