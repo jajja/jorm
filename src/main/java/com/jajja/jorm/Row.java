@@ -46,6 +46,7 @@ public class Row {
     public static final byte FLAG_REF_FETCH = 0x04;
     Map<String, Field> fields = new HashMap<String, Field>(8, 1.0f);
     byte flags = FLAG_REF_FETCH;
+    private Transaction transaction;
 
     public static class Field {
         private Object value = null;
@@ -107,6 +108,14 @@ public class Row {
     }
 
     public Row() {
+    }
+
+    public void bind(Transaction transaction) {
+        this.transaction = transaction;
+    }
+
+    public Transaction transaction() {
+        return transaction;
     }
 
     public void set(Row row) {
@@ -438,7 +447,7 @@ public class Row {
      */
     public Object get(String column) {
         try {
-            return getColumnValue(column, Object.class, false, false, null);
+            return getColumnValue(column, Object.class, true, null);
         } catch (SQLException e) {
             // UNREACHABLE
             throw new IllegalStateException(e);
@@ -456,7 +465,7 @@ public class Row {
      */
     public <T> T get(String column, Class<T> clazz) {
         try {
-            return getColumnValue(column, clazz, false, false, null);
+            return getColumnValue(column, clazz, true, null);
         } catch (SQLException e) {
             // UNREACHABLE
             throw new IllegalStateException(e);
@@ -465,6 +474,10 @@ public class Row {
 
     public Record ref(Transaction t, String column) throws SQLException {
         return ref(t, column, Record.class);
+    }
+
+    public Record ref(String column) throws SQLException {
+        return ref(transaction, column, Record.class);
     }
 
     /**
@@ -482,7 +495,11 @@ public class Row {
      * @throws SQLException
      */
     public <T extends Record> T ref(Transaction t, String column, Class<T> clazz) throws SQLException {
-        return getColumnValue(column, clazz, false, true, t);
+        return getColumnValue(column, clazz, false, t);
+    }
+
+    public <T extends Record> T ref(String column, Class<T> clazz) throws SQLException {
+        return ref(transaction, column, clazz);
     }
 
     /**
@@ -496,7 +513,7 @@ public class Row {
      */
     public <T extends Record> T refCached(String column, Class<T> clazz) {
         try {
-            return getColumnValue(column, clazz, true, false, null);
+            return getColumnValue(column, clazz, true, null);
         } catch (SQLException e) {
             // UNREACHABLE
             throw new IllegalStateException(e);
@@ -504,7 +521,7 @@ public class Row {
     }
 
     @SuppressWarnings("unchecked")
-    <T> T getColumnValue(String column, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
+    <T> T getColumnValue(String column, Class<T> clazz, boolean isReferenceCacheOnly, Transaction transaction) throws SQLException {
         Field field = field(column);
         if (field == null) {
             throw new RuntimeException("Column '" + column + "' does not exist, or has not yet been set on " + this);
@@ -523,18 +540,11 @@ public class Row {
                     if (!flag(FLAG_REF_FETCH)) {
                         throw new IllegalAccessError("Reference fetching is disabled");
                     }
-                    try {
-                        if (transaction == null) {
-                            throw new NullPointerException("transaction == null -- did you use get() rather than of ref()?");
-                        }
-                        record = transaction.findById((Class<? extends Record>)clazz, value);
-                        field.setValue(record);
-                    } catch (SQLException e) {
-                        if (throwSqlException) {
-                            throw e;
-                        }
-                        throw new RuntimeException("Failed to findById(" + clazz + ", " + value + ")", e);
+                    if (transaction == null) {
+                        throw new NullPointerException("transaction == null -- did you forget to bind()?");
                     }
+                    record = transaction.findById((Class<? extends Record>)clazz, value);
+                    field.setValue(record);
                 } else if (!record.getClass().equals(clazz)) {
                     throw new IllegalArgumentException("Class mismatch " + clazz + " != " + record.getClass());
                 }

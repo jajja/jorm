@@ -93,6 +93,7 @@ public class RecordIterator implements Closeable {
 
     public void populate(Row row) throws SQLException {
         try {
+            row.bind(transaction);
             row.resetFields(columns.length);
             for (int i = 0; i < columns.length; i++) {
                 Object object = resultSet.getObject(i + 1);

@@ -21,8 +21,6 @@
  */
 package com.jajja.jorm;
 
-import java.sql.SQLException;
-
 import com.jajja.jorm.Composite.Value;
 import com.jajja.jorm.generator.Generator;
 
@@ -137,8 +135,9 @@ public abstract class Record extends Row {
      * Note: no deep copying is done.
      */
     public Record(Row row) {
-        this.fields = row.fields;
-        this.flags = row.flags;
+        fields = row.fields;
+        flags = row.flags;
+        bind(row.transaction());
     }
 
     /**
@@ -254,11 +253,6 @@ public abstract class Record extends Row {
     public void unset(String column) {
         assertNotReadOnly();
         super.unset(column);
-    }
-
-    @Override
-    <T> T getColumnValue(String column, Class<T> clazz, boolean isReferenceCacheOnly, boolean throwSqlException, Transaction transaction) throws SQLException {
-        return super.getColumnValue(column, clazz, isReferenceCacheOnly, throwSqlException, transaction);
     }
 
     @Override
