@@ -94,7 +94,7 @@ public class Database {
         return transactions.get();
     }
 
-    static void register(Transaction transaction) {
+    private static void register(Transaction transaction) {
         HashSet<Transaction> set = get().getThreadLocalTransactions();
         if (set.contains(transaction)) {
             throw new IllegalStateException("Transaction registered twice?!");
@@ -201,29 +201,25 @@ public class Database {
      * @return the open transaction.
      */
     public static Transaction open(String database) {
-        // XXX return open(Transaction.class, database); ?
-        DataSource dataSource = getDataSource(database);
-        if (dataSource == null) {
-            assertConfigured(database); // throws!
-        }
-        Configuration configuration = get().configurations.get(database);
-        return new Transaction(dataSource, database, configuration != null ? configuration.calendar : null);
+        return open(Transaction.class, database);
     }
 
     public static Set<Transaction> transactions() {
         return Collections.unmodifiableSet(get().getThreadLocalTransactions());
     }
 
-    public static <T extends Transaction> T open(Class<T> t, String database) {
+    public static <T extends Transaction> T open(Class<T> clazz, String database) {
         DataSource dataSource = getDataSource(database);
         if (dataSource == null) {
             assertConfigured(database); // throws!
         }
         Configuration configuration = get().configurations.get(database);
         try {
-            Constructor<T> constructor = t.getDeclaredConstructor(DataSource.class, String.class, Calendar.class);
+            Constructor<T> constructor = clazz.getDeclaredConstructor(DataSource.class, String.class, Calendar.class);
             constructor.setAccessible(true);
-            return constructor.newInstance(dataSource, database, configuration != null ? configuration.calendar : null);
+            T t = constructor.newInstance(dataSource, database, configuration != null ? configuration.calendar : null);
+            register(t);
+            return t;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
