@@ -181,7 +181,6 @@ public class Transaction implements Closeable {
         this.database = database;
         this.dataSource = dataSource;
         this.calendar = calendar;
-        Database.register(this);
     }
 
     /**
@@ -561,38 +560,6 @@ public class Transaction implements Closeable {
     }
 
     /**
-     * Deprecated: renamed to savepoint()
-     *
-     * Sets an unnamed savepoint on the active transaction. If the transaction
-     * is dormant it begins and enters the active state.
-     *
-     * @return the savepoint.
-     * @throws SQLException
-     * @throws SQLException
-     *             if a database access error occurs.
-     */
-    @Deprecated
-    public Savepoint save() throws SQLException {
-        return savepoint();
-    }
-
-    /**
-     * Sets an named savepoint on the active transaction. If the transaction is
-     * dormant it begins and enters the active state.
-     *
-     * @param name
-     *            the name of the savepoint.
-     * @return the savepoint.
-     * @throws SQLException
-     * @throws SQLException
-     *             if a database access error occurs.
-     */
-    @Deprecated
-    public Savepoint save(String name) throws SQLException {
-        return savepoint(name);
-    }
-
-    /**
      * Sets an unnamed savepoint on the active transaction. If the transaction
      * is dormant it begins and enters the active state.
      *
@@ -761,52 +728,6 @@ public class Transaction implements Closeable {
         query.append("WHERE ");
         query.append(dialect.toSqlExpression(v));
         return query;
-    }
-
-    /**
-     * Builds a generic SQL query for the record. XXX redoc
-     *
-     * @deprecated Use Query constructor directly
-     * @param sql
-     *            the SQL statement to represent the query.
-     * @return the built query.
-     * @throws SQLException
-     */
-    @Deprecated
-    public Query build() throws SQLException {
-        return new Query();
-    }
-
-    /**
-     * Builds a generic SQL query for the record.
-     *
-     * @deprecated Use Query constructor directly
-     * @param sql
-     *            the SQL statement to represent the query.
-     * @return the built query.
-     * @throws SQLException
-     */
-    @Deprecated
-    public Query build(String sql) throws SQLException {
-        return new Query(sql);
-    }
-
-    /**
-     * Builds a generic SQL query for the record and quotes identifiers from the
-     * given parameters according to the SQL dialect of the mapped database of
-     * the record.
-     *
-     * @deprecated Use Query constructor directly
-     * @param sql
-     *            the Jorm SQL statement to represent the query.
-     * @param params
-     *            the parameters applying to the SQL hash markup.
-     * @return the built query.
-     * @throws SQLException
-     */
-    @Deprecated
-    public Query build(String sql, Object... params) throws SQLException {
-        return new Query(sql, params);
     }
 
     /**
@@ -1124,11 +1045,6 @@ public class Transaction implements Closeable {
         return selectIntoMap(map, clazz, key, allowDuplicates, new Query(sql, params));
     }
 
-    @Deprecated
-    public <T extends Record> Map<Composite.Value, T> selectIntoMap(Map<Composite.Value, T> map, Class<T> clazz, Object key, boolean allowDuplicates) throws SQLException {
-        return selectIntoMap(map, clazz, key, allowDuplicates, getSelectQuery(clazz));
-    }
-
     /**
      * Provides a hash map of selected records, populated with the results from the
      * given query.
@@ -1178,11 +1094,6 @@ public class Transaction implements Closeable {
         return selectIntoTypedMap(map, clazz, key, keyType, allowDuplicates, new Query(sql, params));
     }
 
-    @Deprecated
-    public <T, C extends Record> Map<T, C> selectIntoTypedMap(Map<T, C> map, Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
-        return selectIntoTypedMap(map, clazz, key, keyType, allowDuplicates, getSelectQuery(clazz));
-    }
-
     /**
      * Provides a hash map of selected records, populated with the results from the
      * given query.
@@ -1204,11 +1115,6 @@ public class Transaction implements Closeable {
 
     public <T extends Row> void selectAllIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Object key, String sql, Object... params) throws SQLException {
         selectAllIntoMap(map, clazz, key, new Query(sql, params));
-    }
-
-    @Deprecated
-    public <T extends Record> void selectIntoMap(HashMap<Composite.Value, List<T>> map, Class<T> clazz, Object key) throws SQLException {
-        selectAllIntoMap(map, clazz, key, getSelectQuery(clazz));
     }
 
     /**
@@ -1262,11 +1168,6 @@ public class Transaction implements Closeable {
         selectAllIntoTypedMap(map, clazz, key, keyType, new Query(sql, params));
     }
 
-    @Deprecated
-    public <T, C extends Record> void selectIntoTypedMap(HashMap<T, List<C>> map, Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
-        selectAllIntoTypedMap(map, clazz, key, keyType, getSelectQuery(clazz));
-    }
-
     /**
      * Provides a hash map of selected records, populated with the results from the
      * given query.
@@ -1290,11 +1191,6 @@ public class Transaction implements Closeable {
 
     public <T extends Row> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates, String sql, Object... params) throws SQLException {
         return selectAsMap(clazz, key, allowDuplicates, new Query(sql, params));
-    }
-
-    @Deprecated
-    public <T extends Record> Map<Composite.Value, T> selectAsMap(Class<T> clazz, Object key, boolean allowDuplicates) throws SQLException {
-        return selectAsMap(clazz, key, allowDuplicates, getSelectQuery(clazz));
     }
 
     /**
@@ -1322,11 +1218,6 @@ public class Transaction implements Closeable {
         return selectAsTypedMap(clazz, key, keyType, allowDuplicates, new Query(sql, params));
     }
 
-    @Deprecated
-    public <T, C extends Record> Map<T, C> selectAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, boolean allowDuplicates) throws SQLException {
-        return selectAsTypedMap(clazz, key, keyType, allowDuplicates, getSelectQuery(clazz));
-    }
-
     /**
      * Provides a hash map of selected records, populated with the results from the
      * given query.
@@ -1352,11 +1243,6 @@ public class Transaction implements Closeable {
         return selectAllAsMap(clazz, key, new Query(sql, params));
     }
 
-    @Deprecated
-    public <T extends Record> Map<Composite.Value, List<T>> selectAllAsMap(Class<T> clazz, Object key) throws SQLException {
-        return selectAllAsMap(clazz, key, getSelectQuery(clazz));
-    }
-
     /**
      * Provides a hash map of selected records, populated with the results from the
      * given query.
@@ -1380,11 +1266,6 @@ public class Transaction implements Closeable {
 
     public <T, C extends Row> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType, String sql, Object... params) throws SQLException {
         return selectAllAsTypedMap(clazz, key, keyType, new Query(sql, params));
-    }
-
-    @Deprecated
-    public <T, C extends Record> Map<T, List<C>> selectAllAsTypedMap(Class<C> clazz, Object key, Class<T> keyType) throws SQLException {
-        return selectAllAsTypedMap(clazz, key, keyType, getSelectQuery(clazz));
     }
 
     /**
