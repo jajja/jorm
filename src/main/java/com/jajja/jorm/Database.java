@@ -229,11 +229,10 @@ public class Database {
      * Closes and destroys all transactions for the current thread.
      */
     public static void close() {
-        HashSet<Transaction> map = get().getThreadLocalTransactions();
-        for (Transaction transaction : map) {
-            transaction.close();
+        Set<Transaction> set = new HashSet<Transaction>(get().getThreadLocalTransactions());
+        for (Transaction t : set) {
+            t.close();
         }
-        map.clear();
         get().transactions.remove();
     }
 
