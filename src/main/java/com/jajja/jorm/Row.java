@@ -477,7 +477,7 @@ public class Row {
     }
 
     public Record ref(String column) throws SQLException {
-        return ref(transaction, column, Record.class);
+        return ref(transaction(), column, Record.class);
     }
 
     /**
@@ -499,7 +499,7 @@ public class Row {
     }
 
     public <T extends Record> T ref(String column, Class<T> clazz) throws SQLException {
-        return ref(transaction, column, clazz);
+        return ref(transaction(), column, clazz);
     }
 
     /**
