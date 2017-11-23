@@ -694,11 +694,11 @@ public class Transaction implements Closeable {
         return populateByCompositeValue(record, record.primaryKey().value(id));
     }
 
-    private <T extends Record> Query getSelectQuery(Class<T> clazz) throws SQLException {
+    private static <T extends Record> Query getSelectQuery(Class<T> clazz) throws SQLException {
         return new Query("SELECT * FROM #1# ", clazz);
     }
 
-    private <T extends Record> Query getDeleteQuery(Class<T> clazz) throws SQLException {
+    private static <T extends Record> Query getDeleteQuery(Class<T> clazz) throws SQLException {
         return new Query("DELETE FROM #1# ", clazz);
     }
 
@@ -1493,8 +1493,6 @@ public class Transaction implements Closeable {
      *             if a database access error occurs.
      */
     public void delete(Slice<? extends Record> records, Composite primaryKey) throws SQLException {
-        String database = null;
-
         if (primaryKey == null) {
             primaryKey = records.primaryKey();
         }
