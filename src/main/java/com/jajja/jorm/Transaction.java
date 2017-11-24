@@ -240,7 +240,7 @@ public class Transaction {
      */
     public Connection getConnection() throws SQLException {
         if (isClosed) {
-            throw new IllegalStateException("Connection was closed at " + closedAt);
+            throw new IllegalStateException("Connection is closed");
         }
         if (connection == null) {
             Connection c = dataSource.getConnection();
@@ -252,8 +252,6 @@ public class Transaction {
         return connection;
     }
 
-    private StackTraceElement closedAt;
-
     /**
      * Rolls back the current transaction and closes the database connection.
      * This is the equivalent of calling {@link #rollback()}
@@ -262,13 +260,6 @@ public class Transaction {
     public void close() {
         if (!isClosed) {
             isClosed = true;
-            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-            for (int i = 1; i < stackTrace.length; i++) {
-                closedAt = stackTrace[i];
-                if (!stackTrace[i].getClassName().startsWith("com.jajja.jorm.")) {
-                    break;
-                }
-            }
 
             try {
                 if (connection != null) {
