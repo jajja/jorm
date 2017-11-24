@@ -34,6 +34,7 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -93,18 +94,26 @@ public class Transaction {
     private final DataSource dataSource;
     private Dialect dialect;
     private Connection connection;
-    private boolean isClosed = false;
+    private boolean isClosed;
     private Calendar calendar;
     private Set<Listener> listeners;
 
+    public static enum Event {
+        OPEN,
+        PREPARE,
+        COMMIT,
+        ROLLBACK,
+        CLOSE;
+    }
+
     public interface Listener {
-        public void log(Transaction t, String message, String sql, List<Object> params, StackTraceElement[] stackTrace, Throwable reason);
+        public void log(Transaction t, Event event, String sql, List<Object> params, List<StackTraceElement> stackTrace, Throwable exception);
     }
 
     public static class StdoutLogListener implements Listener {
         @Override
-        public void log(Transaction t, String message, String sql, List<Object> params, StackTraceElement[] stackTrace, Throwable reason) {
-            System.out.printf("[%d] %s: %s: %s (called from %s)\n", System.currentTimeMillis(), t.getDatabase(), message, sql != null ? sql : "(no sql)", stackTrace[0]);
+        public void log(Transaction t, Event event, String sql, List<Object> params, List<StackTraceElement> stackTrace, Throwable reason) {
+            System.out.printf("[%d] %s: %s: %s (called from %s)\n", System.currentTimeMillis(), t.getDatabase(), event.name(), sql != null ? sql : "(no sql)", stackTrace.get(0));
             if (params != null) {
                 int i = 1;
                 for (Object param : params) {
@@ -112,34 +121,34 @@ public class Transaction {
                 }
             }
             System.out.printf("  Stack trace:\n");
-            for (int i = 1; i < stackTrace.length && i < 7; i++) {
-                System.out.printf("    %s\n", stackTrace[i]);
+            for (int i = 1; i < stackTrace.size() && i < 7; i++) {
+                System.out.printf("    %s\n", stackTrace.get(i));
             }
-            if (stackTrace.length >= 7) {
+            if (stackTrace.size() >= 7) {
                 System.out.println("    ...");
             }
         }
     }
 
-    private void tracelog(String message, String sql, List<Object> params, Throwable reason) {
+    private static List<StackTraceElement> getCallTrace() {
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        List<StackTraceElement> list = new ArrayList<StackTraceElement>(stackTrace.length - 2);
+        for (int i = 2; i < stackTrace.length; i++) {
+            if (stackTrace[i].getClassName().startsWith("com.jajja.jorm.")) {
+                continue;
+            }
+            list.add(stackTrace[i]);
+        }
+        return list;
+    }
+
+    private void tracelog(Event event, String sql, List<Object> params, Throwable reason) {
         if (listeners != null) {
             try {
-                StackTraceElement[] fullStackTrace = Thread.currentThread().getStackTrace();
-                StackTraceElement[] stackTrace = null;
-                int off = 0;
-                for (int i = 1; i < fullStackTrace.length; i++) {
-                    StackTraceElement stackTraceElement = fullStackTrace[i];
-                    if (stackTrace == null && !stackTraceElement.getClassName().startsWith("com.jajja.jorm.")) {
-                        off = i;
-                        stackTrace = new StackTraceElement[fullStackTrace.length - off];
-                    }
-                    if (stackTrace != null) {
-                        stackTrace[i - off] = fullStackTrace[i];
-                    }
-                }
+                List<StackTraceElement> stackTrace = getCallTrace();
                 for (Listener listener : listeners) {
                     try {
-                        listener.log(this, message, sql, params, stackTrace, reason);
+                        listener.log(this, event, sql, params, stackTrace, reason);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -243,11 +252,16 @@ public class Transaction {
             throw new IllegalStateException("Connection is closed");
         }
         if (connection == null) {
-            Connection c = dataSource.getConnection();
-            c.setAutoCommit(false);
-            dialect = new Dialect(database, c);
-            connection = c;
-            tracelog("BEGIN", null, null, null);
+            try {
+                Connection c = dataSource.getConnection();
+                c.setAutoCommit(false);
+                dialect = new Dialect(database, c);
+                connection = c;
+                tracelog(Event.OPEN, null, null, null);
+            } catch (SQLException e) {
+                tracelog(Event.OPEN, null, null, e);
+                throw e;
+            }
         }
         return connection;
     }
@@ -265,8 +279,9 @@ public class Transaction {
                 if (connection != null) {
                     connection.close();
                 }
+                tracelog(Event.CLOSE, null, null, null);
             } catch (SQLException e) {
-                tracelog("CONNECTION CLOSE FAILED", null, null, e);
+                tracelog(Event.CLOSE, null, null, e);
             } finally {
                 dialect = null;
                 connection = null;
@@ -282,8 +297,13 @@ public class Transaction {
      */
     public void commit() throws SQLException {
         if (connection != null) {
-            connection.commit();
-            tracelog("COMMIT", null, null, null);
+            try {
+                connection.commit();
+                tracelog(Event.COMMIT, null, null, null);
+            } catch (SQLException e) {
+                tracelog(Event.COMMIT, null, null, e);
+                throw e;
+            }
         }
     }
 
@@ -296,10 +316,11 @@ public class Transaction {
     public void rollback() {
         if (connection != null) {
             try {
-                tracelog("ROLLBACK", null, null, null);
                 connection.rollback();
+                tracelog(Event.ROLLBACK, null, null, null);
             } catch (SQLException e) {
-                tracelog("ROLLBACK FAILED", null, null, e);
+                tracelog(Event.ROLLBACK, null, null, e);
+                //throw e;
             }
         }
     }
@@ -356,7 +377,6 @@ public class Transaction {
      *             if a database access error occurs.
      */
     private PreparedStatement prepare(String sql, List<Object> params, boolean returnGeneratedKeys) throws SQLException {
-        tracelog("PREPARE", sql, params, null);
         try {
             PreparedStatement preparedStatement = getConnection().prepareStatement(sql, returnGeneratedKeys ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS);
             if (params != null) {
@@ -377,8 +397,10 @@ public class Transaction {
                     }
                 }
             }
+            tracelog(Event.PREPARE, sql, params, null);
             return preparedStatement;
         } catch (SQLException e) {
+            tracelog(Event.PREPARE, sql, params, e);
             throw getDialect().rethrow(e, sql);
         }
     }
