@@ -21,6 +21,6 @@ public class Tribe extends Record {
         set("name", name);
     }
     public List<Goblin> getGoblins() throws SQLException {
-        return selectAll(Goblin.class, "SELECT * FROM #1# WHERE tribe_id = #2#", Goblin.class, getId());
+        return transaction().selectAll(Goblin.class, "SELECT * FROM #1# WHERE tribe_id = #2#", Goblin.class, getId());
     }
 }

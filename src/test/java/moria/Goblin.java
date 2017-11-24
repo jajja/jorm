@@ -6,6 +6,7 @@ import com.jajja.jorm.Composite;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Query;
 import com.jajja.jorm.Record;
+import com.jajja.jorm.Transaction;
 
 @Jorm(database="moria", table="goblins", primaryKey="id")
 public class Goblin extends Record {
@@ -41,8 +42,8 @@ public class Goblin extends Record {
     }
 
     // part 2
-    public static Goblin findByTribeAndName(Tribe tribe, String name) throws SQLException {
-        return find(Goblin.class, new Composite("tribe_id", "name").value(tribe, name));
+    public static Goblin findByTribeAndName(Transaction transaction, Tribe tribe, String name) throws SQLException {
+        return transaction.find(Goblin.class, new Composite("tribe_id", "name").value(tribe, name));
     }
 
     // part 3
