@@ -253,15 +253,20 @@ public class Transaction implements Closeable {
             throw new IllegalStateException("Connection is closed");
         }
         if (connection == null) {
+            Connection c = dataSource.getConnection();
             try {
-                Connection c = dataSource.getConnection();
                 c.setAutoCommit(false);
                 dialect = new Dialect(database, c);
                 connection = c;
+                c = null;
                 tracelog(Event.OPEN, null, null, null);
             } catch (SQLException e) {
                 tracelog(Event.OPEN, null, null, e);
                 throw e;
+            } finally {
+                if (c != null) {
+                    c.close();
+                }
             }
         }
         return connection;
@@ -274,15 +279,21 @@ public class Transaction implements Closeable {
     @Override
     public void close() {
         if (!isClosed) {
-            isClosed = true;
             Database.unregister(this);
+            isClosed = true;
             try {
                 if (connection != null) {
-                    connection.close();
+                    try {
+                        rollback();
+                    } finally {
+                        connection.close();
+                    }
                 }
                 tracelog(Event.CLOSE, null, null, null);
             } catch (SQLException e) {
                 tracelog(Event.CLOSE, null, null, e);
+            } catch (Throwable e) {
+                e.printStackTrace();
             } finally {
                 dialect = null;
                 connection = null;
