@@ -24,6 +24,7 @@ package com.jajja.jorm;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -263,6 +264,17 @@ public class Query {
                     append(", ");
                 }
                 append(modifier, o, label);
+            }
+        } else if (param instanceof Iterator) {
+            boolean isFirst = true;
+            Iterator iter = (Iterator)param;
+            while (iter.hasNext()) {
+                if (isFirst) {
+                    isFirst = false;
+                } else {
+                    append(", ");
+                }
+                append(modifier, iter.next(), label);
             }
         } else {
             append(modifier, param, label);
