@@ -401,6 +401,15 @@ public class Row {
         put(column, value);
     }
 
+    public void set(Composite.Value value) {
+        assertNotReadOnly();
+        String[] columns = value.getComposite().getColumns();
+        Object[] values = value.getValues();
+        for (int i = 0; i < values.length; i++) {
+            put(columns[i], values[i]);
+        }
+    }
+
     /**
      * Unsets the specified column.
      *
