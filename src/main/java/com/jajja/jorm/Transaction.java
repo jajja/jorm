@@ -274,14 +274,20 @@ public class Transaction {
     public void close() {
         if (!isClosed) {
             isClosed = true;
-
+            Database.unregister(this);
             try {
                 if (connection != null) {
-                    connection.close();
+                    try {
+                        rollback();
+                    } finally {
+                        connection.close();
+                    }
                 }
                 tracelog(Event.CLOSE, null, null, null);
             } catch (SQLException e) {
                 tracelog(Event.CLOSE, null, null, e);
+            } catch (Throwable e) {
+                e.printStackTrace();
             } finally {
                 dialect = null;
                 connection = null;

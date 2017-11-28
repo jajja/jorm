@@ -30,11 +30,13 @@ import java.net.URL;
 import java.util.Calendar;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -213,15 +215,32 @@ public class Database {
         return transaction;
     }
 
+    static void unregister(Transaction t) {
+        HashMap<String, Transaction> transactions = get().getTransactions();
+        Transaction transaction = transactions.get(t.getDatabase());
+        if (transaction != t) {
+            throw new IllegalStateException("Transaction already closed, or not closed from the same thread in which it was opened");
+        }
+        transactions.remove(t.getDatabase());
+    }
+
+    public static void close(String database) {
+        HashMap<String, Transaction> transactions = get().getTransactions();
+        Transaction transaction = transactions.get(database);
+        if (transaction != null) {
+            transaction.close();
+        }
+        transactions.remove(database);
+    }
+
     /**
      * Closes and destroys all transactions for the current thread.
      */
     public static void close() {
-        HashMap<String, Transaction> map = get().getTransactions();
-        for (Transaction transaction : map.values()) {
-            transaction.close();
+        Set<Transaction> set = new HashSet<Transaction>(get().getTransactions().values());
+        for (Transaction t : set) {
+            t.close();
         }
-        map.clear();
         get().transactions.remove();
     }
 
