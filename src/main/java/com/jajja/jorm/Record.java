@@ -191,6 +191,42 @@ public abstract class Record extends Row {
         }
     }
 
+//    public void save(ResultMode mode) throws SQLException {
+//        transaction().save(this, mode);
+//    }
+//
+//    public void save() throws SQLException {
+//        transaction().save(this);
+//    }
+//
+//    public void insert(ResultMode mode) throws SQLException {
+//        transaction().insert(this, mode);
+//    }
+//
+//    public void insert() throws SQLException {
+//        transaction().insert(this);
+//    }
+//
+//    public int update(ResultMode mode, Composite primaryKey) throws SQLException {
+//        return transaction().update(this, mode, primaryKey);
+//    }
+//
+//    public int update(ResultMode mode) throws SQLException {
+//        return transaction().update(this, mode);
+//    }
+//
+//    public int update() throws SQLException {
+//        return transaction().update(this);
+//    }
+//
+//    public void delete() throws SQLException {
+//        transaction().delete(this);
+//    }
+//
+//    public void refresh() throws SQLException {
+//        transaction().refresh(this);
+//    }
+
     /**
      * Returns true if specified class is a subclass of Record.class.
      */
@@ -217,6 +253,7 @@ public abstract class Record extends Row {
     /**
      * Marks all fields as changed, excluding any immutable and primary key columns.
      */
+    @Override
     public void taint() {
         for (NamedField f : fields()) {
             if (!table().isImmutable(f.name()) && !primaryKey().contains(f.name())) {
