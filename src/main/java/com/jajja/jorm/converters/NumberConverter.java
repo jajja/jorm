@@ -15,6 +15,8 @@ public abstract class NumberConverter<T> implements TypeConverter<T> {
         map.put(Short.class, new ShortConverter());
         map.put(Integer.class, new IntegerConverter());
         map.put(Long.class, new LongConverter());
+        map.put(Float.class, new FloatConverter());
+        map.put(Double.class, new DoubleConverter());
         map.put(BigInteger.class, new BigIntegerConverter());
         map.put(BigDecimal.class, new BigDecimalConverter());
     }
