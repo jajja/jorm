@@ -24,7 +24,6 @@ package com.jajja.jorm;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Calendar;
 import java.util.Collections;
@@ -37,7 +36,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -51,8 +49,7 @@ import javax.sql.DataSource;
  * <tt>org.apache.commons.dbcp.BasicDataSource</tt> from the Apache project
  * <tt>commons-dbcp</tt>.
  *
- * @see Jorm
- * @see Record
+ * @see Configuration
  * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
  * @author Andreas Allerdahl &lt;andreas.allerdahl@jajja.com&gt;
  * @author Daniel Adolfsson &lt;daniel.adolfsson@jajja.com&gt;
@@ -61,30 +58,171 @@ import javax.sql.DataSource;
 public class Database {
     private static final Logger logger = Logger.getLogger(Database.class.getName());
     private final ThreadLocal<HashSet<Transaction>> transactions = new ThreadLocal<HashSet<Transaction>>();
-    private final Map<String, DataSource> dataSources = new ConcurrentHashMap<String, DataSource>(16, 0.75f, 1);
-    private final Map<String, Configuration> configurations = new HashMap<String, Configuration>();
-    private static Database instance;
+    private final Map<String, Configuration> configurations = new ConcurrentHashMap<String, Configuration>(16, 0.75f, 1);
+
+    private static Database that;
 
     private Database() {
-        __configure();
+        // empty!
     }
 
     /**
-     * Acts as singleton factory for bean configuration access. All other access
-     * to databases should be static.
+     * Configures all databases accessible through {@link Database#open(String)} and
+     * {@link Database#close(String)}. Overrides any previous configuration.
+     * Intended for configuration in bean instantiation.
+     *
+     * @param dataSources
+     *            the named databases, each represented by a string and a data
+     *            source.
+     */
+    public void setDataSources(Map<String, DataSource> dataSources) {
+        configurations.clear();
+        for (Entry<String, DataSource> entry : dataSources.entrySet()) {
+            configurations.put(entry.getKey(), Configuration.get(entry.getValue()));
+        }
+    }
+
+    /**
+     * Acts as singleton factory for bean configuration access, see
+     * #{@link #setDataSources(Map)}.
      *
      * @return the singleton database representation containing configured data
-     * sources for databases.
+     *         sources for databases.
      */
     public static Database get() {
-        if (instance == null) {
+        if (that == null) {
             synchronized (Database.class) {
-                if (instance == null) {
-                    instance = new Database();
+                if (that == null) {
+                    that = new Database();
+                    load();
                 }
             }
         }
-        return instance;
+        return that;
+    }
+
+    public static void load() {
+        try {
+            Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
+            List<URL> locals = new LinkedList<URL>();
+            while (urls.hasMoreElements()) {
+                URL url = urls.nextElement();
+                if (url.getProtocol().equals("jar")) {
+                    logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
+                    configure(url);
+                } else {
+                    locals.add(url);
+                }
+            }
+            for (URL url : locals) {
+                logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
+                configure(url, true);
+            }
+        } catch (IOException ex) {
+            throw new RuntimeException("Failed to configure from jorm.properties", ex);
+        }
+    }
+
+    public static void configure(String database, Configuration configuration, boolean isOverride) {
+        if (isConfigured(database)) {
+            if (isOverride) {
+                getConfiguration(database).destroy();
+            } else {
+                throw new IllegalStateException("Named database '" + database + "' already configured!");
+            }
+        }
+        get().configurations.put(database, configuration);
+    }
+
+    public static void configure(String database, Configuration configuration) {
+        configure(database, configuration, false);
+    }
+
+    /**
+     * Configures the named database by means of a data source.
+     *
+     * @param database the named database.
+     * @param dataSource the data source corresponding to the named data base.
+     * @param isOverride a flag defining configuration as override if a current
+     * configuration for the named database already exists.
+     */
+    public static void configure(String database, DataSource dataSource, boolean isOverride) {
+        configure(database, Configuration.get(dataSource), isOverride);
+    }
+
+    /**
+     * Configures the named database by means of a data source.
+     *
+     * @param database the named database.
+     * @param dataSource the data source corresponding to the named data base.
+     */
+    public static void configure(String database, DataSource dataSource) {
+        configure(database, dataSource, false);
+    }
+
+    public static void configure(Properties properties) {
+        configure(properties, false);
+    }
+
+    public static void configure(Properties properties, boolean isOverride) {
+        Map<String, Properties> confs = new HashMap<String, Properties>();
+        for (Entry<Object, Object> property : properties.entrySet()) {
+            String[] parts = ((String)property.getKey()).split("\\.");
+            boolean isMalformed = false;
+
+            if (parts[0].equals("database") && parts.length > 1) {
+                String database = parts[1];
+
+                Properties conf = confs.get(database);
+                if (conf == null) {
+                    conf = new Properties();
+                    confs.put(database, conf);
+                }
+
+                String value = (String) property.getValue();
+                switch (parts.length) {
+                case 3:
+                    if (parts[2].equals("destroyMethod") || parts[2].equals("dataSource") || parts[2].equals("timeZone")) {
+                        conf.setProperty(parts[2], value);
+                    } else {
+                        isMalformed = true;
+                    }
+                    break;
+
+                case 4:
+                    if (parts[2].equals("dataSource")) {
+                        conf.setProperty("dataSource." + parts[3], value);
+                    } else {
+                        isMalformed = true;
+                    }
+                    break;
+
+                default:
+                    isMalformed = true;
+                }
+            } else {
+                isMalformed = true;
+            }
+
+            if (isMalformed) {
+                throw new RuntimeException("Malformed jorm property: " + property.toString());
+            }
+        }
+        for (Entry<String, Properties> entry : confs.entrySet()) {
+            configure(entry.getKey(), Configuration.get(entry.getValue()), isOverride);
+        }
+    }
+
+    public static void configure(URL url) throws IOException {
+        configure(url, false);
+    }
+
+    public static void configure(URL url, boolean isOverride) throws IOException {
+        Properties properties = new Properties();
+        InputStream is = url.openStream();
+        properties.load(is);
+        is.close();
+        configure(properties, isOverride);
     }
 
     private HashSet<Transaction> getThreadLocalTransactions() {
@@ -110,53 +248,12 @@ public class Database {
         set.remove(transaction);
     }
 
+    public static Configuration getConfiguration(String database) {
+        return get().configurations.get(database);
+    }
+
     public static DataSource getDataSource(String database) {
-        return get().dataSources.get(database);
-    }
-
-    /**
-     * Configures all databases accessible through {@link Database#open(String)}
-     * and {@link Database#close(String)}. Overrides any previous configuration.
-     *
-     * @param dataSources the named databases, each represented by a string and
-     * a data source.
-     */
-    public void setDataSources(Map<String, DataSource> dataSources) {
-        this.dataSources.clear();
-        this.dataSources.putAll(dataSources);
-    }
-
-    /**
-     * Configures the named database by means of a data source.
-     *
-     * @param database the named database.
-     * @param dataSource the data source corresponding to the named data base.
-     */
-    public static void configure(String database, DataSource dataSource) {
-        get().__configure(database, dataSource, false);
-    }
-
-    private void __configure(String database, DataSource dataSource) {
-        __configure(database, dataSource, false);
-    }
-
-    /**
-     * Configures the named database by means of a data source.
-     *
-     * @param database the named database.
-     * @param dataSource the data source corresponding to the named data base.
-     * @param isOverride a flag defining configuration as override if a current
-     * configuration for the named database already exists.
-     */
-    public static void configure(String database, DataSource dataSource, boolean isOverride) {
-        get().__configure(database,  dataSource, isOverride);
-    }
-
-    private void __configure(String database, DataSource dataSource, boolean isOverride) {
-        if (!isOverride && __isConfigured(database)) {
-            throw new IllegalStateException("Named database '" + database + "' already configured!");
-        }
-        dataSources.put(database, dataSource);
+        return getConfiguration(database).getDataSource();
     }
 
     /**
@@ -166,14 +263,7 @@ public class Database {
      * @return true if the named database has been configured, false otherwise.
      */
     public static boolean isConfigured(String database) {
-        return get().__isConfigured(database);
-    }
-
-    private boolean __isConfigured(String database) {
-        if (database == null) {
-            return false;
-        }
-        return dataSources.containsKey(database);
+        return getConfiguration(database) != null;
     }
 
     /**
@@ -185,11 +275,7 @@ public class Database {
      * configured.
      */
     public static void assertConfigured(String database) {
-        get().__assertConfigured(database);
-    }
-
-    private void __assertConfigured(String database) {
-        if (!__isConfigured(database)) {
+        if (!isConfigured(database)) {
             throw new IllegalStateException("Named database '" + database + "' has no configured data source!");
         }
     }
@@ -209,15 +295,14 @@ public class Database {
     }
 
     public static <T extends Transaction> T open(Class<T> clazz, String database) {
-        DataSource dataSource = getDataSource(database);
-        if (dataSource == null) {
+        Configuration configuration = getConfiguration(database);
+        if (configuration == null) {
             assertConfigured(database); // throws!
         }
-        Configuration configuration = get().configurations.get(database);
         try {
             Constructor<T> constructor = clazz.getDeclaredConstructor(DataSource.class, String.class, Calendar.class);
             constructor.setAccessible(true);
-            T t = constructor.newInstance(dataSource, database, configuration != null ? configuration.calendar : null);
+            T t = constructor.newInstance(configuration.getDataSource(), database, configuration.getCalendar());
             register(t);
             return t;
         } catch (Exception e) {
@@ -244,232 +329,4 @@ public class Database {
         }
     }
 
-    /*
-     * jorm.properties
-     * ---------------
-     * database.moria.dataSource=org.apache.tomcat.jdbc.pool.DataSource
-     * database.moria.dataSource.driverClassName=org.postgresql.Driver
-     * database.moria.dataSource.url=jdbc:postgresql://localhost:5432/moria
-     * database.moria.dataSource.username=gandalf
-     * database.moria.dataSource.password=mellon
-     *
-     * database.lothlorien.dataSource=org.apache.tomcat.jdbc.pool.DataSource
-     * database.lothlorien.dataSource.driverClassName=org.postgresql.Driver
-     * database.lothlorien.dataSource.url=jdbc:postgresql://localhost:5432/lothlorien
-     * database.lothlorien.dataSource.username=galadriel
-     * database.lothlorien.dataSource.password=nenya
-     *
-     * database.context=
-     * database.moria.context=production
-     */
-    private void __configure() {
-        try {
-            Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
-            List<URL> locals = new LinkedList<URL>();
-            while (urls.hasMoreElements()) {
-                URL url = urls.nextElement();
-                if (url.getProtocol().equals("jar")) {
-                    logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
-                    __configure(url);
-                } else {
-                    locals.add(url);
-                }
-            }
-            for (URL url : locals) {
-                logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
-                __configure(url);
-            }
-
-            for (Entry<String, Configuration> entry : configurations.entrySet()) {
-                String database = entry.getKey();
-                Configuration configuration = entry.getValue();
-                configuration.init();
-                __configure(database, configuration.dataSource);
-                Logger.getLogger(Database.class.getName()).log(Level.FINE, "Configured " + configuration);
-            }
-        } catch (IOException ex) {
-            throw new RuntimeException("Failed to configure from jorm.properties", ex);
-        }
-    }
-
-    public static void configure(URL url) throws IOException {
-        Properties properties = new Properties();
-        InputStream is = url.openStream();
-        properties.load(is);
-        is.close();
-        get().__configure(properties);
-    }
-
-    public static void configure(Properties properties) {
-        get().__configure(properties);
-    }
-
-    private void __configure(URL url) throws IOException {
-        Properties properties = new Properties();
-        InputStream is = url.openStream();
-        properties.load(is);
-        is.close();
-        __configure(properties);
-    }
-
-    private void __configure(Properties properties) {
-        for (Entry<Object, Object> property : properties.entrySet()) {
-            String[] parts = ((String)property.getKey()).split("\\.");
-            boolean isMalformed = false;
-
-            if (parts[0].equals("database") && parts.length > 1) {
-                String database = parts[1];
-
-                Configuration configuration = configurations.get(database);
-                if (configuration == null) {
-                    configuration = new Configuration(database);
-                    configurations.put(database, configuration);
-                }
-
-                String value = (String)property.getValue();
-                switch (parts.length) {
-                case 3:
-                    if (parts[2].equals("destroyMethod")) {
-                        configuration.destroyMethodName = value;
-                    } else if (parts[2].equals("dataSource")) {
-                        configuration.dataSourceClassName = value;
-                    } else if (parts[2].equals("timeZone")) {
-                        if ("default".equalsIgnoreCase(value)) {
-                            configuration.calendar = null;
-                        } else {
-                            configuration.calendar = Calendar.getInstance(TimeZone.getTimeZone(value));
-                        }
-                    } else {
-                        isMalformed = true;
-                    }
-                    break;
-
-                case 4:
-                    if (parts[2].equals("dataSource")) {
-                        configuration.dataSourceProperties.put(parts[3], value);
-                    } else {
-                        isMalformed = true;
-                    }
-                    break;
-
-                default:
-                    isMalformed = true;
-                }
-            } else {
-                isMalformed = true;
-            }
-
-            if (isMalformed) {
-                throw new RuntimeException("Malformed jorm property: " + property.toString());
-            }
-        }
-    }
-
-    public static class Configuration {
-        private final String database;
-        private String dataSourceClassName;
-        private String destroyMethodName;
-        private final Map<String, String> dataSourceProperties = new HashMap<String, String>();
-        private DataSource dataSource;
-        private Method destroyMethod;
-        private Calendar calendar;
-
-        public void inherit(Configuration base) {
-            if (dataSourceClassName == null) {
-                dataSourceClassName = base.dataSourceClassName;
-            }
-            if (destroyMethodName == null) {
-                destroyMethodName = base.destroyMethodName;
-            }
-            if (calendar == null) {
-                calendar = base.calendar;
-            }
-            for (String key : base.dataSourceProperties.keySet()) {
-                if (!dataSourceProperties.containsKey(key)) {
-                    dataSourceProperties.put(key, base.dataSourceProperties.get(key));
-                }
-            }
-        }
-
-        public Configuration(String database) {
-            this.database = database;
-        }
-
-        private void init() {
-            try {
-                Class<?> type = Class.forName(dataSourceClassName);
-                if (destroyMethodName != null) {
-                    try {
-                        destroyMethod = type.getMethod(destroyMethodName);
-                    } catch (NoSuchMethodException e) {
-                        throw new IllegalArgumentException("The destroy method does not exist!", e);
-                    } catch (SecurityException e) {
-                        throw new IllegalArgumentException("The destroy method is not accessible!", e);
-                    }
-                }
-
-                dataSource = (DataSource)type.newInstance();
-                for (Method method : dataSource.getClass().getMethods()) {
-                    String methodName = method.getName();
-                    Class<?>[] parameterTypes = method.getParameterTypes();
-
-                    if (methodName.startsWith("set") && methodName.length() > 3 && parameterTypes.length == 1) {
-                        String name = method.getName().substring(3, 4).toLowerCase() + method.getName().substring(4); // setValue -> value
-                        String property = dataSourceProperties.get(name);
-                        if (property != null) {
-                            boolean isAccessible = method.isAccessible();
-                            method.setAccessible(true);
-                            try {
-                                method.invoke(dataSource, parse(method.getParameterTypes()[0], property));
-                            } catch (Exception e) {
-                                throw new RuntimeException("Failed to invoke " + dataSource.getClass().getName() + "#" + method.getName() + "() in configuration of '" + database + "'");
-                            } finally {
-                                method.setAccessible(isAccessible);
-                            }
-                        }
-                    }
-                }
-            } catch (InstantiationException e) {
-                throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " has no default constructor!", e);
-            } catch (IllegalAccessException e) {
-                throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " has no public constructor!", e);
-            } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " does not exist!", e);
-            } catch (ClassCastException e) {
-                throw new IllegalArgumentException("The data source implementation " + dataSourceClassName + " is not a data source!", e);
-            }
-        }
-
-        public void destroy() {
-            if (destroyMethod != null) {
-                try {
-                    destroyMethod.invoke(dataSource);
-                } catch (Exception e) {
-                    throw new RuntimeException("Failed to invoke destroy method for " + dataSource.getClass(), e);
-                }
-            }
-        }
-
-        @SuppressWarnings("unchecked")
-        private static <T extends Object> T parse(Class<T> type, String property) {
-            Object object;
-            if (type.isAssignableFrom(String.class)) {
-                object = property;
-            } else if (type.isAssignableFrom(boolean.class) || type.isAssignableFrom(Boolean.class)) {
-                object = Boolean.parseBoolean(property);
-            } else if (type.isAssignableFrom(int.class) || type.isAssignableFrom(Integer.class)) {
-                object = Integer.parseInt(property);
-            } else if (type.isAssignableFrom(long.class) || type.isAssignableFrom(Long.class)) {
-                object = Long.parseLong(property);
-            } else {
-                object = null;
-            }
-            return (T)object;
-        }
-
-        @Override
-        public String toString() {
-            return "{ database => " + database + ", dataSourceClassName => " + dataSourceClassName + ", dataSourceProperties => " + dataSourceProperties + " }";
-        }
-    }
 }
