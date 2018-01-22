@@ -10,7 +10,7 @@ import com.jajja.jorm.generator.Generator;
 public class GeneratorTest {
 
     public static void main(String[] args) throws IOException, SQLException {
-        Transaction t = Database.open("moria");
+        Transaction t = new Database("moria").open();
         try {
             t.load(ClassLoader.class.getResourceAsStream("/moria.sql"));
 

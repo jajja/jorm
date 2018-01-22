@@ -26,40 +26,29 @@ import java.sql.SQLException;
 /**
  *
  * @author Daniel Adolfsson &lt;daniel.adolfsson@jajja.com&gt;
+ * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
  * @since 1.0.0
  */
 public class JormSqlException extends SQLException {
-    private static final long serialVersionUID = 1L;
-    private String database;
-    private String sql;
 
-    private static String rewriteMessage(String message, String database, String sql) {
+    private static final long serialVersionUID = 1L;
+    private final String sql;
+
+    private static String rewriteMessage(String message,String sql) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append(message);
-        stringBuilder.append(" [jORM database ");
-        stringBuilder.append(database);
         if (sql != null) {
-            stringBuilder.append(", SQL: ");
+            stringBuilder.append(" [jORM SQL: ");
             stringBuilder.append(sql);
+            stringBuilder.append(']');
         }
-        stringBuilder.append(']');
         return stringBuilder.toString();
     }
 
-    public JormSqlException(String database, String sql, SQLException sqlException) {
-        super(
-                rewriteMessage(sqlException.getMessage(), database, sql),
-                sqlException.getSQLState(),
-                sqlException.getErrorCode(),
-                sqlException.getCause()
-                );
-        this.database = database;
+    public JormSqlException(String sql, SQLException sqlException) {
+        super(rewriteMessage(sqlException.getMessage(), sql), sqlException.getSQLState(), sqlException.getErrorCode(), sqlException.getCause());
         this.sql = sql;
         setStackTrace(sqlException.getStackTrace());
-    }
-
-    public String getDatabase() {
-        return database;
     }
 
     public String getSql() {

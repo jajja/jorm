@@ -3,11 +3,6 @@ package psql;
 import java.sql.SQLException;
 import java.util.List;
 
-import moria.Goblin;
-import moria.Litter;
-import moria.Locale;
-import moria.Tribe;
-
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -15,22 +10,32 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jajja.jorm.Configurations;
 import com.jajja.jorm.Database;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Transaction;
 import com.jajja.jorm.exceptions.CheckViolationException;
 import com.jajja.jorm.exceptions.UniqueViolationException;
 
+import moria.Goblin;
+import moria.Litter;
+import moria.Locale;
+import moria.Tribe;
+
 public class Moria {
     Logger log = LoggerFactory.getLogger(Moria.class);
 
+    static Database database;
+
     @BeforeClass
     public static void open() {
-        Transaction t = Database.open("moria");
+        Configurations.load();
+        database = new Database("moria");
+        Transaction t = database.open();
         try {
             t.load(ClassLoader.class.getResourceAsStream("/moria.sql"));
             t.commit();
-            Database.open("moria").addListener(new Transaction.StdoutLogListener());
+            t.addListener(new Transaction.StdoutLogListener());
         } catch (Exception e) {
             LoggerFactory.getLogger(Moria.class).error("Failed to open test", e);
         } finally {
@@ -40,12 +45,13 @@ public class Moria {
 
     @AfterClass
     public static void close() {
-        Database.close();
+        database.close();
+        Configurations.destroy();
     }
 
     @Test
     public void t01_find() {
-        Transaction t = Database.open("moria");
+        Transaction t = database.open();
         try {
             Goblin goblin = t.select(Goblin.class, "SELECT * FROM #1# LIMIT 1", Goblin.class);
             Assert.assertNotNull(goblin);
@@ -59,7 +65,7 @@ public class Moria {
 
     @Test
     public void t02_findAll() {
-        Transaction t = Database.open("moria");
+        Transaction t = database.open();
         try {
             List<Goblin> goblins = t.findAll(Goblin.class);
             Assert.assertFalse(goblins.isEmpty());
@@ -73,7 +79,7 @@ public class Moria {
 
     @Test
     public void t03_columns() {
-        Transaction t = Database.open("moria");
+        Transaction t = database.open();
         try {
             Goblin goblin = t.select(Goblin.class, "SELECT * FROM #1# WHERE name = 'Bolg'", Goblin.class);
             Assert.assertNotNull(goblin);
@@ -87,7 +93,7 @@ public class Moria {
 
     @Test
     public void t04_oneToOne() {
-        Transaction t = Database.open("moria");
+        Transaction t = database.open();
         try {
             Goblin goblin = t.select(Goblin.class, "SELECT * FROM #1# WHERE name = 'Bolg'", Goblin.class);
             Tribe tribe = goblin.getTribe();
@@ -102,7 +108,7 @@ public class Moria {
 
     @Test
     public void t05_oneToMany() {
-        Transaction t = Database.open("moria");
+        Transaction t = database.open();
         try {
             Tribe tribe = t.select(Tribe.class, "SELECT * FROM #1# LIMIT 1", Tribe.class);
             List<Goblin> goblins = tribe.getGoblins(t);
@@ -117,7 +123,7 @@ public class Moria {
 
     @Test
     public void t06_queryField() {
-        Transaction t = Database.open("moria");
+        Transaction t = database.open();
         try {
             List<Goblin> goblins = t.findAll(Goblin.class);
             System.out.println(goblins);
@@ -137,7 +143,7 @@ public class Moria {
 
     @Test
     public void t07_checkViolation() {
-        Transaction t = Database.open("moria");
+        Transaction t = database.open();
         SQLException e = null;
         try {
             Litter litter = t.select(Litter.class, "SELECT * FROM #1# LIMIT 1", Litter.class);
@@ -154,7 +160,7 @@ public class Moria {
     @Test
     public void t08_uniqueViolation() {
         SQLException e = null;
-        Transaction t = Database.open("moria");
+        Transaction t = database.open();
         try {
             Goblin goblin = new Goblin();
             goblin.setName("Bolg");
@@ -171,7 +177,7 @@ public class Moria {
 
     @Test
     public void t09_compositeKey() {
-        Transaction t = Database.open("moria");
+        Transaction t = database.open();
         try {
             Locale locale = t.findById(Locale.class, Record.primaryKey(Locale.class).value("sv", "SE"));
             locale.setName("Swedish");

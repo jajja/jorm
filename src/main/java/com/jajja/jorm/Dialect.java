@@ -45,18 +45,18 @@ import com.jajja.jorm.exceptions.UniqueViolationException;
  * @since 1.0.0
  */
 public class Dialect {
+
     private static final HashMap<DatabaseProduct, Info> infos = new HashMap<DatabaseProduct, Info>();
-    private Info info;
+    private final Info info;
     private boolean returningSupported; // TODO EnumSet?
     private boolean rowWiseComparison;
-    private DatabaseProduct databaseProduct;
-    private String extraNameChars;
+    private final DatabaseProduct databaseProduct;
+    private final String extraNameChars;
     private String identifierQuoteString;
-    private String database;
 
     private static class Info {
         private boolean useSqlState;
-        private HashMap<Object, ExceptionType> errors = new HashMap<Object, ExceptionType>();
+        private final HashMap<Object, ExceptionType> errors = new HashMap<Object, ExceptionType>();
         private String nowFunction = "now()";
         private String nowQuery = "SELECT now()";
 
@@ -135,7 +135,6 @@ public class Dialect {
     Dialect(String database, Connection connection) throws SQLException {
         DatabaseMetaData metaData = connection.getMetaData();
 
-        this.database = database;
         databaseProduct = DatabaseProduct.getByName( metaData.getDatabaseProductName() );
         extraNameChars = metaData.getExtraNameCharacters();
         identifierQuoteString = metaData.getIdentifierQuoteString();
@@ -313,7 +312,9 @@ public class Dialect {
      * @return the exception type.
      */
     public ExceptionType getExceptionType(SQLException sqlException) {
-        if (info == null) return ExceptionType.UNKNOWN;
+        if (info == null) {
+            return ExceptionType.UNKNOWN;
+        }
 
         Object key = info.useSqlState() ? sqlException.getSQLState() : sqlException.getErrorCode();
         ExceptionType error = info.getError(key);
@@ -348,17 +349,17 @@ public class Dialect {
         if (sqlException instanceof JormSqlException) {
             throw (JormSqlException) sqlException;
         } else if (isForeignKeyViolation(sqlException)) {
-            throw new ForeignKeyViolationException(database, sql, sqlException);
+            throw new ForeignKeyViolationException(sql, sqlException);
         } else if (isUniqueViolation(sqlException)) {
-            throw new UniqueViolationException(database, sql, sqlException);
+            throw new UniqueViolationException(sql, sqlException);
         } else if (isCheckViolation(sqlException)) {
-            throw new CheckViolationException(database, sql, sqlException);
+            throw new CheckViolationException(sql, sqlException);
         } else if (isLockTimeout(sqlException)) {
-            throw new LockTimeoutException(database, sql, sqlException);
+            throw new LockTimeoutException(sql, sqlException);
         } else if (isDeadlockDetected(sqlException)) {
-            throw new DeadlockDetectedException(database, sql, sqlException);
+            throw new DeadlockDetectedException(sql, sqlException);
         } else {
-            throw new JormSqlException(database, sql, sqlException);
+            throw new JormSqlException(sql, sqlException);
         }
     }
 

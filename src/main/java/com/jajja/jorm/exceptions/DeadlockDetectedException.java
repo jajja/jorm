@@ -31,7 +31,7 @@ import java.sql.SQLException;
 public class DeadlockDetectedException extends JormSqlException {
     private static final long serialVersionUID = 1L;
 
-    public DeadlockDetectedException(String database, String sql, SQLException sqlException) {
-        super(database, sql, sqlException);
+    public DeadlockDetectedException(String sql, SQLException sqlException) {
+        super(sql, sqlException);
     }
 }

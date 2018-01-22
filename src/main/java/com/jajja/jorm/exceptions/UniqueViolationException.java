@@ -31,7 +31,7 @@ import java.sql.SQLException;
 public class UniqueViolationException extends JormSqlException {
     private static final long serialVersionUID = 1L;
 
-    public UniqueViolationException(String database, String sql, SQLException sqlException) {
-        super(database, sql, sqlException);
+    public UniqueViolationException(String sql, SQLException sqlException) {
+        super(sql, sqlException);
     }
 }
