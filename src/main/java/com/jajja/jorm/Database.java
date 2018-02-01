@@ -45,7 +45,6 @@ import javax.sql.DataSource;
  * @since 1.0.0
  */
 public class Database {
-
     private final String database;
     private final Configuration configuration;
     private final ThreadLocal<HashSet<Transaction>> transactions = new ThreadLocal<HashSet<Transaction>>();
@@ -131,5 +130,4 @@ public class Database {
         }
         transactions.remove();
     }
-
 }

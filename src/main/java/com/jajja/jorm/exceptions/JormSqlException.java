@@ -30,7 +30,6 @@ import java.sql.SQLException;
  * @since 1.0.0
  */
 public class JormSqlException extends SQLException {
-
     private static final long serialVersionUID = 1L;
     private final String sql;
 

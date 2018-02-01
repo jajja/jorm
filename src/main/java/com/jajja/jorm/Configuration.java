@@ -8,7 +8,6 @@ import java.util.TimeZone;
 import javax.sql.DataSource;
 
 public abstract class Configuration {
-
     public static Configuration get(DataSource dataSource) {
         return new DataSourceConfiguration(dataSource);
     }
@@ -65,7 +64,6 @@ public abstract class Configuration {
      * database.moria.context=production
      */
     private static class PropertiesConfiguration extends Configuration {
-
         private DataSource dataSource;
         private Method destroy;
         private Calendar calendar;
@@ -140,7 +138,6 @@ public abstract class Configuration {
                 }
             }
         }
-
     }
 
     @SuppressWarnings("unchecked")
@@ -159,5 +156,4 @@ public abstract class Configuration {
         }
         return (T) object;
     }
-
 }

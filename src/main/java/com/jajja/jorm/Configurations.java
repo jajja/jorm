@@ -46,7 +46,6 @@ import javax.sql.DataSource;
  * @since 2.0.0
  */
 public class Configurations {
-
     private static final Logger logger = Logger.getLogger(Configurations.class.getName());
     private static final Map<String, Configuration> configurations = new ConcurrentHashMap<String, Configuration>(16, 0.75f, 1);
 
@@ -174,7 +173,6 @@ public class Configurations {
         load(properties, isOverride);
     }
 
-
     public static Configuration getConfiguration(String database) {
         return configurations.get(database);
     }
@@ -214,5 +212,4 @@ public class Configurations {
             }
         }
     }
-
 }

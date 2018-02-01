@@ -45,7 +45,6 @@ import com.jajja.jorm.exceptions.UniqueViolationException;
  * @since 1.0.0
  */
 public class Dialect {
-
     private static final HashMap<DatabaseProduct, Info> infos = new HashMap<DatabaseProduct, Info>();
     private final Info info;
     private boolean returningSupported; // TODO EnumSet?
