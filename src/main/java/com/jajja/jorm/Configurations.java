@@ -72,6 +72,12 @@ public class Configurations {
     }
 
     public static void configure(String database, Configuration configuration, boolean isOverride) {
+        if (database == null) {
+            throw new NullPointerException("database is null");
+        }
+        if (configuration == null) {
+            throw new NullPointerException("configuration is null");
+        }
         if (isConfigured(database)) {
             if (isOverride) {
                 getConfiguration(database).destroy();

@@ -52,6 +52,9 @@ public class Database {
     public Database(String database) {
         this.database = database;
         this.configuration = Configurations.getConfiguration(database);
+        if (configuration == null) {
+            throw new IllegalArgumentException(database + " is not configured");
+        }
     }
 
     public Database(String database, Configuration configuration) {
