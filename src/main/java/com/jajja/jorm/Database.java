@@ -128,7 +128,8 @@ public class Database {
      * Closes and destroys all transactions for the current thread.
      */
     public void close() {
-        for (Transaction transaction : transactions()) {
+        Set<Transaction> set = new HashSet<Transaction>(getThreadLocalTransactions());
+        for (Transaction transaction : set) {
             transaction.close();
         }
         transactions.remove();
