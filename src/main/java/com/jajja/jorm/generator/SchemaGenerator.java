@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.jajja.jorm.Database;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Transaction;
@@ -51,7 +52,7 @@ public class SchemaGenerator implements Lookupable {
     private String name;
     private String packageName;
     Map<String, TableGenerator> tables = new LinkedHashMap<String, TableGenerator>();
-    private DatabaseGenerator database;
+    private final DatabaseGenerator database;
     private String tablePrefix = "";
 
     static {
@@ -145,21 +146,25 @@ public class SchemaGenerator implements Lookupable {
     }
 
     public SchemaGenerator addAllTables() throws SQLException {
-        Transaction transaction = com.jajja.jorm.Database.open(getDatabase().getName());
+        Transaction transaction = new Database(getDatabase().getName()).open();
         Connection connection = transaction.getConnection();
         DatabaseMetaData metadata = connection.getMetaData();
 
-        ResultSet rs = null;
+        ResultSet resultSet = null;
         try {
             String[] types = new String[] {"TABLE", "VIEW"};
-            rs = metadata.getTables(null, name, null, types);
-            while (rs.next()) {
-                addTable(rs.getString("TABLE_NAME"));
+            resultSet = metadata.getTables(null, name, null, types);
+            while (resultSet.next()) {
+                addTable(resultSet.getString("TABLE_NAME"));
             }
         } finally {
-            if (rs != null) {
-                rs.close();
+            if (resultSet != null) {
+                resultSet.close();
             }
+            if (connection != null) {
+                connection.close();
+            }
+            transaction.close();
         }
         return this;
     }

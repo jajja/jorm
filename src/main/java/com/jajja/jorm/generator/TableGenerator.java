@@ -48,12 +48,12 @@ import com.jajja.jorm.Transaction;
  * @since 1.1.0
  */
 public class TableGenerator implements Lookupable {
-    private SchemaGenerator schema;
+    private final SchemaGenerator schema;
     private String name;
-    private List<ColumnGenerator[]> uniqueKeys = new LinkedList<ColumnGenerator[]>();
-    private Map<String, ColumnGenerator> columns = new LinkedHashMap<String, ColumnGenerator>();
+    private final List<ColumnGenerator[]> uniqueKeys = new LinkedList<ColumnGenerator[]>();
+    private final Map<String, ColumnGenerator> columns = new LinkedHashMap<String, ColumnGenerator>();
     private ColumnGenerator primaryColumn;
-    private ImportCollection imports;
+    private final ImportCollection imports;
 
     public TableGenerator(SchemaGenerator schema, String name) {
         this.schema = schema;
@@ -108,8 +108,9 @@ public class TableGenerator implements Lookupable {
         return imports;
     }
 
+    @SuppressWarnings("resource")
     public void fetchMetadata(Transaction transaction) throws SQLException {
-        Connection c = transaction.getConnection();
+        Connection connection = transaction.getConnection();
         ResultSet resultSet = null;
         String primaryColumnName = "id";
 
@@ -117,7 +118,7 @@ public class TableGenerator implements Lookupable {
         addImport("com.jajja.jorm.Record");
 
         try {
-            resultSet = c.getMetaData().getPrimaryKeys(null, schema.getName(), name);
+            resultSet = connection.getMetaData().getPrimaryKeys(null, schema.getName(), name);
             if (resultSet.next()) {
                 primaryColumnName = resultSet.getString("COLUMN_NAME");
             }
@@ -127,9 +128,8 @@ public class TableGenerator implements Lookupable {
                 resultSet = null;
             }
         }
-
         try {
-            resultSet = c.getMetaData().getColumns(null, schema.getName(), name, null);
+            resultSet = connection.getMetaData().getColumns(null, schema.getName(), name, null);
             while (resultSet.next()) {
                 ColumnGenerator column = new ColumnGenerator(this, resultSet);
                 if (column.getName().equals(primaryColumnName)) {
@@ -142,7 +142,11 @@ public class TableGenerator implements Lookupable {
             if (resultSet != null) {
                 resultSet.close();
             }
+            if (connection != null) {
+                connection.close();
+            }
         }
+
     }
 
     private static String depluralize(String string) { // XXX: more advanced logic?

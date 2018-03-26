@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.jajja.jorm.Configurations;
 import com.jajja.jorm.Database;
 import com.jajja.jorm.Dialect;
 import com.jajja.jorm.Jorm;
@@ -46,12 +47,12 @@ import com.jajja.jorm.Transaction;
  * @since 1.1.0
  */
 public class DatabaseGenerator implements Lookupable {
-    private String packageName;
-    private String name;
+    private final String packageName;
+    private final String name;
     private String defaultSchemaName = null;
-    private Map<String, String> typeMap = new HashMap<String, String>();
-    private Map<String, SchemaGenerator> schemas = new LinkedHashMap<String, SchemaGenerator>();
-    private Generator generator;
+    private final Map<String, String> typeMap = new HashMap<String, String>();
+    private final Map<String, SchemaGenerator> schemas = new LinkedHashMap<String, SchemaGenerator>();
+    private final Generator generator;
 
     public static enum TypeClass {
         ENUM;
@@ -61,7 +62,8 @@ public class DatabaseGenerator implements Lookupable {
         this.generator = generator;
         this.name = name;
         this.packageName = packageName;
-        Transaction transaction = Database.open(name);
+        Configurations.load();
+        Transaction transaction = new Database(name).open();
         try {
             if (Dialect.DatabaseProduct.POSTGRESQL.equals(transaction.getDialect().getDatabaseProduct())) {
                 defaultSchemaName = "public";
@@ -70,6 +72,7 @@ public class DatabaseGenerator implements Lookupable {
         } finally {
             transaction.close();
         }
+        Configurations.destroy();
     }
 
     public Generator getGenerator() {
@@ -183,7 +186,7 @@ public class DatabaseGenerator implements Lookupable {
     }
 
     void fetchForeignKeys() throws SQLException {
-        Transaction transaction = Database.open(name);
+        Transaction transaction = new Database(name).open();
 
         try {
             // Fetch foreign keys
