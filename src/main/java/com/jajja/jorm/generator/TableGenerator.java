@@ -142,9 +142,6 @@ public class TableGenerator implements Lookupable {
             if (resultSet != null) {
                 resultSet.close();
             }
-            if (connection != null) {
-                connection.close();
-            }
         }
 
     }
