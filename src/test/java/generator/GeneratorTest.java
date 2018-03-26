@@ -20,7 +20,7 @@ public class GeneratorTest {
                 //.getDefaultSchema()
                 .addTables("tribes", "goblins", "litters");
 
-            generator.fetchMetadata(t);
+            generator.fetchMetadata();
 
             generator.getColumn("moria.@.goblins.tribe_id").addReference("tribes.id");
             generator.getColumn("moria.@.litters.goblin_id").addReference("goblins.id");
