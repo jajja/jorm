@@ -44,7 +44,7 @@ import com.jajja.jorm.converters.TypeConverter;
 public class Row {
     public static final byte FLAG_READ_ONLY = 0x02;
     public static final byte FLAG_REF_FETCH = 0x04;
-    Map<String, Field> fields = new HashMap<String, Field>(8, 1.0f);
+    HashMap<String, Field> fields = new HashMap<String, Field>(8, 1.0f);
     byte flags = FLAG_REF_FETCH;
     private Transaction transaction;
 
@@ -375,16 +375,16 @@ public class Row {
     }
 
     void put(String column, Object value) {
-        column = StringPool.get(column);
         Field field = field(column);
         if (field == null) {
             field = new Field();
+            column = StringPool.get(column);
         }
 
         field.setChanged(true);
         field.setValue(value);
 
-        fields.put(column, field);
+        fields.put(column, field);      // XXX does update the key reference if it already exists?
     }
 
     /**

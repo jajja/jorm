@@ -92,7 +92,6 @@ import com.jajja.jorm.Row.NamedField;
  */
 public class Transaction implements Closeable {
     private final Database database;
-    private final DataSource dataSource;
     private Dialect dialect;
     private Connection connection;
     private boolean isClosed;
@@ -186,9 +185,8 @@ public class Transaction implements Closeable {
         this.calendar = Calendar.getInstance(timeZone);
     }
 
-    protected Transaction(Database database, DataSource dataSource, Calendar calendar) {
+    protected Transaction(Database database, Calendar calendar) {
         this.database = database;
-        this.dataSource = dataSource;
         this.calendar = calendar;
     }
 
@@ -207,7 +205,7 @@ public class Transaction implements Closeable {
      * @return the data source.
      */
     public DataSource getDataSource() {
-        return dataSource;
+        return database.getDataSource();
     }
 
     /**
@@ -253,7 +251,7 @@ public class Transaction implements Closeable {
             throw new IllegalStateException("Connection is closed");
         }
         if (connection == null) {
-            Connection c = dataSource.getConnection();
+            Connection c = getDataSource().getConnection();
             try {
                 c.setAutoCommit(false);
                 dialect = new Dialect(c);
