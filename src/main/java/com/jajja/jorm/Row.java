@@ -375,10 +375,10 @@ public class Row {
     }
 
     void put(String column, Object value) {
+        column = StringPool.get(column);
         Field field = field(column);
         if (field == null) {
             field = new Field();
-            column = StringPool.get(column);
         }
 
         field.setChanged(true);

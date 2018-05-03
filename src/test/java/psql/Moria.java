@@ -10,8 +10,8 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.jajja.jorm.Configurations;
 import com.jajja.jorm.Database;
+import com.jajja.jorm.Databases;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Transaction;
 import com.jajja.jorm.exceptions.CheckViolationException;
@@ -26,12 +26,13 @@ public class Moria {
     Logger log = LoggerFactory.getLogger(Moria.class);
 
     static Database database;
+    static Databases dbs = new Databases();
 
     @BeforeClass
     public static void open() {
-        Configurations.load();
-        database = new Database("moria");
-        Transaction t = database.open();
+        dbs.configure();
+        database = dbs.get("moria");
+        Transaction t = database.openTransaction();
         try {
             t.load(ClassLoader.class.getResourceAsStream("/moria.sql"));
             t.commit();
@@ -46,12 +47,12 @@ public class Moria {
     @AfterClass
     public static void close() {
         database.close();
-        Configurations.destroy();
+        dbs.destroy();
     }
 
     @Test
     public void t01_find() {
-        Transaction t = database.open();
+        Transaction t = database.openTransaction();
         try {
             Goblin goblin = t.select(Goblin.class, "SELECT * FROM #1# LIMIT 1", Goblin.class);
             Assert.assertNotNull(goblin);
@@ -65,7 +66,7 @@ public class Moria {
 
     @Test
     public void t02_findAll() {
-        Transaction t = database.open();
+        Transaction t = database.openTransaction();
         try {
             List<Goblin> goblins = t.findAll(Goblin.class);
             Assert.assertFalse(goblins.isEmpty());
@@ -79,7 +80,7 @@ public class Moria {
 
     @Test
     public void t03_columns() {
-        Transaction t = database.open();
+        Transaction t = database.openTransaction();
         try {
             Goblin goblin = t.select(Goblin.class, "SELECT * FROM #1# WHERE name = 'Bolg'", Goblin.class);
             Assert.assertNotNull(goblin);
@@ -93,7 +94,7 @@ public class Moria {
 
     @Test
     public void t04_oneToOne() {
-        Transaction t = database.open();
+        Transaction t = database.openTransaction();
         try {
             Goblin goblin = t.select(Goblin.class, "SELECT * FROM #1# WHERE name = 'Bolg'", Goblin.class);
             Tribe tribe = goblin.getTribe();
@@ -108,7 +109,7 @@ public class Moria {
 
     @Test
     public void t05_oneToMany() {
-        Transaction t = database.open();
+        Transaction t = database.openTransaction();
         try {
             Tribe tribe = t.select(Tribe.class, "SELECT * FROM #1# LIMIT 1", Tribe.class);
             List<Goblin> goblins = tribe.getGoblins(t);
@@ -123,7 +124,7 @@ public class Moria {
 
     @Test
     public void t06_queryField() {
-        Transaction t = database.open();
+        Transaction t = database.openTransaction();
         try {
             List<Goblin> goblins = t.findAll(Goblin.class);
             System.out.println(goblins);
@@ -143,7 +144,7 @@ public class Moria {
 
     @Test
     public void t07_checkViolation() {
-        Transaction t = database.open();
+        Transaction t = database.openTransaction();
         SQLException e = null;
         try {
             Litter litter = t.select(Litter.class, "SELECT * FROM #1# LIMIT 1", Litter.class);
@@ -160,7 +161,7 @@ public class Moria {
     @Test
     public void t08_uniqueViolation() {
         SQLException e = null;
-        Transaction t = database.open();
+        Transaction t = database.openTransaction();
         try {
             Goblin goblin = new Goblin();
             goblin.setName("Bolg");
@@ -177,7 +178,7 @@ public class Moria {
 
     @Test
     public void t09_compositeKey() {
-        Transaction t = database.open();
+        Transaction t = database.openTransaction();
         try {
             Locale locale = t.findById(Locale.class, Record.primaryKey(Locale.class).value("sv", "SE"));
             locale.setName("Swedish");

@@ -3,7 +3,7 @@ package moria;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 
-@Jorm(database="moria", table="locales", primaryKey={"language", "country"})
+@Jorm(table="locales", primaryKey={"language", "country"})
 public class Locale extends Record {
     public Integer getId() {
         return get("id", Integer.class);

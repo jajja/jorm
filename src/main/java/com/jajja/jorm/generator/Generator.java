@@ -30,7 +30,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import com.jajja.jorm.Database;
+import com.jajja.jorm.Databases;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Transaction;
@@ -46,8 +46,14 @@ import com.jajja.jorm.Transaction;
 public class Generator implements Lookupable {
     private Map<String, DatabaseGenerator> databases = new LinkedHashMap<String, DatabaseGenerator>();
     private boolean metadataFetched = false;
+    protected final Databases dbs;
 
-    public Generator() {
+    public Generator(Databases databases) {
+        this.dbs = databases;
+    }
+
+    protected Transaction openTransaction(String name) {
+        return dbs.get(name).openTransaction();
     }
 
     public void fetchMetadata() throws SQLException {
@@ -55,7 +61,7 @@ public class Generator implements Lookupable {
             throw new IllegalStateException("Metadata already fetched");
         }
         for (DatabaseGenerator database : databases.values()) {
-            Transaction transaction = new Database(database.getName()).open();
+            Transaction transaction = openTransaction(database.getName());
             try {
                 database.fetchMetadata(transaction);
             } finally {
@@ -84,9 +90,9 @@ public class Generator implements Lookupable {
         }
     }
 
-    public DatabaseGenerator addDatabase(String name, String packageName) throws SQLException {
-        DatabaseGenerator database = new DatabaseGenerator(this, name, packageName);
-        databases.put(name, database);
+    public DatabaseGenerator addDatabase(String databaseName, String packageName) throws SQLException {
+        DatabaseGenerator database = new DatabaseGenerator(this, databaseName, packageName);
+        databases.put(databaseName, database);
         return database;
     }
 

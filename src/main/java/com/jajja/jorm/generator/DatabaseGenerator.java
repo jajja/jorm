@@ -30,8 +30,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.jajja.jorm.Configurations;
-import com.jajja.jorm.Database;
 import com.jajja.jorm.Dialect;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
@@ -48,8 +46,8 @@ import com.jajja.jorm.Transaction;
  */
 public class DatabaseGenerator implements Lookupable {
     private final String packageName;
-    private final String name;
     private String defaultSchemaName = null;
+    private final String name;
     private final Map<String, String> typeMap = new HashMap<String, String>();
     private final Map<String, SchemaGenerator> schemas = new LinkedHashMap<String, SchemaGenerator>();
     private final Generator generator;
@@ -60,10 +58,9 @@ public class DatabaseGenerator implements Lookupable {
 
     public DatabaseGenerator(Generator generator, String name, String packageName) throws SQLException {
         this.generator = generator;
-        this.name = name;
         this.packageName = packageName;
-        Configurations.load();
-        Transaction transaction = new Database(name).open();
+        this.name = name;
+        Transaction transaction = generator.openTransaction(name);
         try {
             if (Dialect.DatabaseProduct.POSTGRESQL.equals(transaction.getDialect().getDatabaseProduct())) {
                 defaultSchemaName = "public";
@@ -72,7 +69,10 @@ public class DatabaseGenerator implements Lookupable {
         } finally {
             transaction.close();
         }
-        Configurations.destroy();
+    }
+
+    public String getName() {
+        return name;
     }
 
     public Generator getGenerator() {
@@ -81,10 +81,6 @@ public class DatabaseGenerator implements Lookupable {
 
     public String getPackageName() {
         return packageName;
-    }
-
-    public String getName() {
-        return name;
     }
 
     public SchemaGenerator addSchema(String name) {
@@ -186,7 +182,7 @@ public class DatabaseGenerator implements Lookupable {
     }
 
     void fetchForeignKeys() throws SQLException {
-        Transaction transaction = new Database(name).open();
+        Transaction transaction = generator.openTransaction(name);
 
         try {
             // Fetch foreign keys

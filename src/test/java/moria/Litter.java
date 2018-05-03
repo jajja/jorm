@@ -3,7 +3,7 @@ package moria;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 
-@Jorm(database="moria", table="litters", primaryKey="id", immutablePrefix="__")
+@Jorm(table="litters", primaryKey="id", immutablePrefix="__")
 public class Litter extends Record {
     public Integer getId() {
         return get("id", Integer.class);

@@ -41,12 +41,6 @@ public class RecordBatch<T extends Record> {
         if (!template.getClass().equals(record.getClass())) {
             throw new IllegalArgumentException("all records must be of the same class");
         }
-        if (template.table().getDatabase() == null) {
-            throw new IllegalArgumentException("template record has no @Jorm database defined");
-        }
-        if (!template.table().getDatabase().equals(record.table().getDatabase())) {
-            throw new IllegalArgumentException("all records must be bound to the same Database");
-        }
     }
 
     public T template() {

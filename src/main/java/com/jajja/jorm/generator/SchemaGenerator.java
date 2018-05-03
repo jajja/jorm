@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.jajja.jorm.Database;
 import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Transaction;
@@ -146,7 +145,7 @@ public class SchemaGenerator implements Lookupable {
     }
 
     public SchemaGenerator addAllTables() throws SQLException {
-        Transaction transaction = new Database(getDatabase().getName()).open();
+        Transaction transaction = getGenerator().openTransaction(database.getName());
         Connection connection = transaction.getConnection();
         DatabaseMetaData metadata = connection.getMetaData();
 

@@ -47,7 +47,8 @@ public @interface Jorm {
      * @see Database
      * @return the table name
      */
-    public String database() default INHERIT;
+    @Deprecated
+//    public String database() default INHERIT;
 
     /**
      * Name of mapped schema. Set to Jorm.NONE for none.

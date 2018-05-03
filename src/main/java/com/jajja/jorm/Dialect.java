@@ -131,10 +131,10 @@ public class Dialect {
      * @throws SQLException
      *             when the connection fail.
      */
-    Dialect(String database, Connection connection) throws SQLException {
+    Dialect(Connection connection) throws SQLException {
         DatabaseMetaData metaData = connection.getMetaData();
 
-        databaseProduct = DatabaseProduct.getByName( metaData.getDatabaseProductName() );
+        databaseProduct = DatabaseProduct.getByName(metaData.getDatabaseProductName());
         extraNameChars = metaData.getExtraNameCharacters();
         identifierQuoteString = metaData.getIdentifierQuoteString();
         if (" ".equals(identifierQuoteString)) {

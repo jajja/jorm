@@ -37,7 +37,6 @@ import com.jajja.jorm.Row.NamedField;
  */
 public class Table {
     private static Map<Class<?>, Table> map = new ConcurrentHashMap<Class<?>, Table>(16, 0.75f, 1);
-    private final String database;
     private final String schema;
     private final String table;
     private final Composite primaryKey;
@@ -60,8 +59,7 @@ public class Table {
         return table;
     }
 
-    public Table(String database, String schema, String table, Composite primaryKey, String immutablePrefix) {
-        this.database = database;
+    public Table(String schema, String table, Composite primaryKey, String immutablePrefix) {
         this.schema = schema;
         this.table = table;
         this.primaryKey = primaryKey;
@@ -69,7 +67,6 @@ public class Table {
     }
 
     public Table(JormAnnotation annotation) {
-        this.database = Jorm.NONE.equals(annotation.database) ? null : annotation.database;
         this.schema = Jorm.NONE.equals(annotation.schema) ? null : annotation.schema;
         this.table = Jorm.NONE.equals(annotation.table) ? null : annotation.table;
         if (annotation.primaryKey == null || annotation.primaryKey.length == 0 || Jorm.NONE.equals(annotation.primaryKey[0])) {
@@ -103,10 +100,6 @@ public class Table {
         return annotation.merge(superAnnotation);
     }
 
-    public String getDatabase() {
-        return database;
-    }
-
     public String getSchema() {
         return schema;
     }
@@ -133,7 +126,7 @@ public class Table {
 
     @Override
     public String toString() {
-        return String.format("Table [database => %s, schema => %s, table => %s, primaryKey => %s, immutablePrefix => %s]", database, schema, table, primaryKey, immutablePrefix);
+        return String.format("Table [schema => %s, table => %s, primaryKey => %s, immutablePrefix => %s]", schema, table, primaryKey, immutablePrefix);
     }
 
     private static class JormAnnotation {
@@ -152,7 +145,6 @@ public class Table {
         }
 
         public JormAnnotation(Jorm jorm) {
-            this.database = nullify(jorm.database());
             this.schema = nullify(jorm.schema());
             this.table = nullify(jorm.table());
             this.primaryKey = nullify(jorm.primaryKey());

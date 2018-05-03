@@ -112,7 +112,7 @@ public class RecordIterator implements Closeable {
             if (transaction != null) {
                 transaction.getDialect().rethrow(sqlException);
             } else if (preparedStatement != null) {
-                throw new Dialect("?", preparedStatement.getConnection()).rethrow(sqlException);
+                throw new Dialect(preparedStatement.getConnection()).rethrow(sqlException);
             } else {
                 throw sqlException;
             }

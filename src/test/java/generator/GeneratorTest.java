@@ -3,18 +3,20 @@ package generator;
 import java.io.IOException;
 import java.sql.SQLException;
 
-import com.jajja.jorm.Database;
+import com.jajja.jorm.Databases;
 import com.jajja.jorm.Transaction;
 import com.jajja.jorm.generator.Generator;
 
 public class GeneratorTest {
 
     public static void main(String[] args) throws IOException, SQLException {
-        Transaction t = new Database("moria").open();
+        Databases dbs = new Databases();
+        dbs.configure();
+        Transaction t = dbs.get("moria").openTransaction();
         try {
             t.load(ClassLoader.class.getResourceAsStream("/moria.sql"));
 
-            Generator generator = new Generator();
+            Generator generator = new Generator(dbs);
 
             generator.addDatabase("moria", "org.goblins.test.records")
                 //.getDefaultSchema()

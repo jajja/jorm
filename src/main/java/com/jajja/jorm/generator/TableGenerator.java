@@ -179,11 +179,10 @@ public class TableGenerator implements Lookupable {
 
         // Annotation
         stringBuilder.append("@Jorm(");
-        stringBuilder.append("database=\"").append(getDatabase().getName()).append("\"");
         if (schema.getName() != null) {
-            stringBuilder.append(", schema=\"").append(schema.getName()).append("\"");
+            stringBuilder.append("schema=\"").append(schema.getName()).append("\", ");
         }
-        stringBuilder.append(", table=\"").append(name).append("\"");
+        stringBuilder.append("table=\"").append(name).append("\"");
         if (primaryColumn != null) {
             stringBuilder.append(", primaryKey=\"").append(primaryColumn.getName()).append("\"");
         }

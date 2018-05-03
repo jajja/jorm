@@ -7,7 +7,7 @@ import com.jajja.jorm.Jorm;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Transaction;
 
-@Jorm(database="moria", table="tribes", primaryKey="id")
+@Jorm(table="tribes", primaryKey="id")
 public class Tribe extends Record {
     public Integer getId() {
         return get("id", Integer.class);

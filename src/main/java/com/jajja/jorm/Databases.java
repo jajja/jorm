@@ -35,21 +35,47 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.sql.DataSource;
-
 /**
- * Configuration meta class, maintaining active database configurations.
+ * Database configuration meta class, maintaining active database configurations.
  *
  * @see Database
- * @see Configuration
+ * @see Database
  * @author Martin Korinth &lt;martin.korinth@jajja.com&gt;
  * @since 2.0.0
  */
-public class Configurations {
-    private static final Logger logger = Logger.getLogger(Configurations.class.getName());
-    private static final Map<String, Configuration> configurations = new ConcurrentHashMap<String, Configuration>(16, 0.75f, 1);
+public class Databases {
+    private final Logger logger = Logger.getLogger(Databases.class.getName());
+    private final ConcurrentHashMap<String, Database> databases = new ConcurrentHashMap<String, Database>(16, 0.75f, 1);
 
-    public static void load() {
+    public Database get(String databaseName) {
+        return databases.get(databaseName);
+    }
+
+    public Database put(Database database) {
+        if (database == null) {
+            throw new NullPointerException("database is null");
+        }
+        return databases.put(database.getName(), database);
+    }
+
+    public void remove(Database database) {
+        if (database == null) {
+            throw new NullPointerException("database is null");
+        }
+        remove(database.getName());
+    }
+
+    public void remove(String databaseName) {
+        databases.remove(databaseName);
+    }
+
+    public void destroy() {
+        for (Database database : databases.values()) {
+            database.destroy();
+        }
+    }
+
+    public void configure() {
         try {
             Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources("jorm.properties");
             List<URL> locals = new LinkedList<URL>();
@@ -57,68 +83,25 @@ public class Configurations {
                 URL url = urls.nextElement();
                 if (url.getProtocol().equals("jar")) {
                     logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
-                    load(url);
+                    configureFrom(url);
                 } else {
                     locals.add(url);
                 }
             }
             for (URL url : locals) {
                 logger.log(Level.FINE, "Found jorm configuration @ " + url.toString());
-                load(url, true);
+                configureFrom(url);
             }
         } catch (IOException ex) {
             throw new RuntimeException("Failed to configure from jorm.properties", ex);
         }
     }
 
-    public static void configure(String database, Configuration configuration, boolean isOverride) {
-        if (database == null) {
-            throw new NullPointerException("database is null");
-        }
-        if (configuration == null) {
-            throw new NullPointerException("configuration is null");
-        }
-        if (isConfigured(database)) {
-            if (isOverride) {
-                getConfiguration(database).destroy();
-            } else {
-                throw new IllegalStateException("Named database '" + database + "' already configured!");
-            }
-        }
-        configurations.put(database, configuration);
+    public void configureFrom(Properties properties) {
+        configureFrom(properties, false);
     }
 
-    public static void configure(String database, Configuration configuration) {
-        configure(database, configuration, false);
-    }
-
-    /**
-     * Configures the named database by means of a data source.
-     *
-     * @param database the named database.
-     * @param dataSource the data source corresponding to the named data base.
-     * @param isOverride a flag defining configuration as override if a current
-     * configuration for the named database already exists.
-     */
-    public static void configure(String database, DataSource dataSource, boolean isOverride) {
-        configure(database, Configuration.get(dataSource), isOverride);
-    }
-
-    /**
-     * Configures the named database by means of a data source.
-     *
-     * @param database the named database.
-     * @param dataSource the data source corresponding to the named data base.
-     */
-    public static void configure(String database, DataSource dataSource) {
-        configure(database, dataSource, false);
-    }
-
-    public static void load(Properties properties) {
-        load(properties, false);
-    }
-
-    public static void load(Properties properties, boolean isOverride) {
+    public void configureFrom(Properties properties, boolean merge) {
         Map<String, Properties> confs = new HashMap<String, Properties>();
         for (Entry<Object, Object> property : properties.entrySet()) {
             String[] parts = ((String)property.getKey()).split("\\.");
@@ -162,60 +145,22 @@ public class Configurations {
                 throw new RuntimeException("Malformed jorm property: " + property.toString());
             }
         }
-        for (Entry<String, Properties> entry : confs.entrySet()) {
-            configure(entry.getKey(), Configuration.get(entry.getValue()), isOverride);
+        for (Entry<String, Properties> e : confs.entrySet()) {
+            String databaseName = e.getKey();
+            Properties props = e.getValue();
+
+            put(new Database.PropertyConfiguredDatabase(databaseName, props));
         }
     }
 
-    public static void load(URL url) throws IOException {
-        load(url, false);
-    }
-
-    public static void load(URL url, boolean isOverride) throws IOException {
-        Properties properties = new Properties();
+    public void configureFrom(URL url) throws IOException {
         InputStream is = url.openStream();
-        properties.load(is);
-        is.close();
-        load(properties, isOverride);
-    }
-
-    public static Configuration getConfiguration(String database) {
-        return configurations.get(database);
-    }
-
-    public static DataSource getDataSource(String database) {
-        return getConfiguration(database).getDataSource();
-    }
-
-    /**
-     * Determines whether a named database has been configured or not.
-     *
-     * @param database the named database.
-     * @return true if the named database has been configured, false otherwise.
-     */
-    public static boolean isConfigured(String database) {
-        return getConfiguration(database) != null;
-    }
-
-    /**
-     * Ensures that a named database is configured by throwing an illegal state
-     * exception if it is not.
-     *
-     * @param database the named database.
-     * @throws IllegalStateException when the named database has not been
-     * configured.
-     */
-    public static void assertConfigured(String database) {
-        if (!isConfigured(database)) {
-            throw new IllegalStateException("Named database '" + database + "' has no configured data source!");
-        }
-    }
-
-    public static void destroy() {
-        if (configurations != null) {
-            for (Configuration configuration : configurations.values()) {
-                configuration.destroy();
-            }
+        try {
+            Properties properties = new Properties();
+            properties.load(is);
+            configureFrom(properties);
+        } finally {
+            is.close();
         }
     }
 }

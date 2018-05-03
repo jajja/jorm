@@ -8,7 +8,7 @@ import com.jajja.jorm.Query;
 import com.jajja.jorm.Record;
 import com.jajja.jorm.Transaction;
 
-@Jorm(database="moria", table="goblins", primaryKey="id")
+@Jorm(table="goblins", primaryKey="id")
 public class Goblin extends Record {
     public Integer getId() {
         return get("id", Integer.class);

@@ -256,7 +256,7 @@ public class Transaction implements Closeable {
             Connection c = dataSource.getConnection();
             try {
                 c.setAutoCommit(false);
-                dialect = new Dialect(database.getDatabase(), c);
+                dialect = new Dialect(c);
                 connection = c;
                 c = null;
                 tracelog(Event.OPEN, null, null, null);
