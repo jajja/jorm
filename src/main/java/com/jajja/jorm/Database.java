@@ -80,9 +80,9 @@ public class Database {
 
     public <T extends Transaction> T openTransaction(Class<T> clazz, Calendar calendar) {
         try {
-            Constructor<T> constructor = clazz.getDeclaredConstructor(Database.class, DataSource.class, Calendar.class);
+            Constructor<T> constructor = clazz.getDeclaredConstructor(Database.class, Calendar.class);
             constructor.setAccessible(true);
-            T t = constructor.newInstance(this, dataSource, calendar != null ? calendar : defaultCalendar);
+            T t = constructor.newInstance(this, calendar != null ? calendar : defaultCalendar);
             register(t);
             return t;
         } catch (Exception e) {
