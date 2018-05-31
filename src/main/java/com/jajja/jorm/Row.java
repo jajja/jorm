@@ -46,7 +46,7 @@ public class Row {
     public static final byte FLAG_REF_FETCH = 0x04;
     HashMap<String, Field> fields = new HashMap<String, Field>(8, 1.0f);
     byte flags = FLAG_REF_FETCH;
-    private Transaction transaction;
+    private Transaction transaction;    // TODO remove
 
     public static class Field {
         private Object value = null;
@@ -114,7 +114,7 @@ public class Row {
         this.transaction = transaction;
     }
 
-    public Transaction transaction() {
+    Transaction transaction() {
         return transaction;
     }
 
