@@ -300,12 +300,34 @@ public class Row {
     }
 
     /**
+     * Marks a field as changed.
+     */
+    public void taint(String name) {
+        Field f = fields.get(name);
+        if (f == null) {
+            throw new RuntimeException("Field '" + name + "' does not exist");
+        }
+        f.setChanged(true);
+    }
+
+    /**
      * Marks all fields as unchanged.
      */
     public void purify() {
         for (NamedField f : fields()) {
             f.field().setChanged(false);
         }
+    }
+
+    /**
+     * Marks a field as unchanged.
+     */
+    public void purify(String name) {
+        Field f = fields.get(name);
+        if (f == null) {
+            throw new RuntimeException("Field '" + name + "' does not exist");
+        }
+        f.setChanged(false);
     }
 
     private void flag(int flag, boolean set) {
@@ -456,7 +478,37 @@ public class Row {
      */
     public Object get(String column) {
         try {
-            return getColumnValue(column, Object.class, true, null);
+            return getColumnValue(column, Object.class, true, null, null);
+        } catch (SQLException e) {
+            // UNREACHABLE
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Provides the value of a column.
+     *
+     * @param column the column name
+     * @return the column value
+     * @throws RuntimeException if the column is not set
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T getDefault(String column, T defaultValue) {
+        return getDefault(column, (Class<T>)defaultValue.getClass(), defaultValue);
+    }
+
+    /**
+     * Provides a type-casted value of a column. A runtime exception is thrown if the
+     * column value can not be cast to the specified type.
+     *
+     * @param column the column name.
+     * @param clazz the expected class
+     * @return the type-casted column value
+     * @throws RuntimeException if the column is not set
+     */
+    public <T> T get(String column, Class<T> clazz) {
+        try {
+            return getColumnValue(column, clazz, true, null, null);
         } catch (SQLException e) {
             // UNREACHABLE
             throw new IllegalStateException(e);
@@ -472,9 +524,9 @@ public class Row {
      * @return the type-casted column value
      * @throws RuntimeException if the column is not set
      */
-    public <T> T get(String column, Class<T> clazz) {
+    public <T> T getDefault(String column, Class<T> clazz, T defaultValue) {
         try {
-            return getColumnValue(column, clazz, true, null);
+            return getColumnValue(column, clazz, true, null, defaultValue);
         } catch (SQLException e) {
             // UNREACHABLE
             throw new IllegalStateException(e);
@@ -504,7 +556,7 @@ public class Row {
      * @throws SQLException
      */
     public <T extends Record> T ref(Transaction t, String column, Class<T> clazz) throws SQLException {
-        return getColumnValue(column, clazz, false, t);
+        return getColumnValue(column, clazz, false, t, null);
     }
 
     public <T extends Record> T ref(String column, Class<T> clazz) throws SQLException {
@@ -522,7 +574,7 @@ public class Row {
      */
     public <T extends Record> T refCached(String column, Class<T> clazz) {
         try {
-            return getColumnValue(column, clazz, true, null);
+            return getColumnValue(column, clazz, true, null, null);
         } catch (SQLException e) {
             // UNREACHABLE
             throw new IllegalStateException(e);
@@ -530,9 +582,12 @@ public class Row {
     }
 
     @SuppressWarnings("unchecked")
-    <T> T getColumnValue(String column, Class<T> clazz, boolean isReferenceCacheOnly, Transaction transaction) throws SQLException {
+    <T> T getColumnValue(String column, Class<T> clazz, boolean isReferenceCacheOnly, Transaction transaction, T defaultValue) throws SQLException {
         Field field = field(column);
         if (field == null) {
+            if (defaultValue != null) {
+                return defaultValue;
+            }
             throw new RuntimeException("Column '" + column + "' does not exist, or has not yet been set on " + this);
         }
 
